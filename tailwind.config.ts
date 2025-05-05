@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,7 +62,18 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				// Pharmacy CRM custom colors
+				pharmacy: {
+					dark1: '#344d4a',      // Primary dark
+					dark2: '#3a4543',      // Secondary dark
+					green1: '#666f41',     // Secondary interactive
+					green2: '#709488',     // Secondary interactive
+					accent: '#91925c',     // Highlight accent
 				}
+			},
+			fontFamily: {
+				sans: ['Inter', 'sans-serif'],
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
