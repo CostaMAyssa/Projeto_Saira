@@ -63,4 +63,52 @@
   .conversation-item.active {
     @apply border-l-4 border-pharmacy-accent bg-pharmacy-dark2;
   }
+  
+  .form-card {
+    @apply bg-pharmacy-dark2 border-pharmacy-dark1 rounded-xl p-5;
+  }
+  
+  .form-label {
+    @apply text-sm font-medium text-white mb-1 block;
+  }
+  
+  .form-input {
+    @apply bg-pharmacy-dark1 border-pharmacy-green1 focus:border-pharmacy-green2 w-full;
+  }
+  
+  .action-button-primary {
+    @apply bg-pharmacy-accent hover:bg-pharmacy-green1 text-white;
+  }
+  
+  .action-button-secondary {
+    @apply bg-transparent border border-pharmacy-green1 text-pharmacy-green2 hover:bg-pharmacy-green1 hover:text-white;
+  }
+  
+  .data-card {
+    @apply bg-pharmacy-dark2 border-pharmacy-dark1 rounded-xl overflow-hidden;
+  }
+  
+  .data-card-header {
+    @apply border-b border-pharmacy-dark1 p-4 text-pharmacy-green2 font-medium;
+  }
+  
+  .data-card-row {
+    @apply border-b border-pharmacy-dark1 p-4 hover:bg-pharmacy-dark1 cursor-pointer;
+  }
+  
+  .status-badge-active {
+    @apply bg-green-600 text-white text-xs px-2 py-1 rounded-full;
+  }
+  
+  .status-badge-inactive {
+    @apply bg-gray-600 text-white text-xs px-2 py-1 rounded-full;
+  }
+  
+  .status-badge-warning {
+    @apply bg-yellow-600 text-white text-xs px-2 py-1 rounded-full;
+  }
+  
+  .tag-badge {
+    @apply bg-pharmacy-dark1 border border-pharmacy-green1 text-xs text-pharmacy-green2 px-2 py-1 rounded-full;
+  }
 }

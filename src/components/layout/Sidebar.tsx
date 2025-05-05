@@ -1,6 +1,16 @@
 
 import React from 'react';
-import { Home, MessageSquare, Users, Package, Bell, Calendar, Settings, LogOut } from 'lucide-react';
+import { 
+  Home, 
+  MessageSquare, 
+  Users, 
+  Package, 
+  Bell, 
+  BarChart, 
+  Settings, 
+  FileText,
+  LogOut 
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const SidebarItem = ({ 
@@ -40,13 +50,13 @@ const Sidebar = ({ activePage, setActivePage }: { activePage: string; setActiveP
       <div className="flex-1 w-full">
         <SidebarItem 
           icon={Home} 
-          label="Home" 
-          active={activePage === 'home'} 
-          onClick={() => setActivePage('home')}
+          label="Dashboard" 
+          active={activePage === 'dashboard'} 
+          onClick={() => setActivePage('dashboard')}
         />
         <SidebarItem 
           icon={MessageSquare} 
-          label="Chats" 
+          label="WhatsApp" 
           active={activePage === 'chats'} 
           onClick={() => setActivePage('chats')}
         />
@@ -69,10 +79,16 @@ const Sidebar = ({ activePage, setActivePage }: { activePage: string; setActiveP
           onClick={() => setActivePage('campaigns')}
         />
         <SidebarItem 
-          icon={Calendar} 
-          label="Agenda" 
-          active={activePage === 'schedule'} 
-          onClick={() => setActivePage('schedule')}
+          icon={BarChart} 
+          label="Relatórios" 
+          active={activePage === 'reports'} 
+          onClick={() => setActivePage('reports')}
+        />
+        <SidebarItem 
+          icon={FileText} 
+          label="Formulários" 
+          active={activePage === 'forms'} 
+          onClick={() => setActivePage('forms')}
         />
       </div>
 
