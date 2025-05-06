@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import ProductCard from './ProductCard';
@@ -39,7 +38,7 @@ const ProductsModule = () => {
     : mockProducts;
 
   return (
-    <div className="flex-1 p-6 overflow-y-auto bg-white">
+    <div className="flex-1 p-6 overflow-y-auto bg-pharmacy-dark1 text-white">
       <ProductsHeader onAddProduct={handleAddProduct} />
       <ProductFilters 
         activeFilter={activeFilter} 

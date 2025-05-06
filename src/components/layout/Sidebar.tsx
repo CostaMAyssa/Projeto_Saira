@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { 
   Home, 
@@ -8,10 +7,10 @@ import {
   Bell, 
   BarChart, 
   Settings, 
-  FileText,
-  LogOut 
+  FileText
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import LogoImage from '@/lib/assets/Logo.png';
 
 const SidebarItem = ({ 
   icon: Icon, 
@@ -42,9 +41,11 @@ const Sidebar = ({ activePage, setActivePage }: { activePage: string; setActiveP
   return (
     <div className="h-screen bg-pharmacy-dark1 w-20 flex flex-col items-center py-6 border-r border-pharmacy-dark2">
       <div className="mb-8">
-        <div className="w-12 h-12 rounded-full bg-pharmacy-accent flex items-center justify-center text-white font-bold text-lg">
-          GP
-        </div>
+        <img 
+          src={LogoImage}
+          alt="Logo Sairá"
+          className="w-12 h-12 rounded-full object-cover"
+        />
       </div>
 
       <div className="flex-1 w-full">
@@ -99,7 +100,6 @@ const Sidebar = ({ activePage, setActivePage }: { activePage: string; setActiveP
           active={activePage === 'settings'} 
           onClick={() => setActivePage('settings')}
         />
-        <SidebarItem icon={LogOut} label="Sair" />
       </div>
     </div>
   );

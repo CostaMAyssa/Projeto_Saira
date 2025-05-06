@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,15 +14,15 @@ interface ProductCardProps {
 const ProductCard = ({ product, onEdit, onViewDetails }: ProductCardProps) => {
   const getTagBadgeClass = (tag: string) => {
     if (tag === "Uso Contínuo") {
-      return "bg-blue-600 text-white";
+      return "bg-pharmacy-green2 text-white";
     } else if (tag === "Uso Comum") {
-      return "bg-green-600 text-white";
+      return "bg-pharmacy-green1 text-white";
     } else if (tag === "Antibiótico") {
-      return "bg-purple-600 text-white";
+      return "bg-pharmacy-green1 text-white";
     } else if (tag === "Controlado") {
-      return "bg-red-600 text-white";
+      return "bg-pharmacy-accent text-white";
     } else {
-      return "bg-gray-600 text-white";
+      return "bg-pharmacy-dark2 text-white";
     }
   };
 
@@ -32,19 +31,19 @@ const ProductCard = ({ product, onEdit, onViewDetails }: ProductCardProps) => {
       <div className="flex justify-between">
         <div>
           <h3 className="text-xl font-bold text-white">{product.name}</h3>
-          <Badge className="bg-gray-600 text-white mt-1">{product.category}</Badge>
+          <Badge className="bg-pharmacy-dark1 text-white mt-1">{product.category}</Badge>
         </div>
       </div>
       
       <div className="mt-4 space-y-2">
         <div className="flex items-center">
-          <Package className="h-4 w-4 text-gray-300 mr-2" />
+          <Package className="h-4 w-4 text-pharmacy-green2 mr-2" />
           <span>Estoque: {product.stock} unidades</span>
         </div>
         
         {product.interval && (
           <div className="flex items-center">
-            <Clock className="h-4 w-4 text-gray-300 mr-2" />
+            <Clock className="h-4 w-4 text-pharmacy-green2 mr-2" />
             <span>Intervalo: {product.interval} dias</span>
           </div>
         )}
@@ -57,11 +56,11 @@ const ProductCard = ({ product, onEdit, onViewDetails }: ProductCardProps) => {
           ))}
           
           {product.needsPrescription ? (
-            <Badge className="bg-yellow-600 text-white">
+            <Badge className="bg-pharmacy-accent text-white">
               Com Receita
             </Badge>
           ) : (
-            <Badge className="bg-green-600 text-white">
+            <Badge className="bg-pharmacy-green1 text-white">
               Sem Receita
             </Badge>
           )}
@@ -78,7 +77,7 @@ const ProductCard = ({ product, onEdit, onViewDetails }: ProductCardProps) => {
           Editar
         </Button>
         <Button 
-          className="bg-red-600 hover:bg-red-700 text-white"
+          className="bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white"
           onClick={() => onViewDetails(product.id)}
         >
           Detalhes

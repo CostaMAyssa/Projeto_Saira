@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,14 +22,14 @@ const ProductFilters = ({ activeFilter, setActiveFilter }: ProductFiltersProps) 
     const activeClass = activeFilter === filter ? "opacity-100" : "opacity-80 hover:opacity-100";
     
     if (filter === "Uso Contínuo") {
-      return `${baseClass} ${activeClass} bg-blue-600 hover:bg-blue-700`;
+      return `${baseClass} ${activeClass} bg-pharmacy-green2 hover:bg-pharmacy-green2/90`;
     } else if (filter === "Controlado") {
-      return `${baseClass} ${activeClass} bg-red-600 hover:bg-red-700`;
+      return `${baseClass} ${activeClass} bg-pharmacy-accent hover:bg-pharmacy-accent/90`;
     } else if (filter === "Antibiótico") {
-      return `${baseClass} ${activeClass} bg-purple-600 hover:bg-purple-700`;
+      return `${baseClass} ${activeClass} bg-pharmacy-green1 hover:bg-pharmacy-green1/90`;
     } else {
       // Default "Todos" button
-      return `${baseClass} ${activeClass} bg-gray-600 hover:bg-gray-700`;
+      return `${baseClass} ${activeClass} bg-pharmacy-dark2 hover:bg-pharmacy-dark2/90`;
     }
   };
 
@@ -68,11 +67,11 @@ const ProductFilters = ({ activeFilter, setActiveFilter }: ProductFiltersProps) 
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
             placeholder="Buscar produto..."
-            className="pl-10 pr-4 py-2 border-pharmacy-dark1 rounded-md w-64"
+            className="pl-10 pr-4 py-2 bg-pharmacy-dark2 border-pharmacy-dark2 text-white rounded-md w-64 focus:ring-pharmacy-green1 focus:border-pharmacy-green1"
           />
         </div>
-        <Button variant="outline" className="border-pharmacy-dark1">
-          <Filter className="h-4 w-4 text-pharmacy-dark1" />
+        <Button variant="outline" className="border-pharmacy-green1 text-pharmacy-green1 hover:bg-pharmacy-green1 hover:text-white">
+          <Filter className="h-4 w-4" />
         </Button>
       </div>
     </div>
