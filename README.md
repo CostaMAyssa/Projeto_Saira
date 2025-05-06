@@ -1,73 +1,123 @@
-# Welcome to your Lovable project
+# Sairá - Sistema de Gerenciamento para Farmácias
 
-## Project info
+![Logo Sairá](src/lib/assets/Logo.png)
 
-**URL**: https://lovable.dev/projects/57894887-52ba-4ff2-baed-ae4512ed5203
+## 📋 Visão Geral
 
-## How can I edit this code?
+Sairá é uma plataforma completa para gestão de farmácias, oferecendo uma interface moderna para gerenciamento de clientes, produtos, campanhas e comunicação via WhatsApp. Com foco na experiência do usuário e eficiência operacional, o Sairá auxilia no aumento das vendas e na fidelização de clientes.
 
-There are several ways of editing your application.
+### ✨ Principais Funcionalidades
 
-**Use Lovable**
+- **Dashboard Intuitivo**: Visualização rápida de métricas e KPIs importantes
+- **Gestão de Clientes**: Cadastro completo, histórico de compras e categorização
+- **Controle de Produtos**: Estoque, categorização e informações detalhadas
+- **Campanhas e Automações**: Lembretes de recompra, aniversários e pós-venda
+- **Chat Integrado**: Comunicação direta com clientes via WhatsApp
+- **Relatórios Avançados**: Análise de desempenho e métricas de negócio
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/57894887-52ba-4ff2-baed-ae4512ed5203) and start prompting.
+## 🚀 Tecnologias
 
-Changes made via Lovable will be committed automatically to this repo.
+- **Frontend**:
+  - React 18
+  - TypeScript
+  - Vite
+  - TailwindCSS
+  - shadcn/ui (componentes)
+  - React Router (navegação)
+  - Lucide React (ícones)
+  - TanStack Query (gerenciamento de estado)
 
-**Use your preferred IDE**
+## 🛠️ Instalação e Uso
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Pré-requisitos
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+- Node.js 16+
+- npm ou bun
 
-Follow these steps:
+### Configuração Local
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+# Clonar o repositório
+git clone https://github.com/seu-usuario/saira.git
+cd saira
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Instalar dependências
+npm install
+# OU
+bun install
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Iniciar servidor de desenvolvimento
 npm run dev
+# OU
+bun run dev
 ```
 
-**Edit a file directly in GitHub**
+O aplicativo estará disponível em `http://localhost:8080`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Credenciais de Teste
 
-**Use GitHub Codespaces**
+- **Email**: teste@saira.com
+- **Senha**: teste123
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## 📁 Estrutura do Projeto
 
-## What technologies are used for this project?
+```
+src/
+├── components/         # Componentes reutilizáveis
+│   ├── ui/             # Componentes base (shadcn/ui)
+│   ├── layout/         # Estrutura da aplicação (Sidebar, TopBar)
+│   ├── dashboard/      # Componentes do dashboard
+│   ├── clients/        # Componentes de gestão de clientes
+│   ├── products/       # Componentes de produtos
+│   ├── chat/           # Componentes de chat/WhatsApp
+│   ├── campaigns/      # Componentes de campanhas e automações
+│   └── forms/          # Componentes de formulários
+├── lib/                # Utilitários e configurações
+│   ├── utils.ts        # Funções utilitárias
+│   └── assets/         # Imagens e recursos estáticos
+├── pages/              # Páginas da aplicação
+│   ├── Login.tsx       # Página de login
+│   └── Index.tsx       # Página principal (dashboard)
+└── App.tsx             # Componente principal com rotas
+```
 
-This project is built with:
+## 🔒 Autenticação
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+O sistema utiliza autenticação baseada em formulário com redirecionamento para o dashboard após login bem-sucedido. Em um ambiente de produção, será integrado com sistema de autenticação seguro.
 
-## How can I deploy this project?
+## 🎨 Identidade Visual
 
-Simply open [Lovable](https://lovable.dev/projects/57894887-52ba-4ff2-baed-ae4512ed5203) and click on Share -> Publish.
+- **Cores Principais**:
+  - Fundo escuro (pharmacy-dark1)
+  - Elementos secundários (pharmacy-dark2)
+  - Botões e destaques (pharmacy-accent, teal-500)
+  - Textos e ícones (pharmacy-green1, pharmacy-green2)
 
-## Can I connect a custom domain to my Lovable project?
+## 📱 Responsividade
 
-Yes, you can!
+A aplicação é totalmente responsiva, adaptando-se a diferentes tamanhos de tela:
+- Desktop (1024px+)
+- Tablet (768px-1023px)
+- Mobile (< 768px)
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## 🔄 Fluxos Principais
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+1. **Login** → **Dashboard** → **Clientes/Produtos/Campanhas**
+2. **Atendimento**: Receber mensagem → Consultar histórico → Verificar produtos → Confirmar venda
+3. **Recompra**: Identificar clientes em período de recompra → Enviar lembretes → Confirmar disponibilidade
+
+## 🤝 Contribuição
+
+1. Faça um fork do projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/nova-funcionalidade`)
+3. Commit suas mudanças (`git commit -m 'Adiciona nova funcionalidade'`)
+4. Push para a branch (`git push origin feature/nova-funcionalidade`)
+5. Abra um Pull Request
+
+## 📄 Licença
+
+Este projeto está sob a licença [MIT](LICENSE).
+
+---
+
+Desenvolvido com �� por Equipe Sairá
