@@ -1,10 +1,9 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Filter, Search, UserPlus, Edit, MoreHorizontal, Cards, Table as TableIcon } from 'lucide-react';
+import { Filter, Search, UserPlus, Edit, MoreHorizontal, LayoutGrid, Table as TableIcon } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 
 // Client data model
@@ -220,7 +219,7 @@ const ClientsModule = () => {
               onClick={() => setViewMode('cards')} 
               className={`rounded-none ${viewMode === 'cards' ? 'bg-pharmacy-accent' : 'bg-transparent text-pharmacy-green2'}`}
             >
-              <Cards className="h-4 w-4" />
+              <LayoutGrid className="h-4 w-4" />
               <span className="ml-2">Cards</span>
             </Button>
           </div>
