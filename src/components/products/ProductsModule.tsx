@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, Filter, Plus, Clock, Package, Tag, Edit } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
 
 // Product type definition
 interface Product {
@@ -20,6 +21,7 @@ interface Product {
 
 const ProductsModule = () => {
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const { toast } = useToast();
   
   const mockProducts: Product[] = [
     {
@@ -115,6 +117,27 @@ const ProductsModule = () => {
       setActiveFilter(filter);
     }
   };
+  
+  const handleAddProduct = () => {
+    toast({
+      title: "Em desenvolvimento",
+      description: "Funcionalidade de adicionar produtos em desenvolvimento.",
+    });
+  };
+
+  const handleEditProduct = (id: string) => {
+    toast({
+      title: "Em desenvolvimento",
+      description: `Edição do produto ${id} em desenvolvimento.`,
+    });
+  };
+
+  const handleViewDetails = (id: string) => {
+    toast({
+      title: "Em desenvolvimento",
+      description: `Detalhes do produto ${id} em desenvolvimento.`,
+    });
+  };
 
   const filteredProducts = activeFilter
     ? mockProducts.filter(product => 
@@ -126,14 +149,17 @@ const ProductsModule = () => {
     <div className="flex-1 p-6 overflow-y-auto bg-white">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-pharmacy-dark1">Produtos</h1>
-        <Button className="bg-red-600 hover:bg-red-700 text-white">
+        <Button 
+          className="bg-red-600 hover:bg-red-700 text-white"
+          onClick={handleAddProduct}
+        >
           <Plus className="mr-2 h-4 w-4" />
           Novo Produto
         </Button>
       </div>
       
       <div className="flex justify-between items-center mb-6">
-        <div className="flex space-x-4">
+        <div className="flex space-x-4 overflow-x-auto pb-2">
           <Button 
             variant="outline" 
             className={`border-gray-300 ${activeFilter === null ? 'bg-gray-100' : ''}`}
@@ -208,11 +234,18 @@ const ProductsModule = () => {
             </div>
             
             <div className="flex justify-between mt-4">
-              <Button variant="outline" className="border-gray-300">
+              <Button 
+                variant="outline" 
+                className="border-gray-300"
+                onClick={() => handleEditProduct(product.id)}
+              >
                 <Edit className="h-4 w-4 mr-1" />
                 Editar
               </Button>
-              <Button className="bg-red-600 hover:bg-red-700 text-white">
+              <Button 
+                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={() => handleViewDetails(product.id)}
+              >
                 Detalhes
               </Button>
             </div>
