@@ -5,6 +5,7 @@ import ProductFilters from './ProductFilters';
 import ProductsHeader from './ProductsHeader';
 import ProductDetails from './ProductDetails';
 import ProductEditForm from './ProductEditForm';
+import ProductCreateForm from './ProductCreateForm';
 import { mockProducts } from './mockData';
 import { Product } from './types';
 
@@ -14,13 +15,28 @@ const ProductsModule = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState<boolean>(false);
   const [isEditFormOpen, setIsEditFormOpen] = useState<boolean>(false);
+  const [isCreateFormOpen, setIsCreateFormOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const { toast } = useToast();
   
   const handleAddProduct = () => {
+    setIsCreateFormOpen(true);
+  };
+
+  const handleCreateProduct = (newProduct: Omit<Product, 'id'>) => {
+    // Gerar ID único baseado no timestamp
+    const id = `product-${Date.now()}`;
+    const product: Product = {
+      id,
+      ...newProduct
+    };
+    
+    setProducts(prevProducts => [...prevProducts, product]);
+    setIsCreateFormOpen(false);
+    
     toast({
-      title: "Em desenvolvimento",
-      description: "Funcionalidade de adicionar produtos em desenvolvimento.",
+      title: "Produto adicionado",
+      description: `O produto ${newProduct.name} foi adicionado com sucesso.`,
     });
   };
 
@@ -66,6 +82,10 @@ const ProductsModule = () => {
   const closeEditForm = () => {
     setIsEditFormOpen(false);
     setSelectedProduct(null);
+  };
+
+  const closeCreateForm = () => {
+    setIsCreateFormOpen(false);
   };
 
   // Filtra produtos por tag/categoria e por texto de busca
@@ -128,6 +148,12 @@ const ProductsModule = () => {
         onClose={closeEditForm}
         product={selectedProduct}
         onSave={handleSaveProductEdit}
+      />
+
+      <ProductCreateForm
+        isOpen={isCreateFormOpen}
+        onClose={closeCreateForm}
+        onSave={handleCreateProduct}
       />
     </div>
   );

@@ -90,7 +90,7 @@ const ClientsModule = () => {
   };
 
   return (
-    <div className="flex-1 p-6 overflow-y-auto bg-pharmacy-dark1">
+    <div className="flex-1 p-6 overflow-y-auto bg-white">
       <ClientSearchHeader 
         viewMode={viewMode} 
         setViewMode={setViewMode}
@@ -101,7 +101,7 @@ const ClientsModule = () => {
       
       {renderClientList()}
       
-      <div className="mt-4 text-center text-sm text-muted-foreground">
+      <div className="mt-4 text-center text-sm text-gray-500">
         Exibindo {Math.min(filteredClients.length, clients.length)} de {clients.length} clientes
       </div>
     </div>

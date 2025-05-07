@@ -39,54 +39,54 @@ const ReportsModule = () => {
   const COLORS = ['#91925c', '#709488', '#666f41', '#3a4543'];
 
   return (
-    <div className="flex-1 p-6 overflow-y-auto bg-pharmacy-dark1">
+    <div className="flex-1 p-6 overflow-y-auto bg-white">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-white">Relatórios</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Relatórios</h1>
         <div className="flex items-center gap-4">
-          <button className="flex items-center bg-pharmacy-dark2 rounded-md p-2 hover:bg-pharmacy-dark1 border border-pharmacy-green1">
-            <Download className="h-4 w-4 text-pharmacy-green2 mr-2" />
-            <span className="text-pharmacy-green2 text-sm">Exportar</span>
+          <button className="flex items-center bg-white rounded-md p-2 hover:bg-gray-50 border border-gray-300">
+            <Download className="h-4 w-4 text-pharmacy-accent mr-2" />
+            <span className="text-pharmacy-accent text-sm">Exportar</span>
           </button>
         </div>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <Card className="bg-pharmacy-dark2 border-pharmacy-dark1">
+        <Card className="bg-white border-gray-200 shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-white text-lg">Taxa de Resposta</CardTitle>
+            <CardTitle className="text-gray-900 text-lg">Taxa de Resposta</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-white">78%</div>
-            <p className="text-sm text-pharmacy-green2">↑ 5% em relação ao período anterior</p>
+            <div className="text-3xl font-bold text-gray-900">78%</div>
+            <p className="text-sm text-green-600">↑ 5% em relação ao período anterior</p>
           </CardContent>
         </Card>
         
-        <Card className="bg-pharmacy-dark2 border-pharmacy-dark1">
+        <Card className="bg-white border-gray-200 shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-white text-lg">Tempo Médio de Resposta</CardTitle>
+            <CardTitle className="text-gray-900 text-lg">Tempo Médio de Resposta</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-white">12min</div>
-            <p className="text-sm text-pharmacy-green2">↓ 3min em relação ao período anterior</p>
+            <div className="text-3xl font-bold text-gray-900">12min</div>
+            <p className="text-sm text-green-600">↓ 3min em relação ao período anterior</p>
           </CardContent>
         </Card>
         
-        <Card className="bg-pharmacy-dark2 border-pharmacy-dark1">
+        <Card className="bg-white border-gray-200 shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-white text-lg">Taxa de Conversão</CardTitle>
+            <CardTitle className="text-gray-900 text-lg">Taxa de Conversão</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-white">22%</div>
-            <p className="text-sm text-pharmacy-green2">↑ 2% em relação ao período anterior</p>
+            <div className="text-3xl font-bold text-gray-900">22%</div>
+            <p className="text-sm text-green-600">↑ 2% em relação ao período anterior</p>
           </CardContent>
         </Card>
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <Card className="bg-pharmacy-dark2 border-pharmacy-dark1">
+        <Card className="bg-white border-gray-200 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-white">Mensagens por Canal</CardTitle>
-            <CardDescription className="text-muted-foreground">
+            <CardTitle className="text-gray-900">Mensagens por Canal</CardTitle>
+            <CardDescription className="text-gray-500">
               Últimos 6 meses
             </CardDescription>
           </CardHeader>
@@ -94,14 +94,14 @@ const ReportsModule = () => {
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={barData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#3a4543" />
-                  <XAxis dataKey="name" stroke="#709488" />
-                  <YAxis stroke="#709488" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="name" stroke="#6b7280" />
+                  <YAxis stroke="#6b7280" />
                   <Tooltip 
                     contentStyle={{ 
-                      backgroundColor: '#3a4543', 
-                      borderColor: '#666f41',
-                      color: '#fff' 
+                      backgroundColor: '#ffffff', 
+                      borderColor: '#e5e7eb',
+                      color: '#111827' 
                     }} 
                   />
                   <Legend />
@@ -113,10 +113,10 @@ const ReportsModule = () => {
           </CardContent>
         </Card>
         
-        <Card className="bg-pharmacy-dark2 border-pharmacy-dark1">
+        <Card className="bg-white border-gray-200 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-white">Clientes Atendidos</CardTitle>
-            <CardDescription className="text-muted-foreground">
+            <CardTitle className="text-gray-900">Clientes Atendidos</CardTitle>
+            <CardDescription className="text-gray-500">
               Última semana
             </CardDescription>
           </CardHeader>
@@ -124,14 +124,14 @@ const ReportsModule = () => {
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={lineData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#3a4543" />
-                  <XAxis dataKey="name" stroke="#709488" />
-                  <YAxis stroke="#709488" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="name" stroke="#6b7280" />
+                  <YAxis stroke="#6b7280" />
                   <Tooltip 
                     contentStyle={{ 
-                      backgroundColor: '#3a4543', 
-                      borderColor: '#666f41',
-                      color: '#fff' 
+                      backgroundColor: '#ffffff', 
+                      borderColor: '#e5e7eb',
+                      color: '#111827' 
                     }} 
                   />
                   <Legend />
@@ -151,10 +151,10 @@ const ReportsModule = () => {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="bg-pharmacy-dark2 border-pharmacy-dark1 lg:col-span-1">
+        <Card className="bg-white border-gray-200 shadow-sm lg:col-span-1">
           <CardHeader>
-            <CardTitle className="text-white">Distribuição por Categoria</CardTitle>
-            <CardDescription className="text-muted-foreground">
+            <CardTitle className="text-gray-900">Distribuição por Categoria</CardTitle>
+            <CardDescription className="text-gray-500">
               Produtos vendidos
             </CardDescription>
           </CardHeader>
@@ -178,9 +178,9 @@ const ReportsModule = () => {
                   </Pie>
                   <Tooltip 
                     contentStyle={{ 
-                      backgroundColor: '#3a4543', 
-                      borderColor: '#666f41',
-                      color: '#fff' 
+                      backgroundColor: '#ffffff', 
+                      borderColor: '#e5e7eb',
+                      color: '#111827' 
                     }} 
                   />
                 </PieChart>
@@ -189,10 +189,10 @@ const ReportsModule = () => {
           </CardContent>
         </Card>
         
-        <Card className="bg-pharmacy-dark2 border-pharmacy-dark1 lg:col-span-2">
+        <Card className="bg-white border-gray-200 shadow-sm lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-white">Top Campanhas</CardTitle>
-            <CardDescription className="text-muted-foreground">
+            <CardTitle className="text-gray-900">Top Campanhas</CardTitle>
+            <CardDescription className="text-gray-500">
               Por taxa de conversão
             </CardDescription>
           </CardHeader>
@@ -205,16 +205,16 @@ const ReportsModule = () => {
                 { name: 'Lembrete de Recompra - Diabetes', rate: '20%', sent: 112, responses: 22 },
                 { name: 'Reativação de Clientes Inativos', rate: '12%', sent: 200, responses: 24 },
               ].map((campaign, index) => (
-                <div key={index} className="flex items-center justify-between border-b border-pharmacy-dark1 pb-3">
+                <div key={index} className="flex items-center justify-between border-b border-gray-200 pb-3">
                   <div>
-                    <h3 className="text-sm font-medium text-white">
+                    <h3 className="text-sm font-medium text-gray-900">
                       {campaign.name}
                     </h3>
-                    <p className="text-xs text-pharmacy-green2">
+                    <p className="text-xs text-green-600">
                       {campaign.sent} enviadas, {campaign.responses} respostas
                     </p>
                   </div>
-                  <span className="text-sm font-medium text-white">
+                  <span className="text-sm font-medium text-gray-900">
                     {campaign.rate}
                   </span>
                 </div>

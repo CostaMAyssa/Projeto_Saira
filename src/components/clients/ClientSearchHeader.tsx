@@ -36,9 +36,9 @@ const ClientSearchHeader = ({
   return (
     <>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-        <h1 className="text-2xl sm:text-3xl font-bold text-white">Clientes</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Clientes</h1>
         <Button 
-          className="bg-pharmacy-accent hover:bg-pharmacy-green1 text-white w-full sm:w-auto"
+          className="bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white w-full sm:w-auto"
           onClick={() => setIsNewClientModalOpen(true)}
         >
           <UserPlus className="mr-2 h-4 w-4" />
@@ -48,21 +48,21 @@ const ClientSearchHeader = ({
       
       <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-4 mb-4">
         <div className="relative flex-1">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
           <Input
             placeholder="Buscar cliente..."
-            className="pl-8 bg-pharmacy-dark2 border-pharmacy-green1 focus:border-pharmacy-green2"
+            className="pl-8 bg-white border-gray-300 focus:border-pharmacy-accent"
             value={searchQuery}
             onChange={handleSearch}
           />
         </div>
         
         {!isMobile && (
-          <div className="flex border border-pharmacy-green1 rounded-md overflow-hidden">
+          <div className="flex border border-gray-300 rounded-md overflow-hidden">
             <Button 
               variant={viewMode === 'table' ? 'default' : 'outline'} 
               onClick={() => setViewMode('table')} 
-              className={`rounded-none flex-1 ${viewMode === 'table' ? 'bg-pharmacy-accent' : 'bg-transparent text-pharmacy-green2'}`}
+              className={`rounded-none flex-1 ${viewMode === 'table' ? 'bg-pharmacy-accent' : 'bg-transparent text-pharmacy-accent'}`}
             >
               <TableIcon className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Tabela</span>
@@ -70,7 +70,7 @@ const ClientSearchHeader = ({
             <Button 
               variant={viewMode === 'cards' ? 'default' : 'outline'} 
               onClick={() => setViewMode('cards')} 
-              className={`rounded-none flex-1 ${viewMode === 'cards' ? 'bg-pharmacy-accent' : 'bg-transparent text-pharmacy-green2'}`}
+              className={`rounded-none flex-1 ${viewMode === 'cards' ? 'bg-pharmacy-accent' : 'bg-transparent text-pharmacy-accent'}`}
             >
               <LayoutGrid className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Cards</span>
