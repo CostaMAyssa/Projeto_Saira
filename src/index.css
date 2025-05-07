@@ -7,33 +7,34 @@
 
 @layer base {
   :root {
-    --background: 174 17% 25%; /* #344d4a */
-    --foreground: 0 0% 98%;
+    /* As variáveis originais (tema escuro) se tornam variáveis fallback */
+    --background: 0 0% 100%; /* Branco */
+    --foreground: 215 13.8% 20%; /* Texto escuro */
 
-    --card: 172 10% 24%; /* #3a4543 */
-    --card-foreground: 0 0% 98%;
+    --card: 0 0% 97%; /* Cinza claro */
+    --card-foreground: 215 13.8% 20%; /* Texto escuro */
 
-    --popover: 172 10% 24%; /* #3a4543 */
-    --popover-foreground: 0 0% 98%;
+    --popover: 0 0% 100%; /* Branco */
+    --popover-foreground: 215 13.8% 20%; /* Texto escuro */
 
-    --primary: 64 24% 46%; /* #91925c */
-    --primary-foreground: 0 0% 98%;
+    --primary: 64 24% 46%; /* #91925c - mantida */
+    --primary-foreground: 0 0% 98%; /* Texto claro em fundo escuro */
 
-    --secondary: 158 14% 51%; /* #709488 */
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 158 14% 51%; /* #709488 - mantida */
+    --secondary-foreground: 0 0% 98%; /* Texto claro em fundo escuro */
 
-    --muted: 174 17% 18%;
-    --muted-foreground: 0 0% 70%;
+    --muted: 0 0% 97%; /* Cinza claro */
+    --muted-foreground: 215 13.8% 40%; /* Cinza médio */
 
-    --accent: 70 22% 35%; /* #666f41 */
-    --accent-foreground: 0 0% 98%;
+    --accent: 70 22% 35%; /* #666f41 - mantida */
+    --accent-foreground: 0 0% 98%; /* Texto claro em fundo escuro */
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 84.2% 60.2%; /* Mantido */
+    --destructive-foreground: 0 0% 98%; /* Mantido */
 
-    --border: 174 17% 30%;
-    --input: 174 17% 30%;
-    --ring: 170 15% 40%;
+    --border: 0 0% 90%; /* Cinza bem claro para bordas */
+    --input: 0 0% 90%; /* Cinza bem claro para inputs */
+    --ring: 0 0% 80%; /* Cinza médio para ring focus */
 
     --radius: 0.75rem;
   }
@@ -43,37 +44,39 @@
   }
 
   body {
-    @apply bg-pharmacy-dark1 text-foreground font-sans;
+    @apply bg-pharmacy-light1 text-pharmacy-text1 font-sans;
   }
 }
 
 @layer components {
+  /* Bate-papo estilo WhatsApp Business */
   .message-bubble-client {
-    @apply bg-pharmacy-green2 text-white rounded-xl rounded-bl-sm p-3 max-w-[80%] break-words;
+    @apply bg-pharmacy-whatsapp-dark text-pharmacy-text1 rounded-lg rounded-bl-none p-3 max-w-[80%] break-words;
   }
   
   .message-bubble-pharmacy {
-    @apply bg-pharmacy-green1 text-white rounded-xl rounded-br-sm p-3 max-w-[80%] break-words;
+    @apply bg-pharmacy-whatsapp-light text-pharmacy-text1 rounded-lg rounded-br-none p-3 max-w-[80%] break-words;
   }
   
   .conversation-item {
-    @apply border-l-4 border-transparent hover:border-pharmacy-accent hover:bg-pharmacy-dark2 transition-all;
+    @apply border-l-4 border-transparent hover:border-pharmacy-whatsapp-primary hover:bg-pharmacy-whatsapp-hover transition-all;
   }
   
   .conversation-item.active {
-    @apply border-l-4 border-pharmacy-accent bg-pharmacy-dark2;
+    @apply border-l-4 border-pharmacy-whatsapp-primary bg-pharmacy-whatsapp-hover;
   }
   
+  /* Cards e formulários com tema claro */
   .form-card {
-    @apply bg-pharmacy-dark2 border-pharmacy-dark1 rounded-xl p-5;
+    @apply bg-pharmacy-light1 border border-pharmacy-border1 rounded-xl p-5 shadow-sm;
   }
   
   .form-label {
-    @apply text-sm font-medium text-white mb-1 block;
+    @apply text-sm font-medium text-pharmacy-text1 mb-1 block;
   }
   
   .form-input {
-    @apply bg-pharmacy-dark1 border-pharmacy-green1 focus:border-pharmacy-green2 w-full;
+    @apply bg-pharmacy-light2 border-pharmacy-border1 focus:border-pharmacy-accent w-full text-pharmacy-text1;
   }
   
   .action-button-primary {
@@ -81,19 +84,19 @@
   }
   
   .action-button-secondary {
-    @apply bg-transparent border border-pharmacy-green1 text-pharmacy-green2 hover:bg-pharmacy-green1 hover:text-white;
+    @apply bg-transparent border border-pharmacy-green1 text-pharmacy-green1 hover:bg-pharmacy-green1 hover:text-white;
   }
   
   .data-card {
-    @apply bg-pharmacy-dark2 border-pharmacy-dark1 rounded-xl overflow-hidden;
+    @apply bg-pharmacy-light1 border border-pharmacy-border1 rounded-xl overflow-hidden shadow-sm;
   }
   
   .data-card-header {
-    @apply border-b border-pharmacy-dark1 p-4 text-pharmacy-green2 font-medium;
+    @apply border-b border-pharmacy-border1 p-4 text-pharmacy-text1 font-medium bg-pharmacy-light2;
   }
   
   .data-card-row {
-    @apply border-b border-pharmacy-dark1 p-4 hover:bg-pharmacy-dark1 cursor-pointer;
+    @apply border-b border-pharmacy-border1 p-4 hover:bg-pharmacy-light2 cursor-pointer text-pharmacy-text1;
   }
   
   .status-badge-active {
@@ -109,7 +112,7 @@
   }
   
   .tag-badge {
-    @apply bg-pharmacy-dark1 border border-pharmacy-green1 text-xs text-pharmacy-green2 px-2 py-1 rounded-full;
+    @apply bg-pharmacy-light2 border border-pharmacy-border1 text-xs text-pharmacy-text2 px-2 py-1 rounded-full;
   }
   
   .logo-text {
@@ -117,55 +120,35 @@
   }
 }
 
-/* Custom styles for autofill */
+/* Novos estilos para o tema claro - remover estilos de autofill específicos para tema escuro */
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
-  -webkit-text-fill-color: white !important;
-  caret-color: white !important;
   transition: background-color 5000s ease-in-out 0s !important;
 }
 
-.input-autofill:-webkit-autofill {
-  -webkit-text-fill-color: white !important;
-  box-shadow: 0 0 0px 1000px transparent inset !important;
-}
-
-/* Isso forçará a cor do texto para branco */
-@-webkit-keyframes autofill {
-  to {
-    color: white;
-    background: transparent;
-  }
-}
-
-input:-webkit-autofill {
-  -webkit-animation-name: autofill;
-  -webkit-animation-fill-mode: both;
-}
-
-/* Custom scrollbar styling */
+/* Custom scrollbar styling para tema claro */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background-color: #344d4a;
+  background-color: #f0f0f0;
   border-radius: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #709488;
+  background-color: #cdcdcd;
   border-radius: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: #91925c;
+  background-color: #ababab;
 }
 
 /* Firefox */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #709488 #344d4a;
+  scrollbar-color: #cdcdcd #f0f0f0;
 }

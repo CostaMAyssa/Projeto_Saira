@@ -1,6 +1,6 @@
-
 import React, { useRef, useEffect } from 'react';
 import { Message } from '../types';
+import { Check } from 'lucide-react';
 
 interface MessageListProps {
   messages: Message[];
@@ -26,9 +26,12 @@ const MessageList: React.FC<MessageListProps> = ({ messages }) => {
           <div className={message.sender === 'client' ? 'message-bubble-client' : 'message-bubble-pharmacy'}>
             <div className="mb-1">{message.content}</div>
             <div className="text-right">
-              <span className="text-xs opacity-70">{message.timestamp}</span>
+              <span className="text-xs text-gray-500">{message.timestamp}</span>
               {message.sender === 'pharmacy' && (
-                <span className="ml-1 text-xs">✓✓</span>
+                <span className="ml-1 inline-flex">
+                  <Check size={12} className="text-pharmacy-whatsapp-read" />
+                  <Check size={12} className="text-pharmacy-whatsapp-read -ml-0.5" />
+                </span>
               )}
             </div>
           </div>

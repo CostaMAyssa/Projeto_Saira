@@ -1,5 +1,6 @@
-
 import React from 'react';
+import { Phone, Info, MoreVertical } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface ChatHeaderProps {
   activeConversation: string;
@@ -32,15 +33,27 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ activeConversation }) => {
   const initial = name.charAt(0).toUpperCase();
   
   return (
-    <div className="border-b border-pharmacy-dark1 p-4">
+    <div className="bg-pharmacy-whatsapp-header p-2 border-b border-gray-200 flex items-center justify-between">
       <div className="flex items-center">
-        <div className="w-10 h-10 rounded-full bg-pharmacy-green1 flex items-center justify-center text-white font-medium mr-3">
+        <div className="w-10 h-10 rounded-full bg-pharmacy-whatsapp-primary flex items-center justify-center text-white font-medium mr-3">
           {initial}
         </div>
         <div>
-          <h3 className="font-medium text-white">{name}</h3>
-          <span className="text-xs text-muted-foreground">{phone}</span>
+          <h3 className="font-medium text-pharmacy-text1">{name}</h3>
+          <span className="text-xs text-pharmacy-text2">{phone}</span>
         </div>
+      </div>
+      
+      <div className="flex items-center space-x-2">
+        <Button variant="ghost" size="icon" className="text-pharmacy-whatsapp-icon hover:bg-gray-200 rounded-full h-9 w-9">
+          <Phone size={20} />
+        </Button>
+        <Button variant="ghost" size="icon" className="text-pharmacy-whatsapp-icon hover:bg-gray-200 rounded-full h-9 w-9">
+          <Info size={20} />
+        </Button>
+        <Button variant="ghost" size="icon" className="text-pharmacy-whatsapp-icon hover:bg-gray-200 rounded-full h-9 w-9">
+          <MoreVertical size={20} />
+        </Button>
       </div>
     </div>
   );

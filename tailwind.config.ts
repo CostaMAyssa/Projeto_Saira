@@ -69,6 +69,22 @@ export default {
 					green1: '#666f41',     // Secondary interactive
 					green2: '#709488',     // Secondary interactive
 					accent: '#91925c',     // Highlight accent
+					// Novas cores para tema claro
+					light1: '#ffffff',     // Fundo principal (branco)
+					light2: '#f7f7f7',     // Fundo secundário (cinza claro)
+					text1: '#333333',      // Texto principal (quase preto)
+					text2: '#666666',      // Texto secundário (cinza escuro)
+					border1: '#e5e5e5',    // Bordas e divisores
+					// Cores para chat estilo WhatsApp Business
+					whatsapp: {
+						primary: '#008069',   // Verde principal do WhatsApp Business
+						light: '#dcf8c6',     // Fundo das mensagens enviadas (verde claro)
+						dark: '#ffffff',      // Fundo das mensagens recebidas (branco)
+						header: '#f0f2f5',    // Fundo do cabeçalho
+						read: '#53bdeb',      // Azul para mensagens lidas
+						hover: '#f0f2f5',     // Cor de hover nos itens
+						icon: '#54656f',      // Cor dos ícones
+					}
 				}
 			},
 			fontFamily: {

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Client } from './types';
-import { Edit, MoreHorizontal, MessageSquare, UserCheck, UserX, Trash2 } from 'lucide-react';
+import { Edit, MoreHorizontal, MessageSquare, UserCheck, UserX, Trash2, Phone, Mail, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
   DropdownMenu, 
@@ -80,23 +80,23 @@ const ClientCard = ({ client, getStatusBadge, getTagBadge }: ClientCardProps) =>
 
   return (
     <>
-      <Card key={client.id} className="bg-pharmacy-dark2 border-pharmacy-dark1 p-4 flex flex-col h-full relative">
+      <Card className="bg-white border border-pharmacy-border1 p-4 rounded-xl flex flex-col h-full relative shadow-sm hover:shadow-md transition-shadow">
         <div className="flex justify-between items-start mb-3">
-          <h3 className="text-lg font-semibold text-white truncate mr-3">{client.name}</h3>
+          <h3 className="text-lg font-semibold text-pharmacy-text1 truncate mr-3">{client.name}</h3>
           {getStatusBadge(client.status)}
         </div>
         
         <div className="space-y-2 flex-grow">
-          <div className="flex items-center text-muted-foreground text-sm">
-            <span className="inline-block w-5">📱</span> 
+          <div className="flex items-center text-pharmacy-text2 text-sm">
+            <Phone className="h-4 w-4 mr-2 text-pharmacy-accent" />
             <span className="truncate">{client.phone}</span>
           </div>
-          <div className="flex items-center text-muted-foreground text-sm">
-            <span className="inline-block w-5">✉️</span> 
+          <div className="flex items-center text-pharmacy-text2 text-sm">
+            <Mail className="h-4 w-4 mr-2 text-pharmacy-accent" />
             <span className="truncate">{client.email}</span>
           </div>
-          <div className="flex items-center text-muted-foreground text-sm">
-            <span className="inline-block w-5">🛒</span> 
+          <div className="flex items-center text-pharmacy-text2 text-sm">
+            <ShoppingBag className="h-4 w-4 mr-2 text-pharmacy-accent" />
             <span className="truncate">Última: {client.lastPurchase}</span>
           </div>
           <div className="flex flex-wrap gap-1 mt-2">
@@ -106,11 +106,11 @@ const ClientCard = ({ client, getStatusBadge, getTagBadge }: ClientCardProps) =>
           </div>
         </div>
 
-        <div className="flex justify-end mt-3 pt-3 border-t border-pharmacy-dark1 z-10">
+        <div className="flex justify-end mt-3 pt-3 border-t border-pharmacy-border1 z-10">
           <Button 
             variant="ghost" 
             size="sm"
-            className="text-pharmacy-green2 hover:text-pharmacy-accent p-2"
+            className="text-pharmacy-text2 hover:text-pharmacy-accent p-2"
             onClick={handleEditClick}
           >
             <Edit className="h-4 w-4" />
@@ -120,15 +120,15 @@ const ClientCard = ({ client, getStatusBadge, getTagBadge }: ClientCardProps) =>
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="text-pharmacy-green2 hover:text-pharmacy-accent p-2"
+                className="text-pharmacy-text2 hover:text-pharmacy-accent p-2"
               >
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-pharmacy-dark2 border-pharmacy-dark1 text-white">
+            <DropdownMenuContent align="end" className="bg-white border border-pharmacy-border1 text-pharmacy-text1 shadow-md">
               <DropdownMenuItem 
                 onClick={handleToggleStatus}
-                className="hover:bg-pharmacy-dark1 cursor-pointer"
+                className="hover:bg-pharmacy-light2 cursor-pointer"
               >
                 {client.status === 'active' ? (
                   <>
@@ -144,14 +144,14 @@ const ClientCard = ({ client, getStatusBadge, getTagBadge }: ClientCardProps) =>
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={handleSendMessage}
-                className="hover:bg-pharmacy-dark1 cursor-pointer"
+                className="hover:bg-pharmacy-light2 cursor-pointer"
               >
                 <MessageSquare className="h-4 w-4 mr-2" />
                 <span>Enviar Mensagem</span>
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={handleDeleteClient}
-                className="text-red-500 hover:bg-pharmacy-dark1 cursor-pointer"
+                className="text-red-500 hover:bg-pharmacy-light2 cursor-pointer"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 <span>Excluir</span>
@@ -163,50 +163,50 @@ const ClientCard = ({ client, getStatusBadge, getTagBadge }: ClientCardProps) =>
 
       {/* Modal de Edição */}
       <Dialog open={isEditModalOpen} onOpenChange={handleCloseEditModal}>
-        <DialogContent className="bg-pharmacy-dark2 border-pharmacy-dark1 text-white w-[calc(100%-32px)] max-w-lg mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-white border border-pharmacy-border1 text-pharmacy-text1 w-[calc(100%-32px)] max-w-lg mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
           <DialogHeader className="mb-3">
             <DialogTitle className="text-pharmacy-accent text-xl text-center sm:text-left">Editar Cliente</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-3 sm:space-y-4">
             <div className="space-y-1 sm:space-y-2">
-              <Label htmlFor="card-edit-name">Nome</Label>
+              <Label htmlFor="card-edit-name" className="text-pharmacy-text1">Nome</Label>
               <Input
                 id="card-edit-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="bg-pharmacy-dark1 border-pharmacy-green1"
+                className="bg-white border-gray-300 text-pharmacy-text1"
               />
             </div>
             
             <div className="space-y-1 sm:space-y-2">
-              <Label htmlFor="card-edit-phone">Telefone</Label>
+              <Label htmlFor="card-edit-phone" className="text-pharmacy-text1">Telefone</Label>
               <Input
                 id="card-edit-phone"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="bg-pharmacy-dark1 border-pharmacy-green1"
+                className="bg-white border-gray-300 text-pharmacy-text1"
               />
             </div>
             
             <div className="space-y-1 sm:space-y-2">
-              <Label htmlFor="card-edit-email">Email</Label>
+              <Label htmlFor="card-edit-email" className="text-pharmacy-text1">Email</Label>
               <Input
                 id="card-edit-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="bg-pharmacy-dark1 border-pharmacy-green1"
+                className="bg-white border-gray-300 text-pharmacy-text1"
               />
             </div>
             
             <div className="space-y-1 sm:space-y-2">
-              <Label htmlFor="card-edit-status">Status</Label>
+              <Label htmlFor="card-edit-status" className="text-pharmacy-text1">Status</Label>
               <Select value={status} onValueChange={(value: 'active' | 'inactive') => setStatus(value)}>
-                <SelectTrigger className="bg-pharmacy-dark1 border-pharmacy-green1">
+                <SelectTrigger className="bg-white border-gray-300">
                   <SelectValue placeholder="Selecione o status" />
                 </SelectTrigger>
-                <SelectContent className="bg-pharmacy-dark2 border-pharmacy-green1">
+                <SelectContent className="bg-white border-gray-300">
                   <SelectItem value="active">Ativo</SelectItem>
                   <SelectItem value="inactive">Inativo</SelectItem>
                 </SelectContent>
@@ -214,16 +214,16 @@ const ClientCard = ({ client, getStatusBadge, getTagBadge }: ClientCardProps) =>
             </div>
             
             <div className="space-y-1 sm:space-y-2">
-              <Label>Tags</Label>
+              <Label className="text-pharmacy-text1">Tags</Label>
               <div className="grid grid-cols-2 gap-2">
                 <div className="flex items-center space-x-2">
                   <Checkbox 
                     id="card-edit-tag-vip" 
                     checked={tags.includes('vip')} 
                     onCheckedChange={() => handleTagToggle('vip')} 
-                    className="border-pharmacy-green1 data-[state=checked]:bg-pharmacy-accent"
+                    className="border-gray-300 data-[state=checked]:bg-pharmacy-accent"
                   />
-                  <label htmlFor="card-edit-tag-vip" className="text-sm font-medium">VIP</label>
+                  <label htmlFor="card-edit-tag-vip" className="text-sm font-medium text-pharmacy-text1">VIP</label>
                 </div>
                 
                 <div className="flex items-center space-x-2">
@@ -231,9 +231,9 @@ const ClientCard = ({ client, getStatusBadge, getTagBadge }: ClientCardProps) =>
                     id="card-edit-tag-regular" 
                     checked={tags.includes('regular')} 
                     onCheckedChange={() => handleTagToggle('regular')} 
-                    className="border-pharmacy-green1 data-[state=checked]:bg-pharmacy-accent"
+                    className="border-gray-300 data-[state=checked]:bg-pharmacy-accent"
                   />
-                  <label htmlFor="card-edit-tag-regular" className="text-sm font-medium">Regular</label>
+                  <label htmlFor="card-edit-tag-regular" className="text-sm font-medium text-pharmacy-text1">Regular</label>
                 </div>
                 
                 <div className="flex items-center space-x-2">
@@ -241,37 +241,38 @@ const ClientCard = ({ client, getStatusBadge, getTagBadge }: ClientCardProps) =>
                     id="card-edit-tag-occasional" 
                     checked={tags.includes('occasional')} 
                     onCheckedChange={() => handleTagToggle('occasional')} 
-                    className="border-pharmacy-green1 data-[state=checked]:bg-pharmacy-accent"
+                    className="border-gray-300 data-[state=checked]:bg-pharmacy-accent"
                   />
-                  <label htmlFor="card-edit-tag-occasional" className="text-sm font-medium">Ocasional</label>
+                  <label htmlFor="card-edit-tag-occasional" className="text-sm font-medium text-pharmacy-text1">Ocasional</label>
                 </div>
                 
                 <div className="flex items-center space-x-2">
                   <Checkbox 
-                    id="card-edit-tag-uso-continuo" 
-                    checked={tags.includes('uso continuo')} 
-                    onCheckedChange={() => handleTagToggle('uso continuo')} 
-                    className="border-pharmacy-green1 data-[state=checked]:bg-pharmacy-accent"
+                    id="card-edit-tag-continuous" 
+                    checked={tags.includes('continuous')} 
+                    onCheckedChange={() => handleTagToggle('continuous')} 
+                    className="border-gray-300 data-[state=checked]:bg-pharmacy-accent"
                   />
-                  <label htmlFor="card-edit-tag-uso-continuo" className="text-sm font-medium">Uso Contínuo</label>
+                  <label htmlFor="card-edit-tag-continuous" className="text-sm font-medium text-pharmacy-text1">Uso Contínuo</label>
                 </div>
               </div>
             </div>
           </div>
           
-          <DialogFooter className="mt-6 pt-3 border-t border-pharmacy-dark1">
+          <DialogFooter className="mt-4 sm:mt-6">
             <Button 
-              onClick={handleCloseEditModal} 
-              variant="ghost" 
-              className="w-full sm:w-auto mr-2 border border-pharmacy-green1 text-pharmacy-green2 hover:bg-pharmacy-green1 hover:text-white mb-2 sm:mb-0"
+              type="button" 
+              variant="outline" 
+              onClick={handleCloseEditModal}
+              className="bg-white text-pharmacy-text2 border-gray-300 hover:bg-pharmacy-light2"
             >
               Cancelar
             </Button>
             <Button 
-              onClick={handleSaveEdit} 
-              className="w-full sm:w-auto bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white"
+              onClick={handleSaveEdit}
+              className="bg-pharmacy-accent text-white hover:bg-pharmacy-accent/90"
             >
-              Salvar
+              Salvar Alterações
             </Button>
           </DialogFooter>
         </DialogContent>
