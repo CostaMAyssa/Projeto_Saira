@@ -1,11 +1,24 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, Bell, Plus, Play, Pause, Calendar, Clock, BarChart, RefreshCcw } from 'lucide-react';
+import NewCampaignModal from './modals/NewCampaignModal';
+import { toast } from 'sonner';
+
+interface Campaign {
+  id: string;
+  name: string;
+  type: string;
+  audience: string;
+  status: 'active' | 'paused' | 'scheduled';
+  schedule: string;
+  lastRun: string;
+}
 
 const CampaignsModule = () => {
-  const mockCampaigns = [
+  const [isNewCampaignModalOpen, setIsNewCampaignModalOpen] = useState(false);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([
     {
       id: '1',
       name: 'Lembrete de Recompra - Hipertensão',
@@ -51,7 +64,37 @@ const CampaignsModule = () => {
       schedule: 'Agendado para 15/05/2023',
       lastRun: 'Nunca executado',
     },
-  ];
+  ]);
+
+  const handleAddCampaign = (newCampaign: Omit<Campaign, 'id'>) => {
+    const newCampaignWithId: Campaign = {
+      ...newCampaign,
+      id: (campaigns.length + 1).toString(),
+    };
+    
+    setCampaigns([newCampaignWithId, ...campaigns]);
+    toast.success('Campanha criada com sucesso!');
+  };
+
+  const handleToggleCampaignStatus = (id: string) => {
+    setCampaigns(campaigns.map(campaign => {
+      if (campaign.id === id) {
+        // Toggle between active and paused
+        return {
+          ...campaign,
+          status: campaign.status === 'active' ? 'paused' : 'active',
+          lastRun: campaign.status === 'paused' ? 'Agora' : campaign.lastRun
+        };
+      }
+      return campaign;
+    }));
+
+    const campaign = campaigns.find(c => c.id === id);
+    if (campaign) {
+      const action = campaign.status === 'active' ? 'pausada' : 'ativada';
+      toast.success(`Campanha ${action} com sucesso!`);
+    }
+  };
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -72,7 +115,10 @@ const CampaignsModule = () => {
     <div className="flex-1 p-6 overflow-y-auto bg-white">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-pharmacy-text1">Campanhas e Automações</h1>
-        <Button className="bg-pharmacy-accent hover:bg-pharmacy-accent/90">
+        <Button 
+          className="bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white"
+          onClick={() => setIsNewCampaignModalOpen(true)}
+        >
           <Plus className="mr-2 h-4 w-4" />
           Nova Campanha
         </Button>
@@ -98,7 +144,7 @@ const CampaignsModule = () => {
           <div className="col-span-1">Ações</div>
         </div>
         
-        {mockCampaigns.map((campaign) => (
+        {campaigns.map((campaign) => (
           <div 
             key={campaign.id} 
             className="grid grid-cols-12 gap-4 p-4 border-b border-pharmacy-border1 hover:bg-pharmacy-light2 cursor-pointer"
@@ -129,13 +175,18 @@ const CampaignsModule = () => {
               )}
             </div>
             <div className="col-span-1 flex justify-center">
-              {campaign.status === 'active' ? (
-                <Button variant="ghost" size="icon" className="text-pharmacy-text2 hover:text-pharmacy-accent">
-                  <Pause className="h-4 w-4" />
-                </Button>
-              ) : (
-                <Button variant="ghost" size="icon" className="text-pharmacy-text2 hover:text-pharmacy-accent">
-                  <Play className="h-4 w-4" />
+              {campaign.status !== 'scheduled' && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="text-pharmacy-text2 hover:text-pharmacy-accent"
+                  onClick={() => handleToggleCampaignStatus(campaign.id)}
+                >
+                  {campaign.status === 'active' ? (
+                    <Pause className="h-4 w-4" />
+                  ) : (
+                    <Play className="h-4 w-4" />
+                  )}
                 </Button>
               )}
             </div>
@@ -144,8 +195,14 @@ const CampaignsModule = () => {
       </div>
       
       <div className="mt-4 text-center text-sm text-pharmacy-text2">
-        Exibindo 5 de 12 campanhas
+        Exibindo {campaigns.length} de 12 campanhas
       </div>
+
+      <NewCampaignModal 
+        open={isNewCampaignModalOpen}
+        onOpenChange={setIsNewCampaignModalOpen}
+        onSubmit={handleAddCampaign}
+      />
     </div>
   );
 };

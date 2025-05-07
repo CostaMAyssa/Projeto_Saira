@@ -7,7 +7,14 @@ import {
   Cell, XAxis, YAxis, CartesianGrid, Tooltip, 
   Legend, ResponsiveContainer 
 } from 'recharts';
-import { Download } from 'lucide-react';
+import { Download, FileDown } from 'lucide-react';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
+import { toast } from 'sonner';
 
 const ReportsModule = () => {
   const barData = [
@@ -36,17 +43,112 @@ const ReportsModule = () => {
     { name: 'Outros', value: 25 },
   ];
 
+  const campaignData = [
+    { name: 'Lembrete de Recompra - Hipertensão', rate: '35%', sent: 150, responses: 52 },
+    { name: 'Aniversariantes do Mês', rate: '28%', sent: 45, responses: 13 },
+    { name: 'Pós-venda - Antibióticos', rate: '23%', sent: 78, responses: 18 },
+    { name: 'Lembrete de Recompra - Diabetes', rate: '20%', sent: 112, responses: 22 },
+    { name: 'Reativação de Clientes Inativos', rate: '12%', sent: 200, responses: 24 },
+  ];
+
   const COLORS = ['#91925c', '#709488', '#666f41', '#3a4543'];
+
+  // Função para converter array em CSV
+  const convertToCSV = (objArray) => {
+    const array = typeof objArray !== 'object' ? JSON.parse(objArray) : objArray;
+    let str = '';
+
+    // Adicionar cabeçalhos
+    const headers = Object.keys(array[0]);
+    str += headers.join(',') + '\r\n';
+
+    // Adicionar dados
+    for (let i = 0; i < array.length; i++) {
+      let line = '';
+      for (const index in headers) {
+        if (line !== '') line += ',';
+        let value = array[i][headers[index]];
+        // Se o valor contém vírgula, aspas ou quebra de linha, envolva com aspas
+        if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+          value = '"' + value.replace(/"/g, '""') + '"';
+        }
+        line += value !== undefined ? value : '';
+      }
+      str += line + '\r\n';
+    }
+    return str;
+  };
+
+  // Função para exportar dados como CSV
+  const exportCSV = (data, fileName) => {
+    const csv = convertToCSV(data);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', fileName);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success(`Relatório ${fileName} exportado com sucesso!`);
+  };
+
+  const handleExportBarData = () => {
+    exportCSV(barData, 'mensagens_por_canal.csv');
+  };
+
+  const handleExportLineData = () => {
+    exportCSV(lineData, 'clientes_atendidos.csv');
+  };
+
+  const handleExportPieData = () => {
+    exportCSV(pieData, 'distribuicao_categorias.csv');
+  };
+
+  const handleExportCampaignData = () => {
+    exportCSV(campaignData, 'top_campanhas.csv');
+  };
+
+  const handleExportAll = () => {
+    handleExportBarData();
+    handleExportLineData();
+    handleExportPieData();
+    handleExportCampaignData();
+    toast.success('Todos os relatórios foram exportados com sucesso!');
+  };
 
   return (
     <div className="flex-1 p-6 overflow-y-auto bg-white">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Relatórios</h1>
         <div className="flex items-center gap-4">
-          <button className="flex items-center bg-white rounded-md p-2 hover:bg-gray-50 border border-gray-300">
-            <Download className="h-4 w-4 text-pharmacy-accent mr-2" />
-            <span className="text-pharmacy-accent text-sm">Exportar</span>
-          </button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className="bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white">
+                <FileDown className="h-4 w-4 mr-2" />
+                Exportar
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-white">
+              <DropdownMenuItem onClick={handleExportAll} className="cursor-pointer">
+                Exportar todos os relatórios
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportBarData} className="cursor-pointer">
+                Mensagens por Canal
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportLineData} className="cursor-pointer">
+                Clientes Atendidos
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportPieData} className="cursor-pointer">
+                Distribuição por Categoria
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportCampaignData} className="cursor-pointer">
+                Top Campanhas
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
       
@@ -198,13 +300,7 @@ const ReportsModule = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {[
-                { name: 'Lembrete de Recompra - Hipertensão', rate: '35%', sent: 150, responses: 52 },
-                { name: 'Aniversariantes do Mês', rate: '28%', sent: 45, responses: 13 },
-                { name: 'Pós-venda - Antibióticos', rate: '23%', sent: 78, responses: 18 },
-                { name: 'Lembrete de Recompra - Diabetes', rate: '20%', sent: 112, responses: 22 },
-                { name: 'Reativação de Clientes Inativos', rate: '12%', sent: 200, responses: 24 },
-              ].map((campaign, index) => (
+              {campaignData.map((campaign, index) => (
                 <div key={index} className="flex items-center justify-between border-b border-gray-200 pb-3">
                   <div>
                     <h3 className="text-sm font-medium text-gray-900">

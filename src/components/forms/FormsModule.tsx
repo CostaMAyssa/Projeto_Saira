@@ -1,11 +1,24 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, Filter, FileText, Plus, Copy, Eye, Edit, Trash } from 'lucide-react';
+import NewFormModal from './modals/NewFormModal';
+import { toast } from 'sonner';
+
+interface FormData {
+  id: string;
+  name: string;
+  questions: number;
+  responses: number;
+  status: 'active' | 'inactive';
+  createdAt: string;
+  lastResponse: string;
+}
 
 const FormsModule = () => {
-  const mockForms = [
+  const [isNewFormModalOpen, setIsNewFormModalOpen] = useState(false);
+  const [forms, setForms] = useState<FormData[]>([
     {
       id: '1',
       name: 'Pesquisa de Satisfação',
@@ -51,13 +64,32 @@ const FormsModule = () => {
       createdAt: '30/12/2022',
       lastResponse: '1 semana atrás',
     },
-  ];
+  ]);
+
+  const handleAddForm = (newForm: Omit<FormData, 'id' | 'responses' | 'lastResponse'>) => {
+    const currentDate = new Date();
+    const formattedDate = `${currentDate.getDate().toString().padStart(2, '0')}/${(currentDate.getMonth() + 1).toString().padStart(2, '0')}/${currentDate.getFullYear()}`;
+    
+    const newFormWithId: FormData = {
+      ...newForm,
+      id: (forms.length + 1).toString(),
+      responses: 0,
+      lastResponse: 'Sem respostas',
+      createdAt: formattedDate,
+    };
+    
+    setForms([newFormWithId, ...forms]);
+    toast.success('Formulário criado com sucesso!');
+  };
 
   return (
     <div className="flex-1 p-6 overflow-y-auto bg-white">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Formulários</h1>
-        <Button className="bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white">
+        <Button 
+          className="bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white"
+          onClick={() => setIsNewFormModalOpen(true)}
+        >
           <Plus className="mr-2 h-4 w-4" />
           Novo Formulário
         </Button>
@@ -86,7 +118,7 @@ const FormsModule = () => {
           <div className="col-span-3">Ações</div>
         </div>
         
-        {mockForms.map((form) => (
+        {forms.map((form) => (
           <div 
             key={form.id} 
             className="grid grid-cols-12 gap-4 p-4 border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
@@ -134,8 +166,14 @@ const FormsModule = () => {
       </div>
       
       <div className="mt-4 text-center text-sm text-gray-500">
-        Exibindo 5 de 15 formulários
+        Exibindo {forms.length} de 15 formulários
       </div>
+
+      <NewFormModal 
+        open={isNewFormModalOpen} 
+        onOpenChange={setIsNewFormModalOpen}
+        onSubmit={handleAddForm}
+      />
     </div>
   );
 };
