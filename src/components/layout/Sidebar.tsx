@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { 
   Home, 
@@ -11,6 +12,11 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import LogoImage from '@/lib/assets/Logo.png';
+
+interface SidebarProps {
+  activePage?: string;
+  setActivePage?: (page: string) => void;
+}
 
 const SidebarItem = ({ 
   icon: Icon, 
@@ -37,7 +43,13 @@ const SidebarItem = ({
   );
 };
 
-const Sidebar = ({ activePage, setActivePage }: { activePage: string; setActivePage: (page: string) => void }) => {
+const Sidebar = ({ activePage = 'dashboard', setActivePage }: SidebarProps) => {
+  const handleSetPage = (page: string) => {
+    if (setActivePage) {
+      setActivePage(page);
+    }
+  };
+
   return (
     <div className="h-screen bg-pharmacy-dark1 w-20 flex flex-col items-center py-6 border-r border-pharmacy-dark2">
       <div className="mb-8 flex flex-col items-center">
@@ -61,43 +73,43 @@ const Sidebar = ({ activePage, setActivePage }: { activePage: string; setActiveP
           icon={Home} 
           label="Dashboard" 
           active={activePage === 'dashboard'} 
-          onClick={() => setActivePage('dashboard')}
+          onClick={() => handleSetPage('dashboard')}
         />
         <SidebarItem 
           icon={MessageSquare} 
           label="WhatsApp" 
           active={activePage === 'chats'} 
-          onClick={() => setActivePage('chats')}
+          onClick={() => handleSetPage('chats')}
         />
         <SidebarItem 
           icon={Users} 
           label="Clientes" 
           active={activePage === 'clients'} 
-          onClick={() => setActivePage('clients')}
+          onClick={() => handleSetPage('clients')}
         />
         <SidebarItem 
           icon={Package} 
           label="Produtos" 
           active={activePage === 'products'} 
-          onClick={() => setActivePage('products')}
+          onClick={() => handleSetPage('products')}
         />
         <SidebarItem 
           icon={Bell} 
           label="Campanhas" 
           active={activePage === 'campaigns'} 
-          onClick={() => setActivePage('campaigns')}
+          onClick={() => handleSetPage('campaigns')}
         />
         <SidebarItem 
           icon={BarChart} 
           label="Relatórios" 
           active={activePage === 'reports'} 
-          onClick={() => setActivePage('reports')}
+          onClick={() => handleSetPage('reports')}
         />
         <SidebarItem 
           icon={FileText} 
           label="Formulários" 
           active={activePage === 'forms'} 
-          onClick={() => setActivePage('forms')}
+          onClick={() => handleSetPage('forms')}
         />
       </div>
 
@@ -106,7 +118,7 @@ const Sidebar = ({ activePage, setActivePage }: { activePage: string; setActiveP
           icon={Settings} 
           label="Config." 
           active={activePage === 'settings'} 
-          onClick={() => setActivePage('settings')}
+          onClick={() => handleSetPage('settings')}
         />
       </div>
     </div>
