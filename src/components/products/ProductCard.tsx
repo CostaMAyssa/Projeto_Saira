@@ -22,29 +22,29 @@ const ProductCard = ({ product, onEdit, onViewDetails }: ProductCardProps) => {
     } else if (tag === "Controlado") {
       return "bg-pharmacy-accent text-white";
     } else {
-      return "bg-pharmacy-dark2 text-white";
+      return "bg-gray-700 text-white";
     }
   };
 
   return (
-    <Card className="p-6 bg-pharmacy-dark2 text-white border-pharmacy-dark1">
+    <Card className="p-6 bg-white border border-gray-200 shadow-sm">
       <div className="flex justify-between">
         <div>
-          <h3 className="text-xl font-bold text-white">{product.name}</h3>
-          <Badge className="bg-pharmacy-dark1 text-white mt-1">{product.category}</Badge>
+          <h3 className="text-xl font-bold text-gray-900">{product.name}</h3>
+          <Badge className="bg-gray-200 text-gray-800 mt-1">{product.category}</Badge>
         </div>
       </div>
       
       <div className="mt-4 space-y-2">
         <div className="flex items-center">
-          <Package className="h-4 w-4 text-pharmacy-green2 mr-2" />
-          <span>Estoque: {product.stock} unidades</span>
+          <Package className="h-4 w-4 text-green-600 mr-2" />
+          <span className="text-gray-700">Estoque: {product.stock} unidades</span>
         </div>
         
         {product.interval && (
           <div className="flex items-center">
-            <Clock className="h-4 w-4 text-pharmacy-green2 mr-2" />
-            <span>Intervalo: {product.interval} dias</span>
+            <Clock className="h-4 w-4 text-green-600 mr-2" />
+            <span className="text-gray-700">Intervalo: {product.interval} dias</span>
           </div>
         )}
         
@@ -67,10 +67,9 @@ const ProductCard = ({ product, onEdit, onViewDetails }: ProductCardProps) => {
         </div>
       </div>
       
-      <div className="flex justify-between mt-4 pt-3 border-t border-pharmacy-dark1">
+      <div className="flex justify-between mt-4 pt-3 border-t border-gray-200">
         <Button 
-          variant="outline" 
-          className="border-pharmacy-green1 text-pharmacy-green2"
+          className="bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white"
           onClick={() => onEdit(product.id)}
         >
           <Edit className="h-4 w-4 mr-1" />

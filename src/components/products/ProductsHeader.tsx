@@ -9,7 +9,7 @@ interface ProductsHeaderProps {
 const ProductsHeader = ({ onAddProduct }: ProductsHeaderProps) => {
   return (
     <div className="flex justify-between items-center mb-6">
-      <h1 className="text-3xl font-bold text-white">Produtos</h1>
+      <h1 className="text-3xl font-bold text-gray-900">Produtos</h1>
       <Button 
         className="bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white"
         onClick={onAddProduct}

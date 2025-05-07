@@ -1,20 +1,29 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, Filter } from 'lucide-react';
+import { Search } from 'lucide-react';
 
 interface ProductFiltersProps {
   activeFilter: string | null;
   setActiveFilter: (filter: string | null) => void;
+  onSearch: (query: string) => void;
 }
 
-const ProductFilters = ({ activeFilter, setActiveFilter }: ProductFiltersProps) => {
+const ProductFilters = ({ activeFilter, setActiveFilter, onSearch }: ProductFiltersProps) => {
+  const [searchQuery, setSearchQuery] = useState('');
+
   const handleFilterClick = (filter: string) => {
     if (activeFilter === filter) {
       setActiveFilter(null);
     } else {
       setActiveFilter(filter);
     }
+  };
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+    onSearch(value);
   };
 
   const getFilterButtonClass = (filter: string | null) => {
@@ -29,7 +38,7 @@ const ProductFilters = ({ activeFilter, setActiveFilter }: ProductFiltersProps) 
       return `${baseClass} ${activeClass} bg-pharmacy-green1 hover:bg-pharmacy-green1/90`;
     } else {
       // Default "Todos" button
-      return `${baseClass} ${activeClass} bg-pharmacy-dark2 hover:bg-pharmacy-dark2/90`;
+      return `${baseClass} ${activeClass} bg-gray-700 hover:bg-gray-700/90`;
     }
   };
 
@@ -62,17 +71,14 @@ const ProductFilters = ({ activeFilter, setActiveFilter }: ProductFiltersProps) 
         </Button>
       </div>
       
-      <div className="flex items-center space-x-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Buscar produto..."
-            className="pl-10 pr-4 py-2 bg-pharmacy-dark2 border-pharmacy-dark2 text-white rounded-md w-64 focus:ring-pharmacy-green1 focus:border-pharmacy-green1"
-          />
-        </div>
-        <Button variant="outline" className="border-pharmacy-green1 text-pharmacy-green1 hover:bg-pharmacy-green1 hover:text-white">
-          <Filter className="h-4 w-4" />
-        </Button>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Input
+          placeholder="Buscar produto..."
+          className="pl-10 pr-4 py-2 bg-white border-gray-200 text-gray-900 rounded-md w-64 focus:ring-pharmacy-green1 focus:border-pharmacy-green1"
+          value={searchQuery}
+          onChange={handleSearch}
+        />
       </div>
     </div>
   );
