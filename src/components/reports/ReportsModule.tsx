@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,7 +7,7 @@ import {
   Cell, XAxis, YAxis, CartesianGrid, Tooltip, 
   Legend, ResponsiveContainer 
 } from 'recharts';
-import { Download, Calendar } from 'lucide-react';
+import { Download } from 'lucide-react';
 
 const ReportsModule = () => {
   const barData = [
@@ -44,14 +43,10 @@ const ReportsModule = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-white">Relatórios</h1>
         <div className="flex items-center gap-4">
-          <div className="flex items-center bg-pharmacy-dark2 rounded-md p-2">
-            <Calendar className="h-4 w-4 text-pharmacy-green2 mr-2" />
-            <span className="text-pharmacy-green2 text-sm">Último mês</span>
-          </div>
-          <Button variant="outline" className="text-pharmacy-green2 border-pharmacy-green1">
-            <Download className="mr-2 h-4 w-4" />
-            Exportar
-          </Button>
+          <button className="flex items-center bg-pharmacy-dark2 rounded-md p-2 hover:bg-pharmacy-dark1 border border-pharmacy-green1">
+            <Download className="h-4 w-4 text-pharmacy-green2 mr-2" />
+            <span className="text-pharmacy-green2 text-sm">Exportar</span>
+          </button>
         </div>
       </div>
       
