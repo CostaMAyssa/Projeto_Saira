@@ -1,4 +1,3 @@
-
 import React from 'react';
 import ClientCard from './ClientCard';
 import { Client } from './types';
@@ -11,7 +10,7 @@ interface ClientsCardViewProps {
 
 const ClientsCardView = ({ clients, getStatusBadge, getTagBadge }: ClientsCardViewProps) => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
       {clients.map((client) => (
         <ClientCard 
           key={client.id} 
@@ -20,6 +19,11 @@ const ClientsCardView = ({ clients, getStatusBadge, getTagBadge }: ClientsCardVi
           getTagBadge={getTagBadge} 
         />
       ))}
+      {clients.length === 0 && (
+        <div className="col-span-full text-center py-8 text-muted-foreground">
+          Nenhum cliente encontrado com os critérios de busca atuais.
+        </div>
+      )}
     </div>
   );
 };

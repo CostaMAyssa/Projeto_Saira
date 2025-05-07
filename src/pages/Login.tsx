@@ -27,20 +27,23 @@ const Login = () => {
       {/* Lado esquerdo - Mensagem de boas-vindas */}
       <div className="w-1/2 p-12 flex flex-col justify-center items-center">
         <div className="max-w-md">
-          <h1 className="text-4xl font-bold text-white mb-6">Bem-vindo de volta!</h1>
-          <p className="text-lg text-pharmacy-green2 mb-8">
-            Acesse sua conta para continuar gerenciando suas finanças e plantões de forma eficiente.
+          <h1 className="text-5xl font-bold text-white mb-6">Bem-vindo!</h1>
+          <p className="text-xl text-pharmacy-green2 mb-10 leading-relaxed">
+            Acesse sua conta para gerenciar seus clientes e impulsionar suas vendas.
           </p>
           
-          <div className="flex flex-col items-center mt-16">
-            <div className="w-24 h-24 mb-4">
+          <div className="flex flex-col items-center mt-20">
+            <div className="w-36 h-36 mb-6">
               <img 
                 src={LogoImage} 
                 alt="Logo Sairá" 
                 className="w-full h-full object-contain"
               />
             </div>
-            <h2 className="text-2xl font-semibold text-white">Sairá</h2>
+            <h2 className="text-3xl font-semibold text-white logo-text">
+              <span className="text-pharmacy-accent">Sai</span>
+              <span className="text-pharmacy-green2">rá</span>
+            </h2>
           </div>
         </div>
       </div>
@@ -105,7 +108,7 @@ const Login = () => {
                   </a>
                 </div>
                 
-                <Button type="submit" className="w-full bg-teal-500 hover:bg-teal-600 text-white">
+                <Button type="submit" className="w-full bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white">
                   Entrar
                 </Button>
                 

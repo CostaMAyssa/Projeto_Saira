@@ -40,12 +40,16 @@ const SidebarItem = ({
 const Sidebar = ({ activePage, setActivePage }: { activePage: string; setActivePage: (page: string) => void }) => {
   return (
     <div className="h-screen bg-pharmacy-dark1 w-20 flex flex-col items-center py-6 border-r border-pharmacy-dark2">
-      <div className="mb-8">
+      <div className="mb-8 flex flex-col items-center">
         <img 
           src={LogoImage}
           alt="Logo Sairá"
-          className="w-12 h-12 rounded-full object-cover"
+          className="w-14 h-14 rounded-full object-cover"
         />
+        <div className="mt-1 text-xs font-bold tracking-tight logo-text">
+          <span className="text-pharmacy-accent">Sai</span>
+          <span className="text-pharmacy-green2">rá</span>
+        </div>
       </div>
 
       <div className="flex-1 w-full">
