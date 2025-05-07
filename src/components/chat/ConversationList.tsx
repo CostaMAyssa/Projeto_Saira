@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -93,6 +92,32 @@ const ConversationList: React.FC<ConversationListProps> = ({
   activeConversation, 
   setActiveConversation 
 }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState<'all' | 'unread'>('all');
+  const [filteredConversations, setFilteredConversations] = useState<Conversation[]>(mockConversations);
+
+  // Apply filters when search term or filter type changes
+  useEffect(() => {
+    let filtered = mockConversations;
+    
+    // Apply search filter
+    if (searchTerm.trim() !== '') {
+      const term = searchTerm.toLowerCase().trim();
+      filtered = filtered.filter(
+        convo => 
+          convo.name.toLowerCase().includes(term) || 
+          convo.phone.toLowerCase().includes(term)
+      );
+    }
+    
+    // Apply read/unread filter
+    if (filterType === 'unread') {
+      filtered = filtered.filter(convo => convo.unread > 0);
+    }
+    
+    setFilteredConversations(filtered);
+  }, [searchTerm, filterType]);
+  
   return (
     <div className="h-full bg-pharmacy-dark1 border-r border-pharmacy-dark2 flex flex-col">
       <div className="p-4 border-b border-pharmacy-dark2">
@@ -102,15 +127,31 @@ const ConversationList: React.FC<ConversationListProps> = ({
           <Input
             placeholder="Buscar conversa..."
             className="pl-8 bg-pharmacy-dark2 border-pharmacy-green1 focus:border-pharmacy-green2"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
         
         <div className="flex items-center justify-between">
           <div className="flex gap-1">
-            <Badge variant="outline" className="bg-pharmacy-dark2 text-pharmacy-green2 hover:bg-pharmacy-green2 hover:text-white cursor-pointer">
+            <Badge 
+              variant="outline" 
+              className={cn(
+                "bg-pharmacy-dark2 text-pharmacy-green2 hover:bg-pharmacy-green2 hover:text-white cursor-pointer",
+                filterType === 'all' && "bg-pharmacy-green2 text-white"
+              )}
+              onClick={() => setFilterType('all')}
+            >
               Todos
             </Badge>
-            <Badge variant="outline" className="bg-pharmacy-dark2 text-pharmacy-green2 hover:bg-pharmacy-green2 hover:text-white cursor-pointer">
+            <Badge 
+              variant="outline" 
+              className={cn(
+                "bg-pharmacy-dark2 text-pharmacy-green2 hover:bg-pharmacy-green2 hover:text-white cursor-pointer",
+                filterType === 'unread' && "bg-pharmacy-green2 text-white"
+              )}
+              onClick={() => setFilterType('unread')}
+            >
               Não lidos
             </Badge>
           </div>
@@ -122,7 +163,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
       </div>
       
       <div className="flex-1 overflow-y-auto">
-        {mockConversations.map((conversation) => (
+        {filteredConversations.map((conversation) => (
           <div
             key={conversation.id}
             className={cn(
@@ -167,6 +208,13 @@ const ConversationList: React.FC<ConversationListProps> = ({
             </div>
           </div>
         ))}
+        
+        {filteredConversations.length === 0 && (
+          <div className="p-4 text-center text-muted-foreground">
+            <p>Nenhuma conversa encontrada</p>
+            <p className="text-xs mt-1">Tente ajustar seus filtros</p>
+          </div>
+        )}
       </div>
     </div>
   );

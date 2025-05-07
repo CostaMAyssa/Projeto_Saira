@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Send, Paperclip, Smile } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -84,10 +83,41 @@ interface ChatWindowProps {
 
 const ChatWindow: React.FC<ChatWindowProps> = ({ activeConversation }) => {
   const [newMessage, setNewMessage] = useState('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Load messages when active conversation changes
+  useEffect(() => {
+    if (activeConversation && mockMessages[activeConversation]) {
+      setMessages(mockMessages[activeConversation]);
+    } else {
+      setMessages([]);
+    }
+  }, [activeConversation]);
+  
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
   
   const handleSendMessage = () => {
-    if (newMessage.trim() === '') return;
-    // Logic to send message would go here
+    if (newMessage.trim() === '' || !activeConversation) return;
+    
+    const currentTime = new Date();
+    const timeString = currentTime.getHours() + ':' + 
+                      (currentTime.getMinutes() < 10 ? '0' : '') + 
+                      currentTime.getMinutes();
+    
+    const newMessageObj: Message = {
+      id: `${activeConversation}-${Date.now()}`,
+      content: newMessage,
+      sender: 'pharmacy',
+      timestamp: timeString,
+    };
+    
+    setMessages(prev => [...prev, newMessageObj]);
     setNewMessage('');
   };
   
@@ -108,8 +138,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ activeConversation }) => {
       </div>
     );
   }
-  
-  const messages = mockMessages[activeConversation] || [];
   
   return (
     <div className="h-full flex flex-col bg-pharmacy-dark2">
@@ -154,6 +182,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ activeConversation }) => {
             </div>
           </div>
         ))}
+        <div ref={messagesEndRef} />
       </div>
       
       <div className="p-4 border-t border-pharmacy-dark1">

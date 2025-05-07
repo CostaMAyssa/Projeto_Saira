@@ -1,13 +1,17 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Tag, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import AddTagDialog from './AddTagDialog';
 
 interface CustomerTagsProps {
   tags: string[];
+  onAddTag: (tag: string) => void;
 }
 
-const CustomerTags: React.FC<CustomerTagsProps> = ({ tags }) => {
+const CustomerTags: React.FC<CustomerTagsProps> = ({ tags, onAddTag }) => {
+  const [isAddTagDialogOpen, setIsAddTagDialogOpen] = useState(false);
+
   return (
     <div className="mb-4">
       <div className="flex items-center gap-2 mb-2">
@@ -27,11 +31,18 @@ const CustomerTags: React.FC<CustomerTagsProps> = ({ tags }) => {
         <Badge 
           variant="outline" 
           className="bg-pharmacy-dark2 border-pharmacy-green1 text-xs text-pharmacy-green2 cursor-pointer"
+          onClick={() => setIsAddTagDialogOpen(true)}
         >
           <Plus className="h-3 w-3 mr-1" />
           Nova tag
         </Badge>
       </div>
+      
+      <AddTagDialog 
+        open={isAddTagDialogOpen}
+        setOpen={setIsAddTagDialogOpen}
+        onAddTag={onAddTag}
+      />
     </div>
   );
 };
