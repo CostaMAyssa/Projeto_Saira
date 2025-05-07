@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import SearchFilters from './conversation-list/SearchFilters';
@@ -43,7 +42,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
   }, [searchTerm, filterType]);
   
   return (
-    <div className="h-full bg-pharmacy-dark1 border-r border-pharmacy-dark2 flex flex-col">
+    <div className="h-full bg-white border-r border-pharmacy-border1 flex flex-col">
       <SearchFilters
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}

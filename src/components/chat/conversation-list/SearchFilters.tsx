@@ -1,9 +1,9 @@
-
 import React from 'react';
-import { Search, Filter } from 'lucide-react';
+import { Search, MoreVertical } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 interface SearchFiltersProps {
   searchTerm: string;
@@ -19,45 +19,49 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
   setFilterType
 }) => {
   return (
-    <div className="p-4 border-b border-pharmacy-dark2">
-      <h2 className="text-lg font-medium mb-3 text-white">Conversas</h2>
-      <div className="relative mb-3">
-        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar conversa..."
-          className="pl-8 bg-pharmacy-dark2 border-pharmacy-green1 focus:border-pharmacy-green2"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+    <div className="p-4 border-b border-pharmacy-border1 bg-pharmacy-whatsapp-header">
+      <div className="flex justify-between items-center mb-3">
+        <h2 className="text-lg font-medium text-pharmacy-text1">Conversas</h2>
+        <Button variant="ghost" size="icon" className="text-pharmacy-whatsapp-icon hover:bg-gray-200 rounded-full h-8 w-8">
+          <MoreVertical size={18} />
+        </Button>
       </div>
       
-      <div className="flex items-center justify-between">
-        <div className="flex gap-1">
-          <Badge 
-            variant="outline" 
-            className={cn(
-              "bg-pharmacy-dark2 text-pharmacy-green2 hover:bg-pharmacy-green2 hover:text-white cursor-pointer",
-              filterType === 'all' && "bg-pharmacy-green2 text-white"
-            )}
-            onClick={() => setFilterType('all')}
-          >
-            Todos
-          </Badge>
-          <Badge 
-            variant="outline" 
-            className={cn(
-              "bg-pharmacy-dark2 text-pharmacy-green2 hover:bg-pharmacy-green2 hover:text-white cursor-pointer",
-              filterType === 'unread' && "bg-pharmacy-green2 text-white"
-            )}
-            onClick={() => setFilterType('unread')}
-          >
-            Não lidos
-          </Badge>
+      <div className="relative mb-3">
+        <div className="relative flex items-center">
+          <Input
+            placeholder="Buscar conversa..."
+            className="pl-10 bg-white rounded-full border-pharmacy-border1 focus-visible:ring-0 focus-visible:border-pharmacy-border1 text-pharmacy-text1"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <div className="absolute left-3 top-0 bottom-0 flex items-center pointer-events-none">
+            <Search className="h-4 w-4 text-pharmacy-text2" />
+          </div>
         </div>
-        <button className="flex items-center gap-1 text-pharmacy-green2 text-sm hover:text-pharmacy-accent transition-colors">
-          <Filter className="h-3 w-3" />
-          Filtros
-        </button>
+      </div>
+      
+      <div className="flex items-center gap-2">
+        <Badge 
+          variant="outline" 
+          className={cn(
+            "bg-white text-pharmacy-text2 hover:bg-pharmacy-whatsapp-primary hover:text-white cursor-pointer border-pharmacy-border1",
+            filterType === 'all' && "bg-pharmacy-whatsapp-primary text-white border-pharmacy-whatsapp-primary"
+          )}
+          onClick={() => setFilterType('all')}
+        >
+          Todos
+        </Badge>
+        <Badge 
+          variant="outline" 
+          className={cn(
+            "bg-white text-pharmacy-text2 hover:bg-pharmacy-whatsapp-primary hover:text-white cursor-pointer border-pharmacy-border1",
+            filterType === 'unread' && "bg-pharmacy-whatsapp-primary text-white border-pharmacy-whatsapp-primary"
+          )}
+          onClick={() => setFilterType('unread')}
+        >
+          Não lidos
+        </Badge>
       </div>
     </div>
   );

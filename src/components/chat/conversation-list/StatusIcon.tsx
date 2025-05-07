@@ -1,5 +1,5 @@
-
 import React from 'react';
+import { Check } from 'lucide-react';
 import { Conversation } from '../types';
 
 interface StatusIconProps {
@@ -9,13 +9,23 @@ interface StatusIconProps {
 const StatusIcon: React.FC<StatusIconProps> = ({ status }) => {
   switch (status) {
     case 'read':
-      return <span className="text-blue-400">✓✓</span>;
+      return (
+        <span className="inline-flex mr-1">
+          <Check size={12} className="text-pharmacy-whatsapp-read" />
+          <Check size={12} className="text-pharmacy-whatsapp-read -ml-0.5" />
+        </span>
+      );
     case 'delivered':
-      return <span className="text-gray-400">✓✓</span>;
+      return (
+        <span className="inline-flex mr-1">
+          <Check size={12} className="text-gray-400" />
+          <Check size={12} className="text-gray-400 -ml-0.5" />
+        </span>
+      );
     case 'sent':
-      return <span className="text-gray-400">✓</span>;
+      return <Check size={12} className="text-gray-400 mr-1" />;
     case 'pending':
-      return <span className="text-gray-400">🕓</span>;
+      return <span className="text-gray-400 mr-1">🕓</span>;
     default:
       return null;
   }

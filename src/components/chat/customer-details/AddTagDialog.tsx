@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -24,18 +23,18 @@ const AddTagDialog: React.FC<AddTagDialogProps> = ({ open, setOpen, onAddTag }) 
   
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="bg-pharmacy-dark2 text-white border-pharmacy-dark1">
+      <DialogContent className="bg-white text-pharmacy-text1 border-pharmacy-border1">
         <DialogHeader>
-          <DialogTitle className="text-pharmacy-green2">Adicionar Nova Tag</DialogTitle>
+          <DialogTitle className="text-pharmacy-text1">Adicionar Nova Tag</DialogTitle>
         </DialogHeader>
         
         <div className="py-4">
-          <Label htmlFor="tag" className="text-white block mb-2">Nome da Tag</Label>
+          <Label htmlFor="tag" className="text-pharmacy-text1 block mb-2">Nome da Tag</Label>
           <Input 
             id="tag" 
             value={newTag}
             onChange={(e) => setNewTag(e.target.value)}
-            className="bg-pharmacy-dark1 border-pharmacy-green1 text-white"
+            className="bg-white border-pharmacy-border1 text-pharmacy-text1 focus-visible:ring-pharmacy-whatsapp-primary"
             placeholder="Ex: hipertenso, idoso, etc."
           />
         </div>
@@ -45,14 +44,14 @@ const AddTagDialog: React.FC<AddTagDialogProps> = ({ open, setOpen, onAddTag }) 
             type="button" 
             variant="outline" 
             onClick={() => setOpen(false)}
-            className="text-pharmacy-green2 border-pharmacy-green1 hover:bg-pharmacy-green1 hover:text-white"
+            className="text-pharmacy-text2 border-pharmacy-border1 hover:bg-pharmacy-light2"
           >
             Cancelar
           </Button>
           <Button 
             onClick={handleAddTag}
             disabled={!newTag.trim()}
-            className="bg-pharmacy-accent hover:bg-pharmacy-green1"
+            className="bg-pharmacy-whatsapp-primary hover:bg-pharmacy-whatsapp-primary/90 text-white"
           >
             Adicionar
           </Button>

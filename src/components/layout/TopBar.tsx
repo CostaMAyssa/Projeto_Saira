@@ -15,11 +15,11 @@ const TopBar = () => {
   };
 
   return (
-    <div className="h-16 bg-pharmacy-dark1 border-b border-pharmacy-dark2 flex items-center justify-end px-4">
+    <div className="h-16 bg-white border-b border-pharmacy-border1 flex items-center justify-end px-4 shadow-sm">
       <div className="flex items-center gap-4">
         <div className="flex flex-col items-end mr-2">
-          <span className="text-white text-sm font-medium">Bem Vindo, Mayssa</span>
-          <span className="text-xs text-gray-400">mayssa1@outlook.com</span>
+          <span className="text-pharmacy-text1 text-sm font-medium">Bem Vindo, Mayssa</span>
+          <span className="text-xs text-pharmacy-text2">mayssa1@outlook.com</span>
         </div>
         
         <Button 

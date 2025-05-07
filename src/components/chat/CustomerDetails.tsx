@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import CustomerHeader from './customer-details/CustomerHeader';
 import CustomerContactInfo from './customer-details/CustomerContactInfo';
@@ -9,6 +8,7 @@ import CustomerNotes from './customer-details/CustomerNotes';
 import { mockCustomerDetails } from './customer-details/mockData';
 import { CustomerDetails as CustomerDetailsType, Product } from './customer-details/types';
 import { toast } from 'sonner';
+import { MessageSquare } from 'lucide-react';
 
 interface CustomerDetailsProps {
   activeConversation: string | null;
@@ -28,10 +28,16 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
   
   if (!activeConversation || !customerData) {
     return (
-      <div className="h-full flex items-center justify-center bg-pharmacy-dark1">
-        <div className="text-center text-muted-foreground">
-          <p>Selecione uma conversa para</p>
-          <p>ver detalhes do cliente</p>
+      <div className="h-full flex flex-col items-center justify-center bg-gray-50">
+        <div className="relative w-16 h-16 mb-4">
+          <div className="absolute inset-0 bg-pharmacy-whatsapp-primary rounded-full opacity-10"></div>
+          <div className="absolute inset-0 flex items-center justify-center text-pharmacy-whatsapp-primary">
+            <MessageSquare size={32} />
+          </div>
+        </div>
+        <div className="text-center text-pharmacy-text1">
+          <p className="font-medium">Selecione uma conversa para</p>
+          <p className="text-sm text-pharmacy-text2">ver detalhes do cliente</p>
         </div>
       </div>
     );
@@ -75,8 +81,8 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
   };
   
   return (
-    <div className="h-full bg-pharmacy-dark1 border-l border-pharmacy-dark2 overflow-y-auto">
-      <div className="p-4 border-b border-pharmacy-dark2">
+    <div className="h-full bg-white border-l border-pharmacy-border1 overflow-y-auto">
+      <div className="p-4 border-b border-pharmacy-border1">
         <CustomerHeader 
           customer={customerData} 
           onSave={handleUpdateCustomer} 
@@ -95,14 +101,14 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
         />
       </div>
       
-      <div className="p-4 border-b border-pharmacy-dark2">
+      <div className="p-4 border-b border-pharmacy-border1">
         <CustomerProducts 
           products={customerData.products} 
           onAddProduct={handleAddProduct} 
         />
       </div>
       
-      <div className="p-4 border-b border-pharmacy-dark2">
+      <div className="p-4 border-b border-pharmacy-border1">
         <CustomerAutomations products={customerData.products} />
       </div>
       
