@@ -1,7 +1,6 @@
 import React from 'react';
 import { User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import LogoImage from '@/lib/assets/Logo.png';
 import { useNavigate } from 'react-router-dom';
 
 const TopBar = () => {
@@ -16,19 +15,7 @@ const TopBar = () => {
   };
 
   return (
-    <div className="h-16 bg-pharmacy-dark2 border-b border-pharmacy-dark1 flex items-center justify-between px-4">
-      <div className="flex-1 flex items-center gap-2">
-        <img 
-          src={LogoImage}
-          alt="Logo Sairá"
-          className="w-10 h-10 rounded-full object-cover"
-        />
-        <h1 className="text-2xl font-bold text-white tracking-tight logo-text">
-          <span className="text-pharmacy-accent">Sai</span>
-          <span className="text-pharmacy-green2">rá</span>
-        </h1>
-      </div>
-      
+    <div className="h-16 bg-pharmacy-dark1 border-b border-pharmacy-dark2 flex items-center justify-end px-4">
       <div className="flex items-center gap-4">
         <div className="flex flex-col items-end mr-2">
           <span className="text-white text-sm font-medium">Bem Vindo, Mayssa</span>

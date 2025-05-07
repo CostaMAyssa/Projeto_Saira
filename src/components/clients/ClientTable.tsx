@@ -180,13 +180,13 @@ const ClientTable = ({ clients, getStatusBadge, getTagBadge }: ClientTableProps)
 
       {/* Modal de Edição */}
       <Dialog open={isEditModalOpen} onOpenChange={handleCloseEditModal}>
-        <DialogContent className="bg-pharmacy-dark2 border-pharmacy-dark1 text-white">
-          <DialogHeader>
-            <DialogTitle className="text-pharmacy-accent text-xl">Editar Cliente</DialogTitle>
+        <DialogContent className="bg-pharmacy-dark2 border-pharmacy-dark1 text-white w-[calc(100%-32px)] max-w-lg mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="mb-3">
+            <DialogTitle className="text-pharmacy-accent text-xl text-center sm:text-left">Editar Cliente</DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-4">
-            <div className="space-y-2">
+          <div className="space-y-3 sm:space-y-4">
+            <div className="space-y-1 sm:space-y-2">
               <Label htmlFor="edit-name">Nome</Label>
               <Input
                 id="edit-name"
@@ -196,7 +196,7 @@ const ClientTable = ({ clients, getStatusBadge, getTagBadge }: ClientTableProps)
               />
             </div>
             
-            <div className="space-y-2">
+            <div className="space-y-1 sm:space-y-2">
               <Label htmlFor="edit-phone">Telefone</Label>
               <Input
                 id="edit-phone"
@@ -206,7 +206,7 @@ const ClientTable = ({ clients, getStatusBadge, getTagBadge }: ClientTableProps)
               />
             </div>
             
-            <div className="space-y-2">
+            <div className="space-y-1 sm:space-y-2">
               <Label htmlFor="edit-email">Email</Label>
               <Input
                 id="edit-email"
@@ -217,7 +217,7 @@ const ClientTable = ({ clients, getStatusBadge, getTagBadge }: ClientTableProps)
               />
             </div>
             
-            <div className="space-y-2">
+            <div className="space-y-1 sm:space-y-2">
               <Label htmlFor="edit-status">Status</Label>
               <Select value={status} onValueChange={(value: 'active' | 'inactive') => setStatus(value)}>
                 <SelectTrigger className="bg-pharmacy-dark1 border-pharmacy-green1">
@@ -230,9 +230,9 @@ const ClientTable = ({ clients, getStatusBadge, getTagBadge }: ClientTableProps)
               </Select>
             </div>
             
-            <div className="space-y-2">
+            <div className="space-y-1 sm:space-y-2">
               <Label>Tags</Label>
-              <div className="flex flex-col space-y-2">
+              <div className="grid grid-cols-2 gap-2">
                 <div className="flex items-center space-x-2">
                   <Checkbox 
                     id="edit-tag-vip" 
@@ -266,17 +266,17 @@ const ClientTable = ({ clients, getStatusBadge, getTagBadge }: ClientTableProps)
             </div>
           </div>
           
-          <DialogFooter>
+          <DialogFooter className="mt-6 pt-3 border-t border-pharmacy-dark1">
             <Button 
               onClick={handleCloseEditModal} 
               variant="ghost" 
-              className="mr-2 border border-pharmacy-green1 text-pharmacy-green2 hover:bg-pharmacy-green1 hover:text-white"
+              className="w-full sm:w-auto mr-2 border border-pharmacy-green1 text-pharmacy-green2 hover:bg-pharmacy-green1 hover:text-white mb-2 sm:mb-0"
             >
               Cancelar
             </Button>
             <Button 
               onClick={handleSaveEdit} 
-              className="bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white"
+              className="w-full sm:w-auto bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white"
             >
               Salvar
             </Button>

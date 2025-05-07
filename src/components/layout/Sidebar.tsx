@@ -41,14 +41,18 @@ const Sidebar = ({ activePage, setActivePage }: { activePage: string; setActiveP
   return (
     <div className="h-screen bg-pharmacy-dark1 w-20 flex flex-col items-center py-6 border-r border-pharmacy-dark2">
       <div className="mb-8 flex flex-col items-center">
-        <img 
-          src={LogoImage}
-          alt="Logo Sairá"
-          className="w-14 h-14 rounded-full object-cover"
-        />
+        <div className="relative w-14 h-14">
+          <div className="absolute inset-0 bg-gradient-to-br from-pharmacy-accent via-pharmacy-green1 to-pharmacy-green2 rounded-full opacity-40 blur-md"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <img 
+              src={LogoImage}
+              alt="Logo Sairá"
+              className="w-full h-full rounded-full object-cover drop-shadow-[0_0_8px_rgba(145,146,92,0.6)]"
+            />
+          </div>
+        </div>
         <div className="mt-1 text-xs font-bold tracking-tight logo-text">
-          <span className="text-pharmacy-accent">Sai</span>
-          <span className="text-pharmacy-green2">rá</span>
+          <span className="text-pharmacy-green2">Saíra</span>
         </div>
       </div>
 

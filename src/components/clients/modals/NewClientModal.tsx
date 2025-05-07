@@ -60,13 +60,13 @@ const NewClientModal = ({ isOpen, onClose, onSave }: NewClientModalProps) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-pharmacy-dark2 border-pharmacy-dark1 text-white">
-        <DialogHeader>
-          <DialogTitle className="text-pharmacy-accent text-xl">Novo Cliente</DialogTitle>
+      <DialogContent className="bg-pharmacy-dark2 border-pharmacy-dark1 text-white w-[calc(100%-32px)] max-w-lg mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="mb-3">
+          <DialogTitle className="text-pharmacy-accent text-xl text-center sm:text-left">Novo Cliente</DialogTitle>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
+        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+          <div className="space-y-1 sm:space-y-2">
             <Label htmlFor="name">Nome</Label>
             <Input
               id="name"
@@ -77,7 +77,7 @@ const NewClientModal = ({ isOpen, onClose, onSave }: NewClientModalProps) => {
             />
           </div>
           
-          <div className="space-y-2">
+          <div className="space-y-1 sm:space-y-2">
             <Label htmlFor="phone">Telefone</Label>
             <Input
               id="phone"
@@ -88,7 +88,7 @@ const NewClientModal = ({ isOpen, onClose, onSave }: NewClientModalProps) => {
             />
           </div>
           
-          <div className="space-y-2">
+          <div className="space-y-1 sm:space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
@@ -100,7 +100,7 @@ const NewClientModal = ({ isOpen, onClose, onSave }: NewClientModalProps) => {
             />
           </div>
           
-          <div className="space-y-2">
+          <div className="space-y-1 sm:space-y-2">
             <Label htmlFor="status">Status</Label>
             <Select value={status} onValueChange={(value: 'active' | 'inactive') => setStatus(value)}>
               <SelectTrigger className="bg-pharmacy-dark1 border-pharmacy-green1">
@@ -113,9 +113,9 @@ const NewClientModal = ({ isOpen, onClose, onSave }: NewClientModalProps) => {
             </Select>
           </div>
           
-          <div className="space-y-2">
+          <div className="space-y-1 sm:space-y-2">
             <Label>Tags</Label>
-            <div className="flex flex-col space-y-2">
+            <div className="grid grid-cols-2 gap-2">
               <div className="flex items-center space-x-2">
                 <Checkbox 
                   id="tag-vip" 
@@ -158,18 +158,18 @@ const NewClientModal = ({ isOpen, onClose, onSave }: NewClientModalProps) => {
             </div>
           </div>
           
-          <DialogFooter>
+          <DialogFooter className="mt-6 pt-3 border-t border-pharmacy-dark1">
             <Button 
               type="button" 
               variant="outline" 
               onClick={onClose}
-              className="border-pharmacy-green1 text-pharmacy-green2"
+              className="w-full sm:w-auto border-pharmacy-green1 text-pharmacy-green2 mb-2 sm:mb-0"
             >
               Cancelar
             </Button>
             <Button 
               type="submit" 
-              className="bg-pharmacy-accent hover:bg-pharmacy-green1 text-white"
+              className="w-full sm:w-auto bg-pharmacy-accent hover:bg-pharmacy-green1 text-white"
             >
               Salvar
             </Button>
