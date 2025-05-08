@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -5,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Search, Bell, Plus, Play, Pause, Calendar, Clock, BarChart, RefreshCcw } from 'lucide-react';
 import NewCampaignModal from './modals/NewCampaignModal';
 import { toast } from 'sonner';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Campaign {
   id: string;
@@ -18,6 +20,7 @@ interface Campaign {
 
 const CampaignsModule = () => {
   const [isNewCampaignModalOpen, setIsNewCampaignModalOpen] = useState(false);
+  const isMobile = useIsMobile();
   const [campaigns, setCampaigns] = useState<Campaign[]>([
     {
       id: '1',
@@ -112,19 +115,20 @@ const CampaignsModule = () => {
   };
 
   return (
-    <div className="flex-1 p-6 overflow-y-auto bg-white">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-pharmacy-text1">Campanhas e Automações</h1>
+    <div className="flex-1 p-3 sm:p-6 overflow-y-auto bg-white">
+      <div className="flex justify-between items-center mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-pharmacy-text1">Campanhas e Automações</h1>
         <Button 
           className="bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white"
+          size={isMobile ? "sm" : "default"}
           onClick={() => setIsNewCampaignModalOpen(true)}
         >
-          <Plus className="mr-2 h-4 w-4" />
-          Nova Campanha
+          <Plus className="mr-1 sm:mr-2 h-4 w-4" />
+          {isMobile ? "Nova" : "Nova Campanha"}
         </Button>
       </div>
       
-      <div className="mb-6">
+      <div className="mb-4 sm:mb-6">
         <div className="relative w-full">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
           <Input
@@ -134,64 +138,131 @@ const CampaignsModule = () => {
         </div>
       </div>
       
-      <div className="bg-white rounded-xl overflow-hidden border border-pharmacy-border1 shadow-sm">
-        <div className="grid grid-cols-12 gap-4 p-4 border-b border-pharmacy-border1 text-pharmacy-text1 font-medium bg-pharmacy-light2">
-          <div className="col-span-4">Nome</div>
-          <div className="col-span-2">Tipo</div>
-          <div className="col-span-2">Audiência</div>
-          <div className="col-span-2">Agendamento</div>
-          <div className="col-span-1">Status</div>
-          <div className="col-span-1">Ações</div>
-        </div>
-        
-        {campaigns.map((campaign) => (
-          <div 
-            key={campaign.id} 
-            className="grid grid-cols-12 gap-4 p-4 border-b border-pharmacy-border1 hover:bg-pharmacy-light2 cursor-pointer"
-          >
-            <div className="col-span-4">
-              <div className="text-pharmacy-text1 font-medium">{campaign.name}</div>
-              <div className="text-xs text-pharmacy-text2">Última execução: {campaign.lastRun}</div>
+      <div className="bg-white rounded-xl overflow-hidden border border-pharmacy-border1 shadow-sm no-scrollbar">
+        {!isMobile ? (
+          // Desktop view with table layout
+          <>
+            <div className="grid grid-cols-12 gap-2 sm:gap-4 p-3 sm:p-4 border-b border-pharmacy-border1 text-pharmacy-text1 font-medium bg-pharmacy-light2">
+              <div className="col-span-4">Nome</div>
+              <div className="col-span-2">Tipo</div>
+              <div className="col-span-2">Audiência</div>
+              <div className="col-span-2">Agendamento</div>
+              <div className="col-span-1">Status</div>
+              <div className="col-span-1">Ações</div>
             </div>
-            <div className="col-span-2 text-pharmacy-text2 flex items-center">
-              {getTypeIcon(campaign.type)}
-              {campaign.type}
-            </div>
-            <div className="col-span-2 text-pharmacy-text2">{campaign.audience}</div>
-            <div className="col-span-2 text-pharmacy-text2">{campaign.schedule}</div>
-            <div className="col-span-1">
-              {campaign.status === 'active' ? (
-                <Badge className="bg-green-100 text-green-700 border border-green-200 font-medium">
-                  Ativa
-                </Badge>
-              ) : campaign.status === 'paused' ? (
-                <Badge className="bg-yellow-100 text-yellow-700 border border-yellow-200 font-medium">
-                  Pausada
-                </Badge>
-              ) : (
-                <Badge className="bg-blue-100 text-blue-700 border border-blue-200 font-medium">
-                  Agendada
-                </Badge>
-              )}
-            </div>
-            <div className="col-span-1 flex justify-center">
-              {campaign.status !== 'scheduled' && (
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="text-pharmacy-text2 hover:text-pharmacy-accent"
-                  onClick={() => handleToggleCampaignStatus(campaign.id)}
-                >
+            
+            {campaigns.map((campaign) => (
+              <div 
+                key={campaign.id} 
+                className="grid grid-cols-12 gap-2 sm:gap-4 p-3 sm:p-4 border-b border-pharmacy-border1 hover:bg-pharmacy-light2 cursor-pointer"
+              >
+                <div className="col-span-4">
+                  <div className="text-pharmacy-text1 font-medium">{campaign.name}</div>
+                  <div className="text-xs text-pharmacy-text2">Última execução: {campaign.lastRun}</div>
+                </div>
+                <div className="col-span-2 text-pharmacy-text2 flex items-center">
+                  {getTypeIcon(campaign.type)}
+                  {campaign.type}
+                </div>
+                <div className="col-span-2 text-pharmacy-text2">{campaign.audience}</div>
+                <div className="col-span-2 text-pharmacy-text2">{campaign.schedule}</div>
+                <div className="col-span-1">
                   {campaign.status === 'active' ? (
-                    <Pause className="h-4 w-4" />
+                    <Badge className="bg-green-100 text-green-700 border border-green-200 font-medium">
+                      Ativa
+                    </Badge>
+                  ) : campaign.status === 'paused' ? (
+                    <Badge className="bg-yellow-100 text-yellow-700 border border-yellow-200 font-medium">
+                      Pausada
+                    </Badge>
                   ) : (
-                    <Play className="h-4 w-4" />
+                    <Badge className="bg-blue-100 text-blue-700 border border-blue-200 font-medium">
+                      Agendada
+                    </Badge>
                   )}
-                </Button>
-              )}
-            </div>
-          </div>
-        ))}
+                </div>
+                <div className="col-span-1 flex justify-center">
+                  {campaign.status !== 'scheduled' && (
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="text-pharmacy-text2 hover:text-pharmacy-accent"
+                      onClick={() => handleToggleCampaignStatus(campaign.id)}
+                    >
+                      {campaign.status === 'active' ? (
+                        <Pause className="h-4 w-4" />
+                      ) : (
+                        <Play className="h-4 w-4" />
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </>
+        ) : (
+          // Mobile view with card layout
+          <>
+            {campaigns.map((campaign) => (
+              <div 
+                key={campaign.id} 
+                className="p-3 border-b border-pharmacy-border1 hover:bg-pharmacy-light2"
+              >
+                <div className="flex justify-between items-center mb-2">
+                  <div className="font-medium text-pharmacy-text1">{campaign.name}</div>
+                  {campaign.status !== 'scheduled' && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-pharmacy-text2 hover:text-pharmacy-accent p-1 h-auto"
+                      onClick={() => handleToggleCampaignStatus(campaign.id)}
+                    >
+                      {campaign.status === 'active' ? (
+                        <Pause className="h-4 w-4" />
+                      ) : (
+                        <Play className="h-4 w-4" />
+                      )}
+                    </Button>
+                  )}
+                </div>
+                
+                <div className="flex justify-between items-center mb-1">
+                  <div className="flex items-center text-xs text-pharmacy-text2">
+                    {getTypeIcon(campaign.type)}
+                    <span>{campaign.type}</span>
+                  </div>
+                  <div>
+                    {campaign.status === 'active' ? (
+                      <Badge className="bg-green-100 text-green-700 border border-green-200 text-xs font-medium">
+                        Ativa
+                      </Badge>
+                    ) : campaign.status === 'paused' ? (
+                      <Badge className="bg-yellow-100 text-yellow-700 border border-yellow-200 text-xs font-medium">
+                        Pausada
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-blue-100 text-blue-700 border border-blue-200 text-xs font-medium">
+                        Agendada
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-1 text-xs text-pharmacy-text2">
+                  <div>
+                    <span className="font-medium">Audiência:</span> {campaign.audience}
+                  </div>
+                  <div>
+                    <span className="font-medium">Agenda:</span> {campaign.schedule}
+                  </div>
+                  <div className="col-span-2">
+                    <span className="font-medium">Última execução:</span> {campaign.lastRun}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
       </div>
       
       <div className="mt-4 text-center text-sm text-pharmacy-text2">
