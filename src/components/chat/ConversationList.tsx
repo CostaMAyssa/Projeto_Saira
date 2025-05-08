@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import SearchFilters from './conversation-list/SearchFilters';
@@ -50,17 +51,19 @@ const ConversationList: React.FC<ConversationListProps> = ({
         setFilterType={setFilterType}
       />
       
-      <ScrollArea className="flex-1">
-        {filteredConversations.map((conversation) => (
-          <ConversationItem
-            key={conversation.id}
-            conversation={conversation}
-            isActive={activeConversation === conversation.id}
-            onClick={() => setActiveConversation(conversation.id)}
-          />
-        ))}
-        
-        {filteredConversations.length === 0 && <EmptyState />}
+      <ScrollArea className="flex-1 overflow-y-auto">
+        <div className="pb-4">
+          {filteredConversations.map((conversation) => (
+            <ConversationItem
+              key={conversation.id}
+              conversation={conversation}
+              isActive={activeConversation === conversation.id}
+              onClick={() => setActiveConversation(conversation.id)}
+            />
+          ))}
+          
+          {filteredConversations.length === 0 && <EmptyState />}
+        </div>
       </ScrollArea>
     </div>
   );

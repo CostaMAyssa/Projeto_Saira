@@ -1,6 +1,5 @@
 
 import React, { useState } from 'react';
-import PageContainer from '@/components/layout/PageContainer';
 import ModuleManager from '@/components/modules/ModuleManager';
 import Sidebar from '@/components/layout/Sidebar';
 import TopBar from '@/components/layout/TopBar';
