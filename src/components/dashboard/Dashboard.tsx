@@ -1,10 +1,12 @@
-import React from 'react';
+
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { MessageSquare, Users, Package, Bell } from 'lucide-react';
+import { MessageSquare, Users, Package, Bell, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
-const data = [
+const dailyData = [
   { name: 'Seg', value: 12 },
   { name: 'Ter', value: 19 },
   { name: 'Qua', value: 15 },
@@ -14,11 +16,53 @@ const data = [
   { name: 'Dom', value: 7 },
 ];
 
+const monthlyData = [
+  { name: 'Jan', value: 65 },
+  { name: 'Fev', value: 78 },
+  { name: 'Mar', value: 90 },
+  { name: 'Abr', value: 81 },
+  { name: 'Mai', value: 86 },
+  { name: 'Jun', value: 103 },
+];
+
 const Dashboard = () => {
+  const { toast } = useToast();
+  const [activeChart, setActiveChart] = useState('daily');
+  
+  const handleViewAllReminders = () => {
+    toast({
+      title: "Visualizar todos os lembretes",
+      description: "Esta funcionalidade estará disponível em breve.",
+    });
+  };
+
+  const handleViewAllConversations = () => {
+    toast({
+      title: "Visualizar todas as conversas",
+      description: "Esta funcionalidade estará disponível em breve.",
+    });
+  };
+  
   return (
     <div className="flex-1 p-6 overflow-y-auto bg-white">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <div className="flex space-x-2">
+          <Button 
+            variant="outline" 
+            className={`${activeChart === 'daily' ? 'bg-pharmacy-accent text-white' : 'text-pharmacy-accent'}`}
+            onClick={() => setActiveChart('daily')}
+          >
+            Diário
+          </Button>
+          <Button 
+            variant="outline" 
+            className={`${activeChart === 'monthly' ? 'bg-pharmacy-accent text-white' : 'text-pharmacy-accent'}`}
+            onClick={() => setActiveChart('monthly')}
+          >
+            Mensal
+          </Button>
+        </div>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -73,16 +117,27 @@ const Dashboard = () => {
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <Card className="bg-white border-gray-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-gray-900">Conversas por Dia</CardTitle>
-            <CardDescription className="text-gray-500">
-              Últimos 7 dias
-            </CardDescription>
+          <CardHeader className="flex justify-between items-start">
+            <div>
+              <CardTitle className="text-gray-900">Conversas por Dia</CardTitle>
+              <CardDescription className="text-gray-500">
+                {activeChart === 'daily' ? 'Últimos 7 dias' : 'Últimos 6 meses'}
+              </CardDescription>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-pharmacy-accent" 
+              onClick={handleViewAllConversations}
+            >
+              Ver todos
+              <ArrowRight className="ml-1 h-4 w-4" />
+            </Button>
           </CardHeader>
           <CardContent>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data}>
+                <BarChart data={activeChart === 'daily' ? dailyData : monthlyData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis dataKey="name" stroke="#6b7280" />
                   <YAxis stroke="#6b7280" />
@@ -101,17 +156,37 @@ const Dashboard = () => {
         </Card>
         
         <Card className="bg-white border-gray-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-gray-900">Próximos Lembretes</CardTitle>
-            <CardDescription className="text-gray-500">
-              Automações agendadas
-            </CardDescription>
+          <CardHeader className="flex justify-between items-start">
+            <div>
+              <CardTitle className="text-gray-900">Próximos Lembretes</CardTitle>
+              <CardDescription className="text-gray-500">
+                Automações agendadas
+              </CardDescription>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-pharmacy-accent"
+              onClick={handleViewAllReminders}
+            >
+              Ver todos
+              <ArrowRight className="ml-1 h-4 w-4" />
+            </Button>
           </CardHeader>
           <CardContent>
             <div className="h-80 overflow-y-auto pr-1 custom-scrollbar">
               <div className="space-y-4">
                 {[1, 2, 3, 4, 5, 6].map((index) => (
-                  <div key={index} className="flex items-center justify-between border-b border-gray-200 pb-3">
+                  <div 
+                    key={index} 
+                    className="flex items-center justify-between border-b border-gray-200 pb-3 cursor-pointer hover:bg-gray-50 rounded-md p-2"
+                    onClick={() => {
+                      toast({
+                        title: "Detalhe do lembrete",
+                        description: `Detalhes do lembrete ${index} serão exibidos em breve.`,
+                      });
+                    }}
+                  >
                     <div>
                       <h3 className="text-sm font-medium text-gray-900">
                         {index === 1 ? 'Lembrete de Recompra - Losartana' : 
