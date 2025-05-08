@@ -1,5 +1,7 @@
+
 import React, { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
 import ProductCard from './ProductCard';
 import ProductFilters from './ProductFilters';
 import ProductsHeader from './ProductsHeader';
@@ -18,6 +20,7 @@ const ProductsModule = () => {
   const [isCreateFormOpen, setIsCreateFormOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   
   const handleAddProduct = () => {
     setIsCreateFormOpen(true);
@@ -111,12 +114,13 @@ const ProductsModule = () => {
     });
 
   return (
-    <div className="flex-1 p-6 overflow-y-auto bg-white">
+    <div className="flex-1 p-4 sm:p-6 overflow-y-auto bg-white">
       <ProductsHeader onAddProduct={handleAddProduct} />
       <ProductFilters 
         activeFilter={activeFilter} 
         setActiveFilter={setActiveFilter}
         onSearch={handleSearch}
+        isMobile={isMobile}
       />
       
       {filteredProducts.length === 0 ? (
@@ -125,13 +129,14 @@ const ProductsModule = () => {
           <p className="text-gray-400">Tente ajustar seus filtros ou termos de busca</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {filteredProducts.map(product => (
             <ProductCard 
               key={product.id} 
               product={product} 
               onEdit={handleEditProduct}
               onViewDetails={handleViewDetails}
+              isMobile={isMobile}
             />
           ))}
         </div>
