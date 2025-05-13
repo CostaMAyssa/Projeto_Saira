@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -6,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { FileText, Plus } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface NewFormModalProps {
   open: boolean;
@@ -29,6 +31,7 @@ const NewFormModal: React.FC<NewFormModalProps> = ({ open, onOpenChange, onSubmi
   const [templateType, setTemplateType] = useState('');
   const [numQuestions, setNumQuestions] = useState(5);
   const [isActive, setIsActive] = useState(true);
+  const isMobile = useIsMobile();
 
   const templates: Record<string, FormTemplate> = {
     satisfaction: {
@@ -95,22 +98,22 @@ const NewFormModal: React.FC<NewFormModalProps> = ({ open, onOpenChange, onSubmi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-white sm:max-w-[550px]">
+      <DialogContent className="bg-white sm:max-w-[550px] p-4 md:p-6 max-w-[95vw] md:max-w-[550px]">
         <DialogHeader>
-          <DialogTitle className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+          <DialogTitle className="text-lg md:text-xl font-semibold text-gray-900 flex items-center gap-2">
             <FileText className="h-5 w-5 text-pharmacy-accent" />
             Novo Formulário
           </DialogTitle>
         </DialogHeader>
 
-        <div className="py-4 space-y-4">
+        <div className="py-2 md:py-4 space-y-4">
           <div className="space-y-2">
             <Label htmlFor="template" className="text-gray-700">Tipo de Formulário</Label>
             <Select value={templateType} onValueChange={handleTemplateChange}>
               <SelectTrigger className="bg-white border-gray-300">
                 <SelectValue placeholder="Selecione um modelo" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className={isMobile ? "max-w-[90vw]" : ""}>
                 <SelectItem value="satisfaction">Pesquisa de Satisfação</SelectItem>
                 <SelectItem value="registration">Cadastro de Cliente</SelectItem>
                 <SelectItem value="medical">Histórico Médico</SelectItem>
@@ -162,18 +165,18 @@ const NewFormModal: React.FC<NewFormModalProps> = ({ open, onOpenChange, onSubmi
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className={isMobile ? "flex-col space-y-2 sm:space-y-0" : ""}>
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
-            className="border-gray-300 text-gray-700"
+            className={`border-gray-300 text-gray-700 ${isMobile ? "w-full" : ""}`}
           >
             Cancelar
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={!formName.trim()}
-            className="bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white"
+            className={`bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white ${isMobile ? "w-full" : ""}`}
           >
             <Plus className="h-4 w-4 mr-2" />
             Criar Formulário
@@ -184,4 +187,4 @@ const NewFormModal: React.FC<NewFormModalProps> = ({ open, onOpenChange, onSubmi
   );
 };
 
-export default NewFormModal; 
+export default NewFormModal;
