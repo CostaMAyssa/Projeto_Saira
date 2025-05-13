@@ -1,12 +1,20 @@
+
 import React from 'react';
-import { Phone, Info, MoreVertical } from 'lucide-react';
+import { Phone, Info, MoreVertical, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { formatPhoneNumber } from '@/lib/utils';
 
 interface ChatHeaderProps {
   activeConversation: string;
+  onBackClick?: () => void;
+  isMobile: boolean;
 }
 
-const ChatHeader: React.FC<ChatHeaderProps> = ({ activeConversation }) => {
+const ChatHeader: React.FC<ChatHeaderProps> = ({ 
+  activeConversation, 
+  onBackClick,
+  isMobile 
+}) => {
   // Get name and phone based on conversation ID
   const getName = (id: string): string => {
     switch (id) {
@@ -35,6 +43,16 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({ activeConversation }) => {
   return (
     <div className="bg-pharmacy-whatsapp-header p-2 border-b border-gray-200 flex items-center justify-between">
       <div className="flex items-center">
+        {isMobile && onBackClick && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onBackClick}
+            className="text-pharmacy-whatsapp-icon hover:bg-gray-200 rounded-full h-9 w-9 mr-1"
+          >
+            <ChevronLeft size={20} />
+          </Button>
+        )}
         <div className="w-10 h-10 rounded-full bg-pharmacy-whatsapp-primary flex items-center justify-center text-white font-medium mr-3">
           {initial}
         </div>
