@@ -52,17 +52,19 @@ const ConversationList: React.FC<ConversationListProps> = ({
       />
       
       <ScrollArea className="flex-1 overflow-y-auto">
-        <div className="pb-4">
-          {filteredConversations.map((conversation) => (
-            <ConversationItem
-              key={conversation.id}
-              conversation={conversation}
-              isActive={activeConversation === conversation.id}
-              onClick={() => setActiveConversation(conversation.id)}
-            />
-          ))}
-          
-          {filteredConversations.length === 0 && <EmptyState />}
+        <div className="pb-4 divide-y divide-pharmacy-border1">
+          {filteredConversations.length > 0 ? (
+            filteredConversations.map((conversation) => (
+              <ConversationItem
+                key={conversation.id}
+                conversation={conversation}
+                isActive={activeConversation === conversation.id}
+                onClick={() => setActiveConversation(conversation.id)}
+              />
+            ))
+          ) : (
+            <EmptyState />
+          )}
         </div>
       </ScrollArea>
     </div>

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -20,10 +21,11 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
   return (
     <div
       className={cn(
-        "p-4 hover:bg-pharmacy-whatsapp-hover cursor-pointer conversation-item",
-        isActive && "active"
+        "p-4 hover:bg-pharmacy-whatsapp-hover cursor-pointer border-b border-pharmacy-border1 conversation-item",
+        isActive && "bg-pharmacy-whatsapp-hover border-l-4 border-l-pharmacy-whatsapp-primary"
       )}
       onClick={onClick}
+      data-conversation-id={conversation.id}
     >
       <div className="flex gap-3">
         <div className="w-12 h-12 rounded-full bg-pharmacy-whatsapp-primary flex-shrink-0 flex items-center justify-center text-white font-medium">
@@ -43,12 +45,12 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
                 {conversation.lastMessage}
               </p>
               
-              <div className="flex gap-1 mt-1">
+              <div className="flex gap-1 mt-1 flex-wrap">
                 {conversation.tags.map((tag) => (
                   <Badge 
                     key={tag} 
                     variant="outline" 
-                    className="tag-badge"
+                    className="tag-badge text-xs"
                   >
                     {tag}
                   </Badge>

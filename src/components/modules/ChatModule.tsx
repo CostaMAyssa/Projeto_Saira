@@ -30,29 +30,29 @@ const ChatModule: React.FC<ChatModuleProps> = ({
   if (isMobile) {
     // Layout for mobile devices
     return (
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden h-full">
         {!activeConversation ? (
           // Mobile conversation list view
-          <ConversationList 
-            activeConversation={activeConversation} 
-            setActiveConversation={setActiveConversation} 
-          />
+          <div className="flex-1 flex flex-col h-full">
+            <ConversationList 
+              activeConversation={activeConversation} 
+              setActiveConversation={setActiveConversation} 
+            />
+          </div>
         ) : (
           // Mobile chat view with slide-out customer details
-          <div className="flex-1 flex flex-col">
-            <div className="flex-1 flex">
-              <ChatWindow 
-                activeConversation={activeConversation} 
-                onBackClick={() => setActiveConversation(null)}
-                isMobile={true}
-              />
-            </div>
+          <div className="flex-1 flex flex-col h-full">
+            <ChatWindow 
+              activeConversation={activeConversation} 
+              onBackClick={() => setActiveConversation(null)}
+              isMobile={true}
+            />
             
             <Sheet>
               <SheetTrigger asChild>
                 <Button 
                   variant="outline"
-                  className="fixed bottom-4 right-4 rounded-full h-12 w-12 shadow-md bg-pharmacy-whatsapp-primary hover:bg-pharmacy-whatsapp-primary/90 text-white"
+                  className="fixed bottom-4 right-4 rounded-full h-12 w-12 shadow-md bg-pharmacy-whatsapp-primary hover:bg-pharmacy-whatsapp-primary/90 text-white z-10"
                 >
                   <UserCircle className="h-6 w-6" />
                 </Button>
@@ -68,7 +68,7 @@ const ChatModule: React.FC<ChatModuleProps> = ({
   } else {
     // Desktop layout with three columns
     return (
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden h-full">
         <div className="w-1/4 h-full">
           <ConversationList 
             activeConversation={activeConversation} 

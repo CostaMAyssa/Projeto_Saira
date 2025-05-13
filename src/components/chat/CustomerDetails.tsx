@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import CustomerHeader from './customer-details/CustomerHeader';
 import CustomerContactInfo from './customer-details/CustomerContactInfo';
@@ -28,7 +29,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
   
   if (!activeConversation || !customerData) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-gray-50">
+      <div className="h-full flex flex-col items-center justify-center bg-gray-50 p-4">
         <div className="relative w-16 h-16 mb-4">
           <div className="absolute inset-0 bg-pharmacy-whatsapp-primary rounded-full opacity-10"></div>
           <div className="absolute inset-0 flex items-center justify-center text-pharmacy-whatsapp-primary">
