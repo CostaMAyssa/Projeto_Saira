@@ -41,35 +41,35 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
   const initial = name.charAt(0).toUpperCase();
   
   return (
-    <div className="bg-pharmacy-whatsapp-header p-2 border-b border-gray-200 flex items-center justify-between">
+    <div className="bg-[#F0F2F5] p-2 border-b border-gray-200 flex items-center justify-between">
       <div className="flex items-center">
         {isMobile && onBackClick && (
           <Button
             variant="ghost"
             size="icon"
             onClick={onBackClick}
-            className="text-pharmacy-whatsapp-icon hover:bg-gray-200 rounded-full h-9 w-9 mr-1"
+            className="text-gray-600 hover:bg-gray-200 rounded-full h-9 w-9 mr-1"
           >
             <ChevronLeft size={20} />
           </Button>
         )}
-        <div className="w-10 h-10 rounded-full bg-pharmacy-whatsapp-primary flex items-center justify-center text-white font-medium mr-3">
+        <div className="w-10 h-10 rounded-full bg-[#DFE5E7] flex items-center justify-center text-gray-600 font-medium mr-3">
           {initial}
         </div>
         <div>
-          <h3 className="font-medium text-pharmacy-text1">{name}</h3>
-          <span className="text-xs text-pharmacy-text2">{phone}</span>
+          <h3 className="font-medium text-gray-900">{name}</h3>
+          <span className="text-xs text-gray-600">{phone}</span>
         </div>
       </div>
       
       <div className="flex items-center space-x-2">
-        <Button variant="ghost" size="icon" className="text-pharmacy-whatsapp-icon hover:bg-gray-200 rounded-full h-9 w-9">
+        <Button variant="ghost" size="icon" className="text-gray-600 hover:bg-gray-200 rounded-full h-9 w-9">
           <Phone size={20} />
         </Button>
-        <Button variant="ghost" size="icon" className="text-pharmacy-whatsapp-icon hover:bg-gray-200 rounded-full h-9 w-9">
+        <Button variant="ghost" size="icon" className="text-gray-600 hover:bg-gray-200 rounded-full h-9 w-9">
           <Info size={20} />
         </Button>
-        <Button variant="ghost" size="icon" className="text-pharmacy-whatsapp-icon hover:bg-gray-200 rounded-full h-9 w-9">
+        <Button variant="ghost" size="icon" className="text-gray-600 hover:bg-gray-200 rounded-full h-9 w-9">
           <MoreVertical size={20} />
         </Button>
       </div>

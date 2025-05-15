@@ -52,7 +52,7 @@ const ChatModule: React.FC<ChatModuleProps> = ({
               <SheetTrigger asChild>
                 <Button 
                   variant="outline"
-                  className="fixed bottom-4 right-4 rounded-full h-12 w-12 shadow-md bg-pharmacy-whatsapp-primary hover:bg-pharmacy-whatsapp-primary/90 text-white z-10"
+                  className="fixed bottom-4 right-4 rounded-full h-12 w-12 shadow-md bg-[#00A884] hover:bg-[#008069] text-white z-50"
                 >
                   <UserCircle className="h-6 w-6" />
                 </Button>
@@ -68,7 +68,7 @@ const ChatModule: React.FC<ChatModuleProps> = ({
   } else {
     // Desktop layout with three columns
     return (
-      <div className="flex-1 flex overflow-hidden h-full">
+      <div className="flex-1 flex overflow-hidden h-full font-sans">
         <div className="w-1/4 h-full">
           <ConversationList 
             activeConversation={activeConversation} 
