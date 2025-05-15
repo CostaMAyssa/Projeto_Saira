@@ -40,25 +40,25 @@ const AddAutomationDialog: React.FC<AddAutomationDialogProps> = ({ open, setOpen
   
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="bg-pharmacy-dark2 text-white border-pharmacy-dark1">
+      <DialogContent className="bg-white border border-gray-200 text-gray-900 rounded-xl p-4 sm:p-6 shadow-md w-full max-w-md mx-auto">
         <DialogHeader>
-          <DialogTitle className="text-pharmacy-green2">Nova Automação</DialogTitle>
+          <DialogTitle className="text-lg font-semibold text-gray-900">Nova Automação</DialogTitle>
         </DialogHeader>
         
         <div className="py-4 space-y-4">
           <div>
-            <Label htmlFor="automationType" className="text-white block mb-2">Tipo de Automação</Label>
+            <Label htmlFor="automationType" className="text-gray-700 block mb-2">Tipo de Automação</Label>
             <Select 
               value={automationType} 
               onValueChange={setAutomationType}
             >
               <SelectTrigger 
                 id="automationType" 
-                className="bg-pharmacy-dark1 border-pharmacy-green1 text-white"
+                className="bg-gray-50 border border-gray-300 text-gray-900 px-4 py-2"
               >
                 <SelectValue placeholder="Selecione o tipo" />
               </SelectTrigger>
-              <SelectContent className="bg-pharmacy-dark2 border-pharmacy-green1">
+              <SelectContent className="bg-white border-gray-300">
                 <SelectItem value="lembrete">Lembrete de Recompra</SelectItem>
                 <SelectItem value="aniversario">Lembrete de Aniversário</SelectItem>
               </SelectContent>
@@ -66,18 +66,18 @@ const AddAutomationDialog: React.FC<AddAutomationDialogProps> = ({ open, setOpen
           </div>
           
           <div>
-            <Label htmlFor="product" className="text-white block mb-2">Produto</Label>
+            <Label htmlFor="product" className="text-gray-700 block mb-2">Produto</Label>
             <Select 
               value={selectedProduct} 
               onValueChange={setSelectedProduct}
             >
               <SelectTrigger 
                 id="product" 
-                className="bg-pharmacy-dark1 border-pharmacy-green1 text-white"
+                className="bg-gray-50 border border-gray-300 text-gray-900 px-4 py-2"
               >
                 <SelectValue placeholder="Selecione o produto" />
               </SelectTrigger>
-              <SelectContent className="bg-pharmacy-dark2 border-pharmacy-green1">
+              <SelectContent className="bg-white border-gray-300">
                 {products.map(product => (
                   <SelectItem key={product.id} value={product.id}>
                     {product.name}
@@ -88,13 +88,13 @@ const AddAutomationDialog: React.FC<AddAutomationDialogProps> = ({ open, setOpen
           </div>
           
           <div>
-            <Label htmlFor="reminderDate" className="text-white block mb-2">Data do Lembrete</Label>
+            <Label htmlFor="reminderDate" className="text-gray-700 block mb-2">Data do Lembrete</Label>
             <Input 
               id="reminderDate" 
               type="date"
               value={reminderDate}
               onChange={(e) => setReminderDate(e.target.value)}
-              className="bg-pharmacy-dark1 border-pharmacy-green1 text-white"
+              className="bg-gray-50 border border-gray-300 text-gray-900 px-4 py-2 w-full"
             />
           </div>
         </div>
@@ -104,14 +104,14 @@ const AddAutomationDialog: React.FC<AddAutomationDialogProps> = ({ open, setOpen
             type="button" 
             variant="outline" 
             onClick={() => setOpen(false)}
-            className="text-pharmacy-green2 border-pharmacy-green1 hover:bg-pharmacy-green1 hover:text-white"
+            className="bg-gray-100 text-gray-700 hover:bg-gray-200"
           >
             Cancelar
           </Button>
           <Button 
             onClick={handleAddAutomation}
             disabled={!selectedProduct || !reminderDate}
-            className="bg-pharmacy-accent hover:bg-pharmacy-green1"
+            className="bg-[#A7A45F] text-white hover:bg-[#A7A45F]/90"
           >
             Criar
           </Button>

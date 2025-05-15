@@ -21,9 +21,9 @@ const EditNotesDialog: React.FC<EditNotesDialogProps> = ({ open, setOpen, initia
   
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="bg-pharmacy-dark2 text-white border-pharmacy-dark1">
+      <DialogContent className="bg-white border border-gray-200 text-gray-900 rounded-xl p-4 sm:p-6 shadow-md w-full max-w-md mx-auto">
         <DialogHeader>
-          <DialogTitle className="text-pharmacy-green2">Editar Observações</DialogTitle>
+          <DialogTitle className="text-lg font-semibold text-gray-900">Editar Observações</DialogTitle>
         </DialogHeader>
         
         <div className="py-4">
@@ -31,7 +31,7 @@ const EditNotesDialog: React.FC<EditNotesDialogProps> = ({ open, setOpen, initia
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={6}
-            className="bg-pharmacy-dark1 border-pharmacy-green1 text-white resize-none w-full"
+            className="bg-gray-50 border border-gray-300 text-gray-900 px-4 py-2 resize-none w-full"
             placeholder="Adicione observações sobre o cliente..."
           />
         </div>
@@ -41,13 +41,13 @@ const EditNotesDialog: React.FC<EditNotesDialogProps> = ({ open, setOpen, initia
             type="button" 
             variant="outline" 
             onClick={() => setOpen(false)}
-            className="text-pharmacy-green2 border-pharmacy-green1 hover:bg-pharmacy-green1 hover:text-white"
+            className="bg-gray-100 text-gray-700 hover:bg-gray-200"
           >
             Cancelar
           </Button>
           <Button 
             onClick={handleSave}
-            className="bg-pharmacy-accent hover:bg-pharmacy-green1"
+            className="bg-[#A7A45F] text-white hover:bg-[#A7A45F]/90"
           >
             Salvar
           </Button>
