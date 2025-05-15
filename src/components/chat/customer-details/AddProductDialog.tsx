@@ -41,30 +41,30 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({ open, setOpen, onAd
   
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="bg-pharmacy-dark2 text-white border-pharmacy-dark1">
+      <DialogContent className="bg-white border border-gray-200 text-gray-900 rounded-xl p-4 sm:p-6 shadow-md w-full max-w-md mx-auto">
         <DialogHeader>
-          <DialogTitle className="text-pharmacy-green2">Adicionar Produto</DialogTitle>
+          <DialogTitle className="text-lg font-semibold text-gray-900">Adicionar Produto</DialogTitle>
         </DialogHeader>
         
         <div className="py-4 space-y-4">
           <div>
-            <Label htmlFor="productName" className="text-white block mb-2">Nome do Produto</Label>
+            <Label htmlFor="productName" className="text-gray-700 block mb-2">Nome do Produto</Label>
             <Input 
               id="productName" 
               value={productName}
               onChange={(e) => setProductName(e.target.value)}
-              className="bg-pharmacy-dark1 border-pharmacy-green1 text-white"
+              className="bg-gray-50 border border-gray-300 text-gray-900 px-4 py-2"
               placeholder="Ex: Losartana 50mg"
             />
           </div>
           
           <div>
-            <Label htmlFor="category" className="text-white block mb-2">Categoria</Label>
+            <Label htmlFor="category" className="text-gray-700 block mb-2">Categoria</Label>
             <Input 
               id="category" 
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="bg-pharmacy-dark1 border-pharmacy-green1 text-white"
+              className="bg-gray-50 border border-gray-300 text-gray-900 px-4 py-2"
               placeholder="Ex: Anti-hipertensivo"
             />
           </div>
@@ -77,7 +77,7 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({ open, setOpen, onAd
             />
             <Label 
               htmlFor="continuous" 
-              className="text-white cursor-pointer"
+              className="text-gray-700 cursor-pointer"
             >
               Uso Contínuo
             </Label>
@@ -89,14 +89,14 @@ const AddProductDialog: React.FC<AddProductDialogProps> = ({ open, setOpen, onAd
             type="button" 
             variant="outline" 
             onClick={() => setOpen(false)}
-            className="text-pharmacy-green2 border-pharmacy-green1 hover:bg-pharmacy-green1 hover:text-white"
+            className="bg-gray-100 text-gray-700 hover:bg-gray-200"
           >
             Cancelar
           </Button>
           <Button 
             onClick={handleAddProduct}
             disabled={!productName.trim() || !category.trim()}
-            className="bg-pharmacy-accent hover:bg-pharmacy-green1"
+            className="bg-[#A7A45F] text-white hover:bg-[#A7A45F]/90"
           >
             Adicionar
           </Button>
