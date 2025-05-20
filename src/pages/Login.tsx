@@ -3,14 +3,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import LogoImage from '@/lib/assets/Logo.png';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import { useSupabase } from '@/contexts/SupabaseContext';
+import { toast } from "@/components/ui/use-toast";
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isMobile, setIsMobile] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { signIn, isOffline } = useSupabase();
 
   // Verificar tamanho da tela para responsividade
   useEffect(() => {
@@ -28,14 +33,113 @@ const Login = () => {
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
+  // Exibir alerta se estiver em modo offline
+  useEffect(() => {
+    if (isOffline) {
+      toast({
+        title: "Modo offline ativado",
+        description: "Você está operando em modo offline. Algumas funcionalidades podem estar limitadas.",
+        variant: "default"
+      });
+    }
+  }, [isOffline]);
+
   const toggleShowPassword = () => {
     setShowPassword(!showPassword);
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Em um ambiente real, aqui você faria uma chamada à API de autenticação
-    // Por enquanto, vamos apenas redirecionar para o dashboard
+    setError(null);
+    
+    if (!email.trim() || !password) {
+      setError("Por favor, preencha todos os campos");
+      toast({
+        title: "Erro no login",
+        description: "Por favor, preencha todos os campos",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setLoading(true);
+    
+    try {
+      console.log('Tentando login com:', email);
+      console.log('Modo offline:', isOffline ? 'Ativo' : 'Inativo');
+      
+      const { error } = await signIn(email, password);
+      
+      if (error) {
+        console.error("Erro de autenticação:", error.message);
+        
+        // Traduzir mensagens de erro comuns para português
+        if (error.message.includes('Invalid login credentials')) {
+          throw new Error('Credenciais inválidas. Verifique seu email e senha.');
+        } else if (error.message.includes('Email not confirmed')) {
+          throw new Error('Email não confirmado. Verifique sua caixa de entrada.');
+        } else if (error.message.includes('Failed to fetch')) {
+          throw new Error('Falha na conexão com o servidor. Verifique sua internet.');
+        } else {
+          throw new Error(error.message);
+        }
+      }
+      
+      // Login bem-sucedido, redirecionar para o dashboard
+      handleLoginSuccess();
+    } catch (err) {
+      console.error("Erro detalhado:", err);
+      
+      // Se houver problema de conexão, use modo offline
+      if (err instanceof Error && 
+          (err.message.includes('Failed to fetch') || 
+           err.message.includes('Network') || 
+           err.message.includes('ERR_NAME_NOT_RESOLVED'))) {
+        console.warn("Problema de conexão detectado. Usando modo offline...");
+        handleOfflineLogin();
+        return;
+      }
+      
+      const errorMessage = err instanceof Error ? err.message : "Falha na autenticação";
+      setError(errorMessage);
+      
+      toast({
+        title: "Erro de login",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Função para lidar com login bem-sucedido
+  const handleLoginSuccess = () => {
+    toast({
+      title: "Login bem-sucedido",
+      description: "Redirecionando para o dashboard...",
+      variant: "default"
+    });
+    
+    navigate('/dashboard');
+  };
+
+  // Função para lidar com login no modo offline
+  const handleOfflineLogin = () => {
+    if (isOffline) {
+      toast({
+        title: "Modo offline ativado",
+        description: "Logado em modo offline. Algumas funcionalidades estarão limitadas.",
+        variant: "default"
+      });
+    } else {
+      toast({
+        title: "Modo de contingência ativado",
+        description: "Problemas de conexão detectados. Usando modo offline.",
+        variant: "default"
+      });
+    }
+    
     navigate('/dashboard');
   };
 
@@ -72,6 +176,18 @@ const Login = () => {
                 <h2 className="text-lg font-bold text-white mb-1">Entrar</h2>
                 <p className="text-xs text-pharmacy-green2 mb-4">Informe seus dados para acessar sua conta</p>
                 
+                {isOffline && (
+                  <div className="mb-4 p-3 bg-yellow-500/20 border border-yellow-500 rounded-md text-yellow-200 text-sm">
+                    Você está no modo offline. Algumas funcionalidades podem estar limitadas.
+                  </div>
+                )}
+                
+                {error && (
+                  <div className="mb-4 p-3 bg-red-500/20 border border-red-500 rounded-md text-red-200 text-sm">
+                    {error}
+                  </div>
+                )}
+                
                 <form onSubmit={handleLogin}>
                   <div className="space-y-4">
                     <div className="space-y-1">
@@ -88,6 +204,7 @@ const Login = () => {
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           autoComplete="username"
+                          disabled={loading}
                         />
                       </div>
                     </div>
@@ -106,6 +223,7 @@ const Login = () => {
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           autoComplete="current-password"
+                          disabled={loading}
                         />
                         <button
                           type="button"
@@ -127,8 +245,12 @@ const Login = () => {
                       </a>
                     </div>
                     
-                    <Button type="submit" className="w-full bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white">
-                      Entrar
+                    <Button 
+                      type="submit" 
+                      className="w-full bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white"
+                      disabled={loading}
+                    >
+                      {loading ? 'Entrando...' : 'Entrar'}
                     </Button>
                     
                     <div className="relative py-2">
@@ -142,9 +264,9 @@ const Login = () => {
                     
                     <div className="text-center">
                       <span className="text-pharmacy-green2 text-xs">Não tem uma conta? </span>
-                      <a href="#" className="text-pharmacy-accent hover:underline text-xs">
+                      <Link to="/registro" className="text-pharmacy-accent hover:underline text-xs">
                         Criar conta
-                      </a>
+                      </Link>
                     </div>
                   </div>
                 </form>
@@ -188,6 +310,18 @@ const Login = () => {
                 <h2 className="text-2xl font-bold text-white mb-2">Entrar</h2>
                 <p className="text-base text-pharmacy-green2 mb-6">Informe seus dados para acessar sua conta</p>
                 
+                {isOffline && (
+                  <div className="mb-6 p-4 bg-yellow-500/20 border border-yellow-500 rounded-md text-yellow-200">
+                    Você está no modo offline. Algumas funcionalidades podem estar limitadas.
+                  </div>
+                )}
+                
+                {error && (
+                  <div className="mb-6 p-4 bg-red-500/20 border border-red-500 rounded-md text-red-200">
+                    {error}
+                  </div>
+                )}
+                
                 <form onSubmit={handleLogin}>
                   <div className="space-y-5">
                     <div className="space-y-2">
@@ -204,6 +338,7 @@ const Login = () => {
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           autoComplete="username"
+                          disabled={loading}
                         />
                       </div>
                     </div>
@@ -222,6 +357,7 @@ const Login = () => {
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           autoComplete="current-password"
+                          disabled={loading}
                         />
                         <button
                           type="button"
@@ -243,8 +379,12 @@ const Login = () => {
                       </a>
                     </div>
                     
-                    <Button type="submit" className="w-full bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white">
-                      Entrar
+                    <Button 
+                      type="submit" 
+                      className="w-full bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white"
+                      disabled={loading}
+                    >
+                      {loading ? 'Entrando...' : 'Entrar'}
                     </Button>
                     
                     <div className="relative py-2">
@@ -258,9 +398,9 @@ const Login = () => {
                     
                     <div className="text-center">
                       <span className="text-pharmacy-green2 text-sm">Não tem uma conta? </span>
-                      <a href="#" className="text-pharmacy-accent hover:underline text-sm">
+                      <Link to="/registro" className="text-pharmacy-accent hover:underline">
                         Criar conta
-                      </a>
+                      </Link>
                     </div>
                   </div>
                 </form>
