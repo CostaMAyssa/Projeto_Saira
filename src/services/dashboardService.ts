@@ -31,6 +31,26 @@ export interface Reminder {
   type: 'recompra' | 'aniversario' | 'posvenda';
 }
 
+export interface Form {
+  id: string;
+  title: string;
+  fields: any;
+  redirect_url: string;
+  status: 'ativo' | 'inativo';
+  question_count: number;
+  created_by: string;
+  created_at: string;
+}
+
+export interface FormResponse {
+  id: string;
+  form_id: string;
+  client_id: string;
+  answers: any;
+  submitted_at: string;
+  is_valid: boolean;
+}
+
 class DashboardService {
   // Buscar estatísticas principais do dashboard
   async getDashboardStats(): Promise<DashboardStats> {
@@ -197,4 +217,73 @@ class DashboardService {
   }
 }
 
-export const dashboardService = new DashboardService(); 
+export const dashboardService = new DashboardService();
+
+export const getForms = async () => {
+  const { data, error } = await supabase
+    .from('forms')
+    .select(`
+      *,
+      form_responses (
+        count
+      )
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data;
+};
+
+export const getFormById = async (id: string) => {
+  const { data, error } = await supabase
+    .from('forms')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+export const createForm = async (form: Omit<Form, 'id' | 'created_at'>) => {
+  const { data, error } = await supabase
+    .from('forms')
+    .insert([form])
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+export const updateForm = async (id: string, updates: Partial<Form>) => {
+  const { data, error } = await supabase
+    .from('forms')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+export const deleteForm = async (id: string) => {
+  const { error } = await supabase
+    .from('forms')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
+};
+
+export const getFormResponses = async (formId: string) => {
+  const { data, error } = await supabase
+    .from('form_responses')
+    .select('*')
+    .eq('form_id', formId)
+    .order('submitted_at', { ascending: false });
+
+  if (error) throw error;
+  return data;
+}; 
