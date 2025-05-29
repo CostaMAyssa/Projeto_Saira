@@ -34,7 +34,7 @@ export interface Reminder {
 export interface Form {
   id: string;
   title: string;
-  fields: any;
+  fields: Record<string, unknown>;
   redirect_url: string;
   status: 'ativo' | 'inativo';
   question_count: number;
@@ -46,7 +46,7 @@ export interface FormResponse {
   id: string;
   form_id: string;
   client_id: string;
-  answers: any;
+  answers: Record<string, unknown>;
   submitted_at: string;
   is_valid: boolean;
 }
@@ -113,6 +113,38 @@ export interface ProductData {
   interval: number;            
 }
 
+// Interface for Campaign data from database
+interface CampaignDBData {
+  id: string;
+  name: string;
+  trigger: string;
+  status: string;
+  template?: string;
+  target_audience?: Record<string, unknown>;
+  scheduled_for?: string;
+  created_by: string;
+}
+
+// Interface for database responses
+interface SupabaseResponse<T> {
+  data: T | null;
+  error: any | null;
+}
+
+// Client response interface
+interface ClientDBResponse {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string | null;
+  status: string;
+  tags?: string[] | null;
+  is_vip?: boolean | null;
+  profile_type?: string | null;
+  birth_date?: string | null;
+  created_by: string;
+  created_at: string;
+}
 
 class DashboardService {
   // Buscar estatísticas principais do dashboard
@@ -182,7 +214,7 @@ class DashboardService {
 
       if (error) {
         console.error('Erro ao buscar conversas diárias:', error);
-        throw error; // Re-throw or handle as per project's error strategy
+        throw error;
       }
 
       return data?.map(item => ({
@@ -190,7 +222,6 @@ class DashboardService {
         value: item.conversation_count
       })) || [];
     } catch (error) {
-      // Catch re-thrown error or error from map
       console.error('Erro final ao processar conversas diárias:', error);
       return []; // Return empty array on error
     }
@@ -207,7 +238,7 @@ class DashboardService {
 
       if (error) {
         console.error('Erro ao buscar conversas mensais:', error);
-        throw error; // Re-throw or handle
+        throw error;
       }
 
       return data?.map(item => ({
@@ -658,11 +689,15 @@ class DashboardService {
     try {
       console.log('DashboardService.createCampaign: Starting campaign creation with data:', campaignData);
       
-      // Usar o mesmo padrão do createProduct e createClient que estão funcionando
+      // Usar EXATAMENTE o mesmo padrão do createClient que está funcionando
       const campaignDataForSupabase = {
-        ...campaignData,
-        created_by: '58ce41aa-d63d-4655-b1a1-9ee705e05c3a', // João da Silva (usuário existente)
-        created_at: new Date().toISOString(), // Add created_at
+        name: campaignData.name,
+        trigger: campaignData.trigger,
+        status: campaignData.status,
+        template: campaignData.template || 'Template padrão',
+        target_audience: campaignData.target_audience || {}, // Manter como objeto JSON
+        scheduled_for: campaignData.scheduled_for,
+        created_by: '58ce41aa-d63d-4655-b1a1-9ee705e05c3a' // João da Silva (usuário existente)
       };
 
       console.log("📢 Dados enviados para o Supabase (insert):", campaignDataForSupabase);
