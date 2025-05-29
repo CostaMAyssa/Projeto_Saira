@@ -7,5 +7,6 @@ export interface Client {
   tags: string[];
   lastPurchase: string;
   isVip?: boolean;
-  profile_type: 'regular' | 'occasional' | 'vip';
+  isRegular?: boolean;
+  isOccasional?: boolean;
 }

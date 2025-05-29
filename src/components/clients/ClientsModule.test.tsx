@@ -67,10 +67,10 @@ jest.mock('./ClientSearchHeader', () => (props: any) => (
   </div>
 ));
 
-// Mock ClientTable more thoroughly to allow interaction with its internal buttons
+// Mock ClientTable to use onOpenEditModal
 jest.mock('./ClientTable', () => (props: { 
     clients: Client[]; 
-    onEditClient: (clientId: string, data: any) => Promise<boolean>; // Assuming it's used by ClientTable's internal edit save
+    onOpenEditModal: (client: Client) => void; 
     onDeleteClient: (clientId: string) => void;
     onToggleStatus: (client: Client) => void;
 }) => (
@@ -78,18 +78,40 @@ jest.mock('./ClientTable', () => (props: {
     {props.clients.map(client => (
       <div key={client.id} data-testid={`client-row-${client.id}`}>
         <span>{client.name} (Table)</span>
-        <button data-testid={`edit-${client.id}`} onClick={() => {
-            // Simulate modal opening and data submission for edit
-            // This simplified mock calls onEditClient directly.
-            // A real modal interaction would be more complex.
-            props.onEditClient(client.id, { ...client, name: `${client.name} Updated`, status: client.status });
-        }}>Edit</button>
+        <button data-testid={`edit-${client.id}`} onClick={() => props.onOpenEditModal(client)}>Edit</button>
         <button data-testid={`delete-${client.id}`} onClick={() => props.onDeleteClient(client.id)}>Delete</button>
         <button data-testid={`toggle-status-${client.id}`} onClick={() => props.onToggleStatus(client)}>Toggle Status</button>
       </div>
     ))}
   </div>
 ));
+
+// Mock ClientFormModal
+const mockClientFormModalOnSubmit = jest.fn();
+jest.mock('./ClientFormModal', () => (props: { 
+    isOpen: boolean; 
+    onClose: () => void; 
+    onSubmit: (formData: ClientModalFormData) => void; 
+    initialClientData?: Client | null;
+}) => {
+    mockClientFormModalOnSubmit.mockImplementation(props.onSubmit); // Allow tests to spy on onSubmit
+    if (!props.isOpen) return null;
+    return (
+        <div data-testid="client-form-modal">
+            <h3>{props.initialClientData ? 'Edit Client' : 'Add Client'}</h3>
+            <p>Name: {props.initialClientData?.name}</p>
+            <button data-testid="modal-save-button" onClick={() => props.onSubmit({
+                name: props.initialClientData?.name + ' Updated' || 'New Client From Modal',
+                phone: props.initialClientData?.phone || '000',
+                email: props.initialClientData?.email || 'modal@test.com',
+                status: props.initialClientData?.status || 'active',
+                // Add other fields if necessary for the test
+            })}>Save</button>
+            <button data-testid="modal-close-button" onClick={props.onClose}>Close</button>
+        </div>
+    );
+});
+
 jest.mock('./ClientsCardView', () => (props: { clients: Client[] }) => (
   <div data-testid="client-card-view">
     {props.clients.map(client => <div key={client.id}>{client.name} (Card)</div>)}
@@ -214,35 +236,72 @@ describe('ClientsModule', () => {
   });
 
   // UpdateClient test
-  it('handleSaveClientUpdate calls updateClient service and refreshes list', async () => {
-    const updatedClientData: Partial<ClientData> = { name: 'John Doe Updated', status: 'inativo' };
-    (dashboardService.updateClient as jest.Mock).mockResolvedValue({ id: 'client1', ...updatedClientData });
-    
-    const initialLoadMock = (supabase.from('clients').select().order as jest.Mock).mockResolvedValueOnce({ data: mockDbClients, error: null });
-    const refreshLoadMock = (supabase.from('clients').select().order as jest.Mock).mockResolvedValueOnce({ 
-        data: mockDbClients.map(c => c.id === 'client1' ? {...c, ...updatedClientData, name: 'John Doe Updated', status: 'inativo'} : c), 
-        error: null 
-    });
+  });
 
-
+  // --- Edit Client Modal Flow ---
+  it('opens edit modal with client data and saves changes', async () => {
     render(<ClientsModule />);
     await waitFor(() => expect(screen.getByText('John Doe (Table)')).toBeInTheDocument());
 
-    // Simulate clicking edit on the first client in the mocked ClientTable
-    fireEvent.click(screen.getByTestId('edit-client1'));
+    // 1. Open the modal
+    fireEvent.click(screen.getByTestId('edit-client1')); // Clicks Edit on "John Doe"
+    await waitFor(() => {
+      expect(screen.getByTestId('client-form-modal')).toBeInTheDocument();
+      expect(screen.getByText('Edit Client')).toBeInTheDocument();
+      expect(screen.getByText('Name: John Doe')).toBeInTheDocument(); // Check if initialData is passed
+    });
 
+    // 2. Simulate saving from the modal
+    const updatedClientName = 'John Doe Updated By Modal';
+    const expectedDbPayload = { name: updatedClientName, phone: '555-0101', email: 'john.doe@example.com', status: 'ativo' };
+    (dashboardService.updateClient as jest.Mock).mockResolvedValue({ id: 'client1', ...expectedDbPayload });
+    
+    // Mock refresh to include the updated client name
+    const refreshedDataWithUpdate = mockDbClients.map(c => 
+        c.id === 'client1' ? { ...c, name: updatedClientName, status: 'ativo' } : c
+    );
+    (supabase.from('clients').select().order as jest.Mock).mockResolvedValueOnce({ data: refreshedDataWithUpdate, error: null });
+
+
+    fireEvent.click(screen.getByTestId('modal-save-button')); // ClientFormModal mock calls onSubmit
+    
     await waitFor(() => {
       expect(dashboardService.updateClient).toHaveBeenCalledWith('client1', expect.objectContaining({
-        name: 'John Doe Updated', // This comes from the mocked ClientTable's direct call
-        status: 'inativo'       // This comes from the mocked ClientTable's direct call
+        name: 'John Doe Updated By Modal', // This name comes from the modal's save button mock
+        status: 'ativo' // Based on initial data, status remains 'active', mapped to 'ativo'
       }));
       expect(toast.success).toHaveBeenCalledWith('Cliente atualizado com sucesso!');
-      expect(supabase.from).toHaveBeenCalledTimes(2); // Initial + refresh
+      expect(supabase.from).toHaveBeenCalledTimes(2); // Initial fetch + refresh after save
+      expect(screen.queryByTestId('client-form-modal')).not.toBeInTheDocument(); // Modal closes
     });
-     expect(screen.getByText('John Doe Updated (Table)')).toBeInTheDocument();
+    // Verify the list now shows the updated name
+    expect(screen.getByText(updatedClientName + ' (Table)')).toBeInTheDocument();
+  });
+  
+  it('closes edit modal on error during update and shows toast', async () => {
+    (dashboardService.updateClient as jest.Mock).mockRejectedValue(new Error("Update failed"));
+    render(<ClientsModule />);
+    await waitFor(() => expect(screen.getByText('John Doe (Table)')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('edit-client1'));
+    await waitFor(() => expect(screen.getByTestId('client-form-modal')).toBeInTheDocument());
+    
+    fireEvent.click(screen.getByTestId('modal-save-button'));
+
+    await waitFor(() => {
+        expect(toast.error).toHaveBeenCalledWith('Erro ao atualizar cliente.');
+        // Modal should ideally remain open for user to correct or cancel
+        expect(screen.getByTestId('client-form-modal')).toBeInTheDocument(); 
+    });
+     // Simulate closing manually after error
+    fireEvent.click(screen.getByTestId('modal-close-button'));
+    await waitFor(() => {
+        expect(screen.queryByTestId('client-form-modal')).not.toBeInTheDocument();
+    });
   });
 
-  // DeleteClient test
+
+  // DeleteClient test (No changes needed here, it's already using props correctly)
   it('handleDeleteClientFromModule calls deleteClient service and refreshes list', async () => {
     (dashboardService.deleteClient as jest.Mock).mockResolvedValue(undefined);
     window.confirm = jest.fn(() => true); // Auto-confirm deletion

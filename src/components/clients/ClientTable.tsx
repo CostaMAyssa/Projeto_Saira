@@ -25,62 +25,26 @@ interface ClientTableProps {
   clients: Client[];
   getStatusBadge: (status: 'active' | 'inactive') => React.ReactNode;
   getTagBadge: (tag: string) => React.ReactNode;
+  onOpenEditModal: (client: Client) => void; // New prop from ClientsModule
+  onDeleteClient: (clientId: string) => void; // Prop from ClientsModule
+  onToggleStatus: (client: Client) => void; // Prop from ClientsModule
+  // onEditClient was the save handler, now handled by modal in ClientsModule
 }
 
-const ClientTable = ({ clients, getStatusBadge, getTagBadge }: ClientTableProps) => {
-  const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [status, setStatus] = useState<'active' | 'inactive'>('active');
-  const [tags, setTags] = useState<string[]>([]);
-
-  const handleEditClick = (client: Client) => {
-    setEditingClient(client);
-    setName(client.name);
-    setPhone(client.phone);
-    setEmail(client.email);
-    setStatus(client.status);
-    setTags([...client.tags]);
-    setIsEditModalOpen(true);
-  };
-
-  const handleCloseEditModal = () => {
-    setIsEditModalOpen(false);
-    setEditingClient(null);
-  };
-
-  const handleSaveEdit = () => {
-    // Aqui você implementaria a lógica real para salvar as alterações
-    console.log('Salvando edições para cliente:', editingClient?.id);
-    console.log('Novos dados:', { name, phone, email, status, tags });
-    handleCloseEditModal();
-  };
-
-  const handleTagToggle = (tag: string) => {
-    setTags(prev => {
-      if (prev.includes(tag)) {
-        return prev.filter(t => t !== tag);
-      } else {
-        return [...prev, tag];
-      }
-    });
-  };
-
-  const handleDeleteClient = (clientId: string) => {
-    console.log('Excluindo cliente:', clientId);
-    // Aqui você implementaria a lógica real para excluir o cliente
-  };
-
-  const handleToggleStatus = (client: Client) => {
-    const newStatus = client.status === 'active' ? 'inactive' : 'active';
-    console.log(`Alterando status do cliente ${client.id} para ${newStatus}`);
-    // Aqui você implementaria a lógica real para alterar o status
-  };
+const ClientTable = ({ 
+  clients, 
+  getStatusBadge, 
+  getTagBadge,
+  onOpenEditModal,
+  onDeleteClient,
+  onToggleStatus 
+}: ClientTableProps) => {
+  // Removed local state for edit modal: editingClient, isEditModalOpen, name, phone, email, status, tags
+  // Removed local handlers: handleEditClick, handleCloseEditModal, handleSaveEdit, handleTagToggle
+  // Local handleDeleteClient and handleToggleStatus are also removed, will use props.
 
   const handleSendMessage = (clientId: string) => {
-    console.log('Enviando mensagem para cliente:', clientId);
+    console.log('Enviando mensagem para cliente:', clientId); // This can remain as is or be refactored later
     // Aqui você implementaria a lógica real para enviar mensagem
   };
 
@@ -126,7 +90,7 @@ const ClientTable = ({ clients, getStatusBadge, getTagBadge }: ClientTableProps)
                         variant="ghost" 
                         size="icon" 
                         className="text-pharmacy-accent hover:bg-gray-100"
-                        onClick={() => handleEditClick(client)}
+                        onClick={() => onOpenEditModal(client)} // Use prop
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -138,7 +102,7 @@ const ClientTable = ({ clients, getStatusBadge, getTagBadge }: ClientTableProps)
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="bg-white border-gray-200 text-gray-900">
                           <DropdownMenuItem 
-                            onClick={() => handleToggleStatus(client)}
+                            onClick={() => onToggleStatus(client)} // Use prop
                             className="hover:bg-gray-100 cursor-pointer"
                           >
                             {client.status === 'active' ? (
@@ -161,7 +125,7 @@ const ClientTable = ({ clients, getStatusBadge, getTagBadge }: ClientTableProps)
                             <span>Enviar Mensagem</span>
                           </DropdownMenuItem>
                           <DropdownMenuItem 
-                            onClick={() => handleDeleteClient(client.id)}
+                            onClick={() => onDeleteClient(client.id)} // Use prop
                             className="text-red-500 hover:bg-gray-100 cursor-pointer"
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
@@ -177,95 +141,7 @@ const ClientTable = ({ clients, getStatusBadge, getTagBadge }: ClientTableProps)
           </Table>
         </div>
       </div>
-
-      {/* Modal de Edição */}
-      <Dialog open={isEditModalOpen} onOpenChange={handleCloseEditModal}>
-        <DialogContent className="bg-white border-gray-200 text-gray-900 w-[calc(100%-32px)] max-w-lg mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="mb-3">
-            <DialogTitle className="text-pharmacy-accent text-xl text-center sm:text-left">Editar Cliente</DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-3 sm:space-y-4">
-            <div className="space-y-1 sm:space-y-2">
-              <Label htmlFor="edit-name">Nome</Label>
-              <Input
-                id="edit-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="bg-white border-gray-300"
-              />
-            </div>
-            
-            <div className="space-y-1 sm:space-y-2">
-              <Label htmlFor="edit-phone">Telefone</Label>
-              <Input
-                id="edit-phone"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="bg-white border-gray-300"
-              />
-            </div>
-            
-            <div className="space-y-1 sm:space-y-2">
-              <Label htmlFor="edit-email">Email</Label>
-              <Input
-                id="edit-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="bg-white border-gray-300"
-              />
-            </div>
-            
-            <div className="space-y-1 sm:space-y-2">
-              <Label htmlFor="edit-status">Status</Label>
-              <Select value={status} onValueChange={(value) => setStatus(value as 'active' | 'inactive')}>
-                <SelectTrigger id="edit-status" className="bg-white border-gray-300">
-                  <SelectValue placeholder="Selecione um status" />
-                </SelectTrigger>
-                <SelectContent className="bg-white">
-                  <SelectItem value="active">Ativo</SelectItem>
-                  <SelectItem value="inactive">Inativo</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Tags</Label>
-              <div className="space-y-2">
-                {['VIP', 'Regular', 'Uso Contínuo', 'Ocasional'].map((tag) => (
-                  <div key={tag} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`tag-${tag}`}
-                      checked={tags.includes(tag)}
-                      onCheckedChange={() => handleTagToggle(tag)}
-                      className="border-gray-300"
-                    />
-                    <Label htmlFor={`tag-${tag}`} className="text-gray-900">{tag}</Label>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          
-          <DialogFooter className="mt-4 sm:mt-6">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={handleCloseEditModal}
-              className="bg-white text-gray-700 border-gray-300"
-            >
-              Cancelar
-            </Button>
-            <Button 
-              onClick={handleSaveEdit}
-              className="bg-pharmacy-accent text-white hover:bg-pharmacy-accent/90"
-            >
-              Salvar Alterações
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Removed local Dialog for Edit Modal */}
     </>
   );
 };

@@ -8,17 +8,16 @@ import { Client } from './types';
 import { supabase } from '@/lib/supabase'; // Import Supabase
 import { dashboardService, ClientData } from '../../services/dashboardService'; // MOVED
 import { toast } from 'sonner'; // MOVED
-import { Button } from '@/components/ui/button';
 
-// Define a type for the data expected from a client form (modal)
+// Define a type for the data expected from a client form (modal) - Moved to top level
 export type ClientModalFormData = {
   name: string;
   phone: string;
   email?: string;
-  status: 'active' | 'inactive';
+  status: 'active' | 'inactive'; // UI status
   tags?: string[];
   is_vip?: boolean;
-  profile_type: 'regular' | 'occasional' | 'vip';
+  profile_type?: string;
   birth_date?: string; // YYYY-MM-DD for date input
 };
 
@@ -30,8 +29,12 @@ const ClientsModule = () => {
   const [filteredClients, setFilteredClients] = useState<Client[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobile, setIsMobile] = useState(false);
-  const [loading, setLoading] = useState(true); // Added loading state
-  const [error, setError] = useState<string | null>(null); // Added error state
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // State for Edit Modal
+  const [isEditClientModalOpen, setIsEditClientModalOpen] = useState(false);
+  const [selectedClientToEdit, setSelectedClientToEdit] = useState<Client | null>(null);
 
   useEffect(() => {
     const checkIfMobile = () => setIsMobile(window.innerWidth < 640);
@@ -44,6 +47,12 @@ const ClientsModule = () => {
     setLoading(true);
     setError(null);
     try {
+      // The direct Supabase call was here before, now we should ensure this logic is consistent
+      // with how dashboardService might fetch or if we keep direct fetching here.
+      // For consistency with the task (using dashboardService for CRUD), let's assume
+      // a getClients method could be in dashboardService, or use direct Supabase here for read.
+      // The previous code used direct supabase.from('clients').select('*').
+      // Let's keep that for fetching all clients for now.
       const { data, error: fetchError } = await supabase.from('clients').select('*').order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
@@ -53,12 +62,13 @@ const ClientsModule = () => {
           id: dbClient.id,
           name: dbClient.name,
           phone: dbClient.phone,
-          email: dbClient.email || '',
+          email: dbClient.email || '', // Ensure email is not null
           status: dbClient.status === 'ativo' ? 'active' : 'inactive',
           tags: dbClient.tags || [],
           lastPurchase: dbClient.last_purchase ? new Date(dbClient.last_purchase).toLocaleDateString('pt-BR') : 'N/A',
           isVip: dbClient.is_vip || false,
-          profile_type: dbClient.profile_type || 'regular'
+          isRegular: dbClient.profile_type === 'regular',
+          isOccasional: dbClient.profile_type === 'occasional',
         }));
         setClients(transformedClients);
       }
@@ -75,33 +85,25 @@ const ClientsModule = () => {
     fetchClientsData();
   }, []);
 
-  const handleAddClient = async (formData: ClientModalFormData) => {
+  const handleAddClient = async (formData: ClientModalFormData): Promise<boolean> => {
     const clientDataToSave: ClientData = {
-      name: formData.name,
-      phone: formData.phone,
-      email: formData.email || null,
-      status: formData.status === 'active' ? 'ativo' : 'inativo',
-      tags: formData.tags || [],
-      is_vip: formData.is_vip || false,
-      profile_type: formData.profile_type,
+      ...formData,
+      email: formData.email || null, // Ensure null if empty string for DB
+      tags: formData.tags || null,
+      is_vip: formData.is_vip || null,
+      profile_type: formData.profile_type || null,
       birth_date: formData.birth_date || null,
-      created_at: new Date().toISOString(),
-      created_by: null, // Será preenchido quando implementarmos autenticação
-      last_purchase: null
+      status: formData.status === 'active' ? 'ativo' : 'inativo', // Map to DB status
     };
-
     try {
       await dashboardService.createClient(clientDataToSave);
       toast.success('Cliente adicionado com sucesso!');
       fetchClientsData(); // Refresh list
-    } catch (err: any) {
+      return true; // Indicate success
+    } catch (err) {
       console.error("Error creating client:", err);
-      // Verificar se é o erro de telefone duplicado
-      if (err.message && err.message.includes('telefone')) {
-        toast.error(err.message);
-      } else {
-        toast.error('Erro ao adicionar cliente. Por favor, tente novamente.');
-      }
+      toast.error('Erro ao adicionar cliente.');
+      return false; // Indicate failure
     }
   };
   
@@ -182,15 +184,26 @@ const ClientsModule = () => {
   }, [clients]);
 
   // Determinar o componente a ser renderizado (tabela ou cards)
+  const handleOpenEditClientModal = (client: Client) => {
+    setSelectedClientToEdit(client);
+    setIsEditClientModalOpen(true);
+  };
+
+  const handleCloseEditClientModal = () => {
+    setIsEditClientModalOpen(false);
+    setSelectedClientToEdit(null);
+  };
+
+  // Determinar o componente a ser renderizado (tabela ou cards)
   const renderClientList = () => {
     const listProps = {
       clients: filteredClients,
       getStatusBadge,
       getTagBadge,
-      // Pass down new handlers to ClientTable (and potentially ClientsCardView if it supports these actions)
-      onEditClient: handleSaveClientUpdate, // ClientTable's handleSaveEdit will call this
+      onOpenEditModal: handleOpenEditClientModal, // Pass this to ClientTable
       onDeleteClient: handleDeleteClientFromModule,
       onToggleStatus: handleToggleClientStatusInModule,
+      // Note: onEditClient (which was handleSaveClientUpdate) is now handled by the modal in ClientsModule
     };
 
     if (loading) {
@@ -225,7 +238,7 @@ const ClientsModule = () => {
       <ClientSearchHeader 
         viewMode={viewMode} 
         setViewMode={setViewMode}
-        onAddClient={handleAddClient} // This will be called by ClientSearchHeader's modal
+        onAddClient={handleAddClient} // This will call ClientsModule.handleAddClient
         onSearch={handleSearch}
         isMobile={isMobile}
       />
@@ -234,6 +247,36 @@ const ClientsModule = () => {
       
       <div className="mt-4 text-center text-sm text-gray-500">
         Exibindo {filteredClients.length} de {clients.length} cliente(s)
+      </div>
+
+      {/* Edit Client Modal using ClientFormModal */}
+      {selectedClientToEdit && ( // Render modal only if a client is selected for editing
+        <ClientFormModal
+          isOpen={isEditClientModalOpen}
+          onClose={handleCloseEditClientModal}
+          initialClientData={selectedClientToEdit}
+          onSubmit={async (formDataFromModal) => {
+            // The selectedClientToEdit is guaranteed to be non-null here by the conditional rendering
+            const success = await handleSaveClientUpdate(selectedClientToEdit.id, formDataFromModal);
+            if (success) {
+              handleCloseEditClientModal();
+            }
+          }}
+        />
+      )}
+      {/* 
+        Note on Add Client: 
+        ClientSearchHeader currently calls `props.onAddClient` which is `handleAddClient` in this module.
+        `handleAddClient` expects `ClientModalFormData`.
+        If ClientSearchHeader is to use ClientFormModal, it would manage its own instance of it,
+        or ClientsModule would need another state for 'isAddModalOpen' and pass null as initialClientData
+        to *this* ClientFormModal instance.
+        For now, handleAddClient is compatible with ClientModalFormData.
+        The ClientSearchHeader's own modal (if it has one) needs to provide data in this format.
+        If ClientSearchHeader is to be refactored to use THIS ClientFormModal, then ClientsModule
+        would need to manage an `isAddModalOpen` state as well.
+        The `ClientSearchHeader`'s `onAddClient` prop is effectively the submit handler for adding.
+      */}
       </div>
     </div>
   );

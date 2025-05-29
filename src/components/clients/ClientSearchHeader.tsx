@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search, UserPlus, LayoutGrid, Table as TableIcon } from 'lucide-react';
-import NewClientModal from './modals/NewClientModal';
-import { Client } from './types';
+// import NewClientModal from './modals/NewClientModal'; // Replaced by ClientFormModal
+import ClientFormModal from './ClientFormModal'; // Import the reusable modal
+import { ClientModalFormData } from './ClientsModule'; // Import the FormData type
 
 interface ClientSearchHeaderProps {
   viewMode: 'table' | 'cards';
   setViewMode: (mode: 'table' | 'cards') => void;
-  onAddClient: (client: Client) => void;
+  onAddClient: (formData: ClientModalFormData) => void; // Changed type to ClientModalFormData
   onSearch: (query: string) => void;
   isMobile?: boolean;
 }
@@ -16,22 +17,21 @@ interface ClientSearchHeaderProps {
 const ClientSearchHeader = ({ 
   viewMode, 
   setViewMode, 
-  onAddClient, 
+  onAddClient, // This is handleAddClient from ClientsModule, expecting ClientModalFormData
   onSearch,
   isMobile = false
 }: ClientSearchHeaderProps) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(false);
+  const [isAddClientModalOpen, setIsAddClientModalOpen] = useState(false); // Renamed for clarity
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchQuery(value);
     onSearch(value);
   };
 
-  const handleAddClient = (clientData: Client) => {
-    onAddClient(clientData);
-  };
+  // The onAddClient prop is directly used by the modal's onSubmit
+  // No need for a separate handleAddClient here if it just calls the prop.
 
   return (
     <>
@@ -39,7 +39,7 @@ const ClientSearchHeader = ({
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Clientes</h1>
         <Button 
           className="bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white w-full sm:w-auto"
-          onClick={() => setIsNewClientModalOpen(true)}
+          onClick={() => setIsAddClientModalOpen(true)} // Open the new modal state
         >
           <UserPlus className="mr-2 h-4 w-4" />
           Novo Cliente
@@ -53,7 +53,7 @@ const ClientSearchHeader = ({
             placeholder="Buscar cliente..."
             className="pl-8 bg-white border-gray-300 focus:border-pharmacy-accent"
             value={searchQuery}
-            onChange={handleSearch}
+            onChange={handleSearchChange} // Use renamed handler
           />
         </div>
         
@@ -62,7 +62,7 @@ const ClientSearchHeader = ({
             <Button 
               variant={viewMode === 'table' ? 'default' : 'outline'} 
               onClick={() => setViewMode('table')} 
-              className={`rounded-none flex-1 ${viewMode === 'table' ? 'bg-pharmacy-accent' : 'bg-transparent text-pharmacy-accent'}`}
+              className={`rounded-none flex-1 ${viewMode === 'table' ? 'bg-pharmacy-accent text-white hover:bg-pharmacy-accent/90' : 'bg-transparent text-pharmacy-accent hover:bg-gray-100'}`}
             >
               <TableIcon className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Tabela</span>
@@ -70,7 +70,7 @@ const ClientSearchHeader = ({
             <Button 
               variant={viewMode === 'cards' ? 'default' : 'outline'} 
               onClick={() => setViewMode('cards')} 
-              className={`rounded-none flex-1 ${viewMode === 'cards' ? 'bg-pharmacy-accent' : 'bg-transparent text-pharmacy-accent'}`}
+              className={`rounded-none flex-1 ${viewMode === 'cards' ? 'bg-pharmacy-accent text-white hover:bg-pharmacy-accent/90' : 'bg-transparent text-pharmacy-accent hover:bg-gray-100'}`}
             >
               <LayoutGrid className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Cards</span>
@@ -79,11 +79,17 @@ const ClientSearchHeader = ({
         )}
       </div>
 
-      {/* Modal de Novo Cliente */}
-      <NewClientModal 
-        isOpen={isNewClientModalOpen} 
-        onClose={() => setIsNewClientModalOpen(false)} 
-        onSave={handleAddClient}
+      {/* Use ClientFormModal for Adding New Client */}
+      <ClientFormModal 
+        isOpen={isAddClientModalOpen} 
+        onClose={() => setIsAddClientModalOpen(false)} 
+        onSubmit={async (formData) => {
+          const success = await onAddClient(formData); // onAddClient is handleAddClient from ClientsModule
+          if (success) {
+            setIsAddClientModalOpen(false); // Close modal on success
+          }
+        }}
+        initialClientData={null} // No initial data for new client
       />
     </>
   );

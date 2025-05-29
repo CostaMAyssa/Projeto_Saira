@@ -1,200 +1,174 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { ClientModalFormData } from '../ClientsModule';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Client } from '../types';
 
 interface NewClientModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (clientData: ClientModalFormData) => void;
+  onSave: (clientData: Client) => void;
 }
 
 const NewClientModal = ({ isOpen, onClose, onSave }: NewClientModalProps) => {
-  const [formData, setFormData] = useState<ClientModalFormData>({
-    name: '',
-    phone: '',
-    email: '',
-    status: 'active',
-    tags: [],
-    is_vip: false,
-    profile_type: 'regular',
-  });
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleStatusChange = (value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      status: value as 'active' | 'inactive'
-    }));
-  };
-
-  const handleTagChange = (value: string) => {
-    let profile_type: 'regular' | 'occasional' | 'vip';
-    let is_vip = false;
-    let tags: string[] = [];
-
-    switch (value) {
-      case 'VIP':
-        profile_type = 'vip';
-        is_vip = true;
-        tags = ['VIP'];
-        break;
-      case 'Ocasional':
-        profile_type = 'occasional';
-        is_vip = false;
-        tags = ['Ocasional'];
-        break;
-      case 'Regular':
-        profile_type = 'regular';
-        is_vip = false;
-        tags = ['Regular'];
-        break;
-      case 'Uso Contínuo':
-        profile_type = 'regular';
-        is_vip = false;
-        tags = ['Uso Contínuo'];
-        break;
-      default:
-        profile_type = 'regular';
-        is_vip = false;
-        tags = [];
-    }
-
-    setFormData(prev => ({
-      ...prev,
-      tags,
-      profile_type,
-      is_vip
-    }));
-  };
+  const [name, setName] = React.useState('');
+  const [phone, setPhone] = React.useState('');
+  const [email, setEmail] = React.useState('');
+  const [status, setStatus] = React.useState<'active' | 'inactive'>('active');
+  const [tags, setTags] = React.useState<string[]>([]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    const newClient: Client = {
+      id: Date.now().toString(),
+      name,
+      phone,
+      email,
+      status,
+      tags,
+      lastPurchase: new Date().toLocaleDateString('pt-BR'),
+      isVip: tags.includes('vip'),
+      isRegular: tags.includes('regular'),
+      isOccasional: tags.includes('occasional')
+    };
+    
+    onSave(newClient);
     resetForm();
     onClose();
   };
 
   const resetForm = () => {
-    setFormData({
-      name: '',
-      phone: '',
-      email: '',
-      status: 'active',
-      tags: [],
-      is_vip: false,
-      profile_type: 'regular',
+    setName('');
+    setPhone('');
+    setEmail('');
+    setStatus('active');
+    setTags([]);
+  };
+
+  const handleTagToggle = (tag: string) => {
+    setTags(prev => {
+      if (prev.includes(tag)) {
+        return prev.filter(t => t !== tag);
+      } else {
+        return [...prev, tag];
+      }
     });
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Novo Cliente</DialogTitle>
+      <DialogContent className="bg-white border border-pharmacy-border1 text-pharmacy-text1 w-[calc(100%-32px)] max-w-lg mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="mb-3">
+          <DialogTitle className="text-pharmacy-accent text-xl text-center sm:text-left">Novo Cliente</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Nome</Label>
-              <Input
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                className="bg-white border-gray-300"
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="phone">Telefone</Label>
-              <Input
-                id="phone"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                className="bg-white border-gray-300"
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                className="bg-white border-gray-300"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="status">Status</Label>
-              <Select
-                value={formData.status}
-                onValueChange={handleStatusChange}
-              >
-                <SelectTrigger className="bg-white border-gray-300">
-                  <SelectValue placeholder="Selecione o status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Ativo</SelectItem>
-                  <SelectItem value="inactive">Inativo</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Tipo de Cliente</Label>
-              <RadioGroup
-                value={formData.tags[0] || ''}
-                onValueChange={handleTagChange}
-                className="grid grid-cols-2 gap-4"
-              >
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <RadioGroupItem value="VIP" id="tag-vip" />
-                  <span>VIP</span>
-                </label>
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <RadioGroupItem value="Regular" id="tag-regular" />
-                  <span>Regular</span>
-                </label>
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <RadioGroupItem value="Ocasional" id="tag-occasional" />
-                  <span>Ocasional</span>
-                </label>
-                <label className="flex items-center space-x-2 cursor-pointer">
-                  <RadioGroupItem value="Uso Contínuo" id="tag-continuous" />
-                  <span>Uso Contínuo</span>
-                </label>
-              </RadioGroup>
+        
+        <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+          <div className="space-y-1 sm:space-y-2">
+            <Label htmlFor="name" className="text-pharmacy-text1">Nome</Label>
+            <Input
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="bg-white border-gray-300 text-pharmacy-text1"
+              required
+            />
+          </div>
+          
+          <div className="space-y-1 sm:space-y-2">
+            <Label htmlFor="phone" className="text-pharmacy-text1">Telefone</Label>
+            <Input
+              id="phone"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="bg-white border-gray-300 text-pharmacy-text1"
+              required
+            />
+          </div>
+          
+          <div className="space-y-1 sm:space-y-2">
+            <Label htmlFor="email" className="text-pharmacy-text1">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="bg-white border-gray-300 text-pharmacy-text1"
+              required
+            />
+          </div>
+          
+          <div className="space-y-1 sm:space-y-2">
+            <Label htmlFor="status" className="text-pharmacy-text1">Status</Label>
+            <Select value={status} onValueChange={(value: 'active' | 'inactive') => setStatus(value)}>
+              <SelectTrigger className="bg-white border-gray-300">
+                <SelectValue placeholder="Selecione o status" />
+              </SelectTrigger>
+              <SelectContent className="bg-white border-gray-300">
+                <SelectItem value="active">Ativo</SelectItem>
+                <SelectItem value="inactive">Inativo</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-1 sm:space-y-2">
+            <Label className="text-pharmacy-text1">Tags</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="tag-vip" 
+                  checked={tags.includes('vip')} 
+                  onCheckedChange={() => handleTagToggle('vip')} 
+                  className="border-gray-300 data-[state=checked]:bg-pharmacy-accent"
+                />
+                <label htmlFor="tag-vip" className="text-sm font-medium text-pharmacy-text1">VIP</label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="tag-regular" 
+                  checked={tags.includes('regular')} 
+                  onCheckedChange={() => handleTagToggle('regular')} 
+                  className="border-gray-300 data-[state=checked]:bg-pharmacy-accent"
+                />
+                <label htmlFor="tag-regular" className="text-sm font-medium text-pharmacy-text1">Regular</label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="tag-occasional" 
+                  checked={tags.includes('occasional')} 
+                  onCheckedChange={() => handleTagToggle('occasional')} 
+                  className="border-gray-300 data-[state=checked]:bg-pharmacy-accent"
+                />
+                <label htmlFor="tag-occasional" className="text-sm font-medium text-pharmacy-text1">Ocasional</label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="tag-continuous" 
+                  checked={tags.includes('continuous')} 
+                  onCheckedChange={() => handleTagToggle('continuous')} 
+                  className="border-gray-300 data-[state=checked]:bg-pharmacy-accent"
+                />
+                <label htmlFor="tag-continuous" className="text-sm font-medium text-pharmacy-text1">Uso Contínuo</label>
+              </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
+          
+          <DialogFooter className="mt-4 sm:mt-6">
+            <Button 
+              type="button" 
+              variant="outline" 
               onClick={onClose}
-              className="bg-white text-gray-700 border-gray-300"
+              className="bg-white text-pharmacy-text2 border-gray-300 hover:bg-pharmacy-light2"
             >
               Cancelar
             </Button>
-            <Button
-              type="submit"
+            <Button 
+              type="submit" 
               className="bg-pharmacy-accent text-white hover:bg-pharmacy-accent/90"
             >
               Salvar
