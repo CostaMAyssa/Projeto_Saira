@@ -22,63 +22,75 @@ const CampaignsModule = () => {
 
 
   useEffect(() => {
-    const fetchCampaigns = async () => {
-      setLoadingCampaigns(true);
-      try {
-        const data = await dashboardService.getAllCampaignsDetails();
-        setCampaigns(data);
-      } catch (err) {
-        console.error("Failed to fetch campaigns:", err);
-        setError("Falha ao carregar campanhas. Tente novamente mais tarde.");
-        toast.error("Erro ao carregar campanhas.");
-      } finally {
-        setLoadingCampaigns(false);
-      }
-    };
-    fetchCampaigns();
+    fetchCampaignsData();
   }, []);
 
-  // handleAddCampaign and handleToggleCampaignStatus remain for local state manipulation for now
-  // as per task instructions (backend integration out of scope for this subtask).
-  const handleAddCampaign = (newCampaignData: Omit<CampaignUIData, 'id' | 'lastRun' | 'audience'> & { audienceCriteria?: any }) => {
-    // This function needs to be adapted if NewCampaignModal provides data in a different format
-    // For now, creating a mock CampaignUIData structure.
-    const mockAudience = newCampaignData.audienceCriteria ? JSON.stringify(newCampaignData.audienceCriteria) : "Critérios definidos";
-    const newCampaignWithId: CampaignUIData = {
-      ...newCampaignData,
-      id: `local-${Date.now()}`, // Simple local ID
-      audience: mockAudience,
-      lastRun: 'Nunca executado', // Default for new local campaign
-      // Ensure all fields of CampaignUIData are present if needed by the UI immediately
-      // type, status, schedule might come from newCampaignData
-    };
-    
-    setCampaigns(prev => [newCampaignWithId, ...prev]);
-    toast.success('Campanha adicionada localmente!');
+  const fetchCampaignsData = async () => {
+    setLoadingCampaigns(true);
+    setError(null); // Reset error state before fetching
+    try {
+      const data = await dashboardService.getAllCampaignsDetails();
+      setCampaigns(data);
+    } catch (err) {
+      console.error("Failed to fetch campaigns:", err);
+      const errorMessage = "Falha ao carregar campanhas. Tente novamente mais tarde.";
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setLoadingCampaigns(false);
+    }
+  };
+  
+  // Updated handleAddCampaign to use dashboardService.createCampaign
+  // The data from NewCampaignModal should align with NewCampaignData from dashboardService
+  const handleAddCampaign = async (formData: {
+    name: string;
+    trigger: string; // e.g., 'manual', 'aniversario', 'recorrente'
+    status: 'ativa' | 'pausada' | 'agendada'; // DB status
+    template?: string;
+    target_audience?: object;
+    scheduled_for?: string | null; // ISO string
+  }) => {
+    try {
+      // Assuming created_by is handled by DB/RLS
+      await dashboardService.createCampaign(formData);
+      toast.success('Campanha criada com sucesso no banco de dados!');
+      fetchCampaignsData(); // Refresh list
+      setIsNewCampaignModalOpen(false); // Close modal on success
+    } catch (error) {
+      console.error('Error creating campaign:', error);
+      toast.error('Erro ao criar campanha.');
+    }
   };
 
-  const handleToggleCampaignStatus = (id: string) => {
-    setCampaigns(prevCampaigns => prevCampaigns.map(campaign => {
-      if (campaign.id === id) {
-        let newStatus: CampaignUIData['status'] = 'active';
-        if (campaign.status === 'active') newStatus = 'paused';
-        else if (campaign.status === 'paused') newStatus = 'active';
-        // Scheduled campaigns might not be toggleable this way, or might become active/paused.
-        // This simple toggle is a placeholder.
-        
-        return {
-          ...campaign,
-          status: newStatus,
-          lastRun: newStatus === 'active' && campaign.status === 'paused' ? 'Agora (local)' : campaign.lastRun 
-        };
-      }
-      return campaign;
-    }));
+  // Updated handleToggleCampaignStatus to use dashboardService.updateCampaignStatus
+  const handleToggleCampaignStatus = async (campaignId: string, currentUiStatus: CampaignUIData['status']) => {
+    let newDbStatus: 'ativa' | 'pausada' | 'agendada';
 
-    const campaign = campaigns.find(c => c.id === id);
-    if (campaign) {
-      const action = campaign.status === 'active' ? 'pausada localmente' : 'ativada localmente';
-      toast.success(`Campanha ${action}!`);
+    if (currentUiStatus === 'active') {
+      newDbStatus = 'pausada';
+    } else if (currentUiStatus === 'paused') {
+      newDbStatus = 'ativa';
+    } else if (currentUiStatus === 'scheduled') {
+      // Deciding what to do with a 'scheduled' campaign.
+      // Option 1: Make it 'paused' to stop it from being automatically run if its time comes.
+      // Option 2: Make it 'active' if it's meant to run now (this is more complex, depends on scheduled_for).
+      // For simplicity, let's try to pause it. If it's already past its schedule, this might not make sense.
+      // A better UX might be to prevent this toggle for 'scheduled' or have a specific 'cancel schedule' action.
+      newDbStatus = 'pausada'; 
+      toast.info('Campanha agendada foi pausada. Para reativar, ajuste o agendamento se necessário.');
+    } else {
+      toast.error('Status desconhecido, não é possível alterar.');
+      return;
+    }
+
+    try {
+      await dashboardService.updateCampaignStatus(campaignId, newDbStatus);
+      toast.success('Status da campanha atualizado no banco de dados!');
+      fetchCampaignsData(); // Refresh list
+    } catch (error) {
+      console.error(`Error toggling campaign ${campaignId} status:`, error);
+      toast.error('Erro ao atualizar status da campanha.');
     }
   };
   
@@ -209,7 +221,7 @@ const CampaignsModule = () => {
                       variant="ghost" 
                       size="icon" 
                       className="text-pharmacy-text2 hover:text-pharmacy-accent"
-                      onClick={(e) => { e.stopPropagation(); handleToggleCampaignStatus(campaign.id); }}
+                      onClick={(e) => { e.stopPropagation(); handleToggleCampaignStatus(campaign.id, campaign.status); }}
                     >
                       {campaign.status === 'active' ? (
                         <Pause className="h-4 w-4" />
@@ -240,7 +252,7 @@ const CampaignsModule = () => {
                       variant="ghost" 
                       size="sm" 
                       className="text-pharmacy-text2 hover:text-pharmacy-accent p-1 h-auto"
-                      onClick={(e) => { e.stopPropagation(); handleToggleCampaignStatus(campaign.id);}}
+                      onClick={(e) => { e.stopPropagation(); handleToggleCampaignStatus(campaign.id, campaign.status);}}
                     >
                       {campaign.status === 'active' ? (
                         <Pause className="h-4 w-4" />

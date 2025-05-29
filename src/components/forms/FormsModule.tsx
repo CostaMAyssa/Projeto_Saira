@@ -29,66 +29,154 @@ const FormsModule = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
 
-  useEffect(() => {
-    const fetchForms = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const dbForms = await getForms(); // Fetches data from Supabase
-        if (dbForms) {
-          const transformedForms: FormData[] = dbForms.map((form: any) => {
-            let responseCount = 0;
-            // Supabase returns joined table data as an array.
-            // If form_responses is an array and has an object with count:
-            if (Array.isArray(form.form_responses) && form.form_responses.length > 0 && form.form_responses[0].count !== undefined) {
-              responseCount = form.form_responses[0].count;
-            } 
-            // If form_responses is an object with count (less likely for Supabase joins but good to check):
-            else if (form.form_responses && typeof form.form_responses === 'object' && form.form_responses.count !== undefined) {
-                 responseCount = form.form_responses.count;
-            }
+import { getForms, createForm, updateForm, deleteForm, Form as DbForm } from '../../services/dashboardService'; // Import service functions and DbForm type
+
+// FormData interface for UI state
+interface FormData {
+  id: string;
+  name: string; // maps from title
+  questions: number; // maps from question_count
+  responses: number; // maps from form_responses (count)
+  status: 'active' | 'inactive'; // maps from status ('ativo'/'inativo')
+  createdAt: string; // maps from created_at (formatted)
+  lastResponse: string; // Placeholder
+  // Include original DB fields if needed for editing, e.g. to pass back to updateForm
+  fields?: any; // from DbForm.fields
+  redirect_url?: string; // from DbForm.redirect_url
+}
 
 
-            return {
-              id: form.id,
-              name: form.title,
-              questions: form.question_count || 0,
-              responses: responseCount,
-              status: form.status === 'ativo' ? 'active' : 'inactive',
-              createdAt: new Date(form.created_at).toLocaleDateString('pt-BR'),
-              lastResponse: 'N/A', // Placeholder as per requirements
-            };
-          });
-          setForms(transformedForms);
-        }
-      } catch (err) {
-        console.error("Failed to fetch forms:", err);
-        setError("Falha ao carregar formulários. Tente novamente mais tarde.");
-        toast.error("Erro ao carregar formulários.");
-      } finally {
-        setLoading(false);
+const FormsModule = () => {
+  const [isNewFormModalOpen, setIsNewFormModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false); // State for edit modal
+  const [selectedFormToEdit, setSelectedFormToEdit] = useState<FormData | null>(null); // State for form being edited
+  const isMobile = useIsMobile();
+  const [forms, setForms] = useState<FormData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const fetchFormsData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const dbForms = await getForms();
+      if (dbForms) {
+        const transformedForms: FormData[] = dbForms.map((form: any) => {
+          let responseCount = 0;
+          if (Array.isArray(form.form_responses) && form.form_responses.length > 0 && form.form_responses[0].count !== undefined) {
+            responseCount = form.form_responses[0].count;
+          } else if (form.form_responses && typeof form.form_responses === 'object' && form.form_responses.count !== undefined) {
+            responseCount = form.form_responses.count;
+          }
+          return {
+            id: form.id,
+            name: form.title,
+            questions: form.question_count || 0,
+            responses: responseCount,
+            status: form.status === 'ativo' ? 'active' : 'inactive',
+            createdAt: new Date(form.created_at).toLocaleDateString('pt-BR'),
+            lastResponse: 'N/A', // Placeholder
+            // Store original DB fields needed for editing
+            fields: form.fields,
+            redirect_url: form.redirect_url,
+          };
+        });
+        setForms(transformedForms);
       }
-    };
-    fetchForms();
+    } catch (err) {
+      console.error("Failed to fetch forms:", err);
+      const errorMessage = "Falha ao carregar formulários. Tente novamente mais tarde.";
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFormsData();
   }, []);
 
-  const handleAddForm = (newFormUI: Omit<FormData, 'id' | 'responses' | 'lastResponse' | 'createdAt'> & { name: string, questions: number, status: 'active' | 'inactive' }) => {
-    // This function is for local state update as per instructions
-    const currentDate = new Date();
-    const formattedDate = currentDate.toLocaleDateString('pt-BR');
-    
-    const newFormWithId: FormData = {
-      id: `local-${Date.now()}`, // Simple local ID
-      name: newFormUI.name,
-      questions: newFormUI.questions,
-      status: newFormUI.status,
-      responses: 0, // Default for new local form
-      lastResponse: 'N/A', // Default for new local form
-      createdAt: formattedDate,
+  // Type for data coming from NewFormModal (UI representation)
+  type NewFormModalData = {
+    name: string; // UI field: name
+    questions: number;
+    status: 'active' | 'inactive'; // UI field: status
+    fields?: any; // Optional: if modal collects this
+    redirect_url?: string; // Optional: if modal collects this
+  };
+
+  const handleAddForm = async (modalData: NewFormModalData) => {
+    // Map UI data to DB structure (Omit<DbForm, 'id' | 'created_at'>)
+    const formDataToSave: Omit<DbForm, 'id' | 'created_at' | 'created_by'> & { created_by?: string } = {
+      title: modalData.name,
+      question_count: modalData.questions,
+      status: modalData.status === 'active' ? 'ativo' : 'inativo',
+      fields: modalData.fields || {}, // Default to empty object if not provided
+      redirect_url: modalData.redirect_url || '', // Default to empty string
+      // created_by: 'user_placeholder_uuid', // Placeholder or get from auth context
     };
-    
-    setForms(prevForms => [newFormWithId, ...prevForms]);
-    toast.success('Formulário adicionado localmente!');
+
+    try {
+      await createForm(formDataToSave as Omit<DbForm, 'id' | 'created_at'>); // Assert type if created_by is truly optional in DB or handled by policy
+      toast.success('Formulário criado com sucesso!');
+      fetchFormsData(); // Refresh list
+      setIsNewFormModalOpen(false);
+    } catch (err) {
+      console.error("Error creating form:", err);
+      toast.error('Erro ao criar formulário.');
+    }
+  };
+
+  const handleEditForm = (form: FormData) => {
+    setSelectedFormToEdit(form);
+    setIsEditModalOpen(true); 
+    // Assuming NewFormModal is reused for editing. If not, a different modal state would be set.
+    // setIsNewFormModalOpen(true); // If reusing NewFormModal for edit
+  };
+  
+  // Type for data coming from an Edit Modal (UI representation)
+  type EditFormModalData = {
+    name: string;
+    questions: number;
+    status: 'active' | 'inactive';
+    fields?: any;
+    redirect_url?: string;
+  };
+
+  const handleSaveFormUpdate = async (formId: string, modalData: EditFormModalData) => {
+    const updatesForDb: Partial<DbForm> = {
+      title: modalData.name,
+      question_count: modalData.questions,
+      status: modalData.status === 'active' ? 'ativo' : 'inativo',
+      fields: modalData.fields,
+      redirect_url: modalData.redirect_url,
+    };
+
+    try {
+      await updateForm(formId, updatesForDb);
+      toast.success('Formulário atualizado com sucesso!');
+      fetchFormsData(); // Refresh list
+      setIsEditModalOpen(false);
+      setSelectedFormToEdit(null);
+    } catch (err) {
+      console.error(`Error updating form ${formId}:`, err);
+      toast.error('Erro ao atualizar formulário.');
+    }
+  };
+
+  const handleDeleteForm = async (formId: string) => {
+    if (window.confirm("Tem certeza que deseja excluir este formulário? Esta ação não pode ser desfeita.")) {
+      try {
+        await deleteForm(formId);
+        toast.success('Formulário excluído com sucesso!');
+        fetchFormsData(); // Refresh list
+      } catch (err) {
+        console.error(`Error deleting form ${formId}:`, err);
+        toast.error('Erro ao excluir formulário.');
+      }
+    }
   };
 
   const filteredForms = forms.filter(form => 
@@ -105,7 +193,7 @@ const FormsModule = () => {
       <div className="flex justify-between items-start mb-2">
         <div className="font-medium text-gray-900">{form.name}</div>
         <Badge 
-          className={form.status === 'active' ? "bg-green-100 text-green-700 border border-green-200" : "bg-gray-100 text-gray-700 border border-gray-200"}
+          className={form.status === 'active' ? "bg-green-100 text-green-700 border border-green-200 text-xs" : "bg-gray-100 text-gray-700 border border-gray-200 text-xs"}
         >
           {form.status === 'active' ? 'Ativo' : 'Inativo'}
         </Badge>
@@ -130,15 +218,15 @@ const FormsModule = () => {
           <Eye className="h-3 w-3 mr-1" />
           Ver
         </Button>
-        <Button variant="ghost" size="sm" className="text-pharmacy-accent hover:bg-gray-100 text-xs px-2 py-1 h-8">
+        <Button variant="ghost" size="sm" className="text-pharmacy-accent hover:bg-gray-100 text-xs px-2 py-1 h-8" onClick={() => handleEditForm(form)}>
           <Edit className="h-3 w-3 mr-1" />
           Editar
         </Button>
-        <Button variant="ghost" size="sm" className="text-pharmacy-accent hover:bg-gray-100 text-xs px-2 py-1 h-8">
+        <Button variant="ghost" size="sm" className="text-pharmacy-accent hover:bg-gray-100 text-xs px-2 py-1 h-8" onClick={() => toast.info("Funcionalidade de link em breve.")}>
           <Copy className="h-3 w-3 mr-1" />
           Link
         </Button>
-        <Button variant="ghost" size="sm" className="text-red-500 hover:bg-gray-100 text-xs px-2 py-1 h-8">
+        <Button variant="ghost" size="sm" className="text-red-500 hover:bg-gray-100 text-xs px-2 py-1 h-8" onClick={(e) => { e.stopPropagation(); handleDeleteForm(form.id); }}>
           <Trash className="h-3 w-3" />
         </Button>
       </div>
@@ -190,11 +278,11 @@ const FormsModule = () => {
               <Eye className="h-4 w-4 mr-1" />
               Ver
             </Button>
-            <Button variant="ghost" size="sm" className="text-pharmacy-accent hover:bg-gray-100">
+            <Button variant="ghost" size="sm" className="text-pharmacy-accent hover:bg-gray-100" onClick={() => handleEditForm(form)}>
               <Edit className="h-4 w-4 mr-1" />
               Editar
             </Button>
-            <Button variant="ghost" size="sm" className="text-red-500 hover:bg-gray-100">
+            <Button variant="ghost" size="sm" className="text-red-500 hover:bg-gray-100" onClick={(e) => { e.stopPropagation(); handleDeleteForm(form.id); }}>
               <Trash className="h-4 w-4" />
             </Button>
           </div>
@@ -264,8 +352,23 @@ const FormsModule = () => {
       <NewFormModal 
         open={isNewFormModalOpen} 
         onOpenChange={setIsNewFormModalOpen}
-        onSubmit={handleAddForm}
+        onSubmit={selectedFormToEdit ? (data => handleSaveFormUpdate(selectedFormToEdit.id, data as EditFormModalData)) : handleAddForm}
+        initialData={selectedFormToEdit} // Pass selected form data for editing
+        key={selectedFormToEdit ? selectedFormToEdit.id : 'new-form-modal'} // Re-mount modal when initialData changes
       />
+      {/* If using a separate Edit Modal:
+      {selectedFormToEdit && isEditModalOpen && (
+        <EditFormModal // Assuming an EditFormModal component exists or NewFormModal is adapted
+          open={isEditModalOpen}
+          onOpenChange={(isOpen) => {
+            setIsEditModalOpen(isOpen);
+            if (!isOpen) setSelectedFormToEdit(null);
+          }}
+          initialData={selectedFormToEdit}
+          onSubmit={(updatedData) => handleSaveFormUpdate(selectedFormToEdit.id, updatedData)}
+        />
+      )}
+      */}
     </div>
   );
 };

@@ -25,50 +25,148 @@ const ClientsModule = () => {
   }, []);
 
   // Fetch clients from Supabase
-  useEffect(() => {
-    const fetchClients = async () => {
-      const { data, error } = await supabase
-        .from('clients')
-        .select('*'); // Select all columns for now
+import { dashboardService, ClientData } from '../../services/dashboardService'; // Import service and ClientData
+import { toast } from 'sonner'; // Assuming sonner for toasts, or useToast if defined
+// import { supabase } from '@/lib/supabase'; // Already imported if used directly, but prefer service
 
-      if (error) {
-        console.error('Error fetching clients:', error);
-        // Handle error appropriately
-        return;
-      }
+// Define a type for the data expected from a client form (modal)
+export type ClientModalFormData = {
+  name: string;
+  phone: string;
+  email?: string;
+  status: 'active' | 'inactive'; // UI status
+  tags?: string[];
+  is_vip?: boolean;
+  profile_type?: string;
+  birth_date?: string; // YYYY-MM-DD for date input
+};
+
+const ClientsModule = () => {
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const [clients, setClients] = useState<Client[]>([]);
+  const [filteredClients, setFilteredClients] = useState<Client[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isMobile, setIsMobile] = useState(false);
+  const [loading, setLoading] = useState(true); // Added loading state
+  const [error, setError] = useState<string | null>(null); // Added error state
+
+  useEffect(() => {
+    const checkIfMobile = () => setIsMobile(window.innerWidth < 640);
+    checkIfMobile();
+    window.addEventListener('resize', checkIfMobile);
+    return () => window.removeEventListener('resize', checkIfMobile);
+  }, []);
+
+  const fetchClientsData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // The direct Supabase call was here before, now we should ensure this logic is consistent
+      // with how dashboardService might fetch or if we keep direct fetching here.
+      // For consistency with the task (using dashboardService for CRUD), let's assume
+      // a getClients method could be in dashboardService, or use direct Supabase here for read.
+      // The previous code used direct supabase.from('clients').select('*').
+      // Let's keep that for fetching all clients for now.
+      const { data, error: fetchError } = await supabase.from('clients').select('*').order('created_at', { ascending: false });
+
+      if (fetchError) throw fetchError;
 
       if (data) {
         const transformedClients: Client[] = data.map((dbClient: any) => ({
           id: dbClient.id,
           name: dbClient.name,
           phone: dbClient.phone,
-          email: dbClient.email,
-          status: dbClient.status === 'ativo' ? 'active' : 'inactive', // Map status
-          tags: dbClient.tags || [], // Ensure tags is always an array
-          // Format last_purchase: If it's a date/timestamp, format it. Otherwise, use as is or placeholder.
-          // For simplicity, let's assume it's a string or can be displayed directly.
-          // In a real app, you'd use date-fns or similar to format dbClient.last_purchase (timestamp)
-          lastPurchase: dbClient.last_purchase ? new Date(dbClient.last_purchase).toLocaleDateString() : 'N/A',
+          email: dbClient.email || '', // Ensure email is not null
+          status: dbClient.status === 'ativo' ? 'active' : 'inactive',
+          tags: dbClient.tags || [],
+          lastPurchase: dbClient.last_purchase ? new Date(dbClient.last_purchase).toLocaleDateString('pt-BR') : 'N/A',
           isVip: dbClient.is_vip || false,
-          // Derive isRegular and isOccasional from profile_type
           isRegular: dbClient.profile_type === 'regular',
           isOccasional: dbClient.profile_type === 'occasional',
-          // profile_type: dbClient.profile_type, // Optionally keep original profile_type if needed
         }));
         setClients(transformedClients);
-        // setFilteredClients(transformedClients); // Initialize filtered list, search useEffect will handle it
       }
-    };
-
-    fetchClients();
+    } catch (err: any) {
+      console.error('Error fetching clients:', err);
+      setError('Falha ao carregar clientes.');
+      toast.error('Falha ao carregar clientes.');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  useEffect(() => {
+    fetchClientsData();
   }, []);
 
-  // Adicionar novo cliente (keeps mock functionality, does not save to DB)
-  const handleAddClient = (newClient: Client) => {
-    // This function would need to be updated to save to Supabase if persistence is required.
-    // For now, it just adds to local state for UI testing.
-    setClients(prevClients => [newClient, ...prevClients]);
+  const handleAddClient = async (formData: ClientModalFormData) => {
+    const clientDataToSave: ClientData = {
+      ...formData,
+      email: formData.email || null, // Ensure null if empty string for DB
+      tags: formData.tags || null,
+      is_vip: formData.is_vip || null,
+      profile_type: formData.profile_type || null,
+      birth_date: formData.birth_date || null,
+      status: formData.status === 'active' ? 'ativo' : 'inativo', // Map to DB status
+    };
+    try {
+      await dashboardService.createClient(clientDataToSave);
+      toast.success('Cliente adicionado com sucesso!');
+      fetchClientsData(); // Refresh list
+      // Logic to close modal should be here or in ClientSearchHeader/modal component
+    } catch (err) {
+      console.error("Error creating client:", err);
+      toast.error('Erro ao adicionar cliente.');
+    }
   };
+  
+  const handleSaveClientUpdate = async (clientId: string, formData: ClientModalFormData) => {
+     const clientDataToUpdate: Partial<ClientData> = {
+      ...formData,
+      email: formData.email || undefined, // Use undefined for partial update if email is empty string
+      tags: formData.tags,
+      is_vip: formData.is_vip,
+      profile_type: formData.profile_type,
+      birth_date: formData.birth_date,
+      status: formData.status === 'active' ? 'ativo' : 'inativo',
+    };
+    try {
+      await dashboardService.updateClient(clientId, clientDataToUpdate);
+      toast.success('Cliente atualizado com sucesso!');
+      fetchClientsData();
+      return true; // Indicate success for modal closing
+    } catch (err) {
+      console.error("Error updating client:", err);
+      toast.error('Erro ao atualizar cliente.');
+      return false; // Indicate failure
+    }
+  };
+
+  const handleDeleteClientFromModule = async (clientId: string) => {
+    if (window.confirm('Tem certeza que deseja excluir este cliente?')) {
+      try {
+        await dashboardService.deleteClient(clientId);
+        toast.success('Cliente excluído com sucesso!');
+        fetchClientsData();
+      } catch (err) {
+        console.error("Error deleting client:", err);
+        toast.error('Erro ao excluir cliente.');
+      }
+    }
+  };
+  
+  const handleToggleClientStatusInModule = async (client: Client) => {
+    const newDbStatus = client.status === 'active' ? 'inativo' : 'ativo';
+    try {
+      await dashboardService.updateClient(client.id, { status: newDbStatus });
+      toast.success(`Status do cliente alterado para ${newDbStatus === 'ativo' ? 'ativo' : 'inativo'}.`);
+      fetchClientsData();
+    } catch (err) {
+      console.error("Error updating client status:", err);
+      toast.error('Erro ao alterar status do cliente.');
+    }
+  };
+
 
   // Função de busca
   const handleSearch = (query: string) => {
@@ -100,29 +198,41 @@ const ClientsModule = () => {
 
   // Determinar o componente a ser renderizado (tabela ou cards)
   const renderClientList = () => {
-    // Em dispositivos móveis, sempre mostrar cards
+    const listProps = {
+      clients: filteredClients,
+      getStatusBadge,
+      getTagBadge,
+      // Pass down new handlers to ClientTable (and potentially ClientsCardView if it supports these actions)
+      onEditClient: handleSaveClientUpdate, // ClientTable's handleSaveEdit will call this
+      onDeleteClient: handleDeleteClientFromModule,
+      onToggleStatus: handleToggleClientStatusInModule,
+    };
+
+    if (loading) {
+      return <div className="flex justify-center items-center h-64">Carregando clientes...</div>;
+    }
+    if (error) {
+      return <div className="flex flex-col justify-center items-center h-64 text-red-500">
+               <p>{error}</p>
+               <Button onClick={fetchClientsData} className="mt-2">Tentar Novamente</Button>
+             </div>;
+    }
+    if (filteredClients.length === 0 && !searchQuery) {
+        return <div className="text-center py-10 text-gray-500">Nenhum cliente cadastrado ainda.</div>;
+    }
+    if (filteredClients.length === 0 && searchQuery) {
+        return <div className="text-center py-10 text-gray-500">Nenhum cliente encontrado para "{searchQuery}".</div>;
+    }
+
+
     if (isMobile) {
-      return (
-        <ClientsCardView 
-          clients={filteredClients} 
-          getStatusBadge={getStatusBadge} 
-          getTagBadge={getTagBadge}
-        />
-      );
+      // ClientsCardView might need props for edit/delete if those actions are available on cards
+      return <ClientsCardView {...listProps} />;
     }
     
-    // Em desktops, mostrar de acordo com a preferência do usuário
     return viewMode === 'table' 
-      ? <ClientTable 
-          clients={filteredClients} 
-          getStatusBadge={getStatusBadge} 
-          getTagBadge={getTagBadge} 
-        /> 
-      : <ClientsCardView 
-          clients={filteredClients} 
-          getStatusBadge={getStatusBadge} 
-          getTagBadge={getTagBadge}
-        />;
+      ? <ClientTable {...listProps} /> 
+      : <ClientsCardView {...listProps} />;
   };
 
   return (
@@ -130,7 +240,7 @@ const ClientsModule = () => {
       <ClientSearchHeader 
         viewMode={viewMode} 
         setViewMode={setViewMode}
-        onAddClient={handleAddClient}
+        onAddClient={handleAddClient} // This will be called by ClientSearchHeader's modal
         onSearch={handleSearch}
         isMobile={isMobile}
       />
@@ -138,7 +248,7 @@ const ClientsModule = () => {
       {renderClientList()}
       
       <div className="mt-4 text-center text-sm text-gray-500">
-        Exibindo {Math.min(filteredClients.length, clients.length)} de {clients.length} clientes
+        Exibindo {filteredClients.length} de {clients.length} cliente(s)
       </div>
     </div>
   );

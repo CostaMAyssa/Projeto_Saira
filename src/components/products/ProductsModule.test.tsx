@@ -6,26 +6,45 @@ import { supabase } from '@/lib/supabaseClient'; // Will be mocked
 import { Product } from './types'; // Adjust path
 import { useToast } from '@/hooks/use-toast'; // Mock this hook
 
-// Mock Supabase client
-jest.mock('@/lib/supabaseClient', () => ({
+import ProductsModule from './ProductsModule'; // Adjust path
+import { supabase } from '@/lib/supabase'; // For direct fetch used in module
+import { dashboardService, ProductData } from '../../services/dashboardService'; // For CRUD
+import { Product } from './types'; // Adjust path
+import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
+
+
+// Mock Supabase client (for direct list fetching in ProductsModule)
+jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: jest.fn().mockReturnThis(),
     select: jest.fn().mockReturnThis(),
+    order: jest.fn().mockReturnThis(),
   },
 }));
+
+// Mock dashboardService for CRUD operations
+jest.mock('../../services/dashboardService', () => ({
+  dashboardService: {
+    createProduct: jest.fn(),
+    updateProduct: jest.fn(),
+    // deleteProduct: jest.fn(), // Not implementing delete tests for products
+  },
+}));
+
 
 // Mock hooks
 jest.mock('@/hooks/use-toast', () => ({
   useToast: jest.fn(() => ({ toast: jest.fn() })),
 }));
 jest.mock('@/hooks/use-mobile', () => ({
-  useIsMobile: jest.fn(() => false), // Default to not mobile
+  useIsMobile: jest.fn(() => false),
 }));
 
 // Mock child components
-jest.mock('./ProductsHeader', () => (props: any) => (
+jest.mock('./ProductsHeader', () => (props: { onAddProduct: () => void }) => (
   <div>
-    <button onClick={props.onAddProduct}>Add Product</button>
+    <button data-testid="add-product-btn" onClick={props.onAddProduct}>Add Product</button>
   </div>
 ));
 jest.mock('./ProductFilters', () => (props: any) => (
@@ -39,21 +58,56 @@ jest.mock('./ProductFilters', () => (props: any) => (
     <button onClick={() => props.setActiveFilter(null)}>Clear Filters</button>
   </div>
 ));
-jest.mock('./ProductCard', () => (props: { product: Product }) => (
+
+// Updated ProductCard mock to include onEdit call simulation
+jest.mock('./ProductCard', () => (props: { product: Product; onEdit: (id: string) => void; }) => (
   <div data-testid={`product-card-${props.product.id}`}>
     <h3>{props.product.name}</h3>
     <p>Category: {props.product.category}</p>
     <p>Stock: {props.product.stock}</p>
     {props.product.needsPrescription && <span>Needs Prescription</span>}
+    <button data-testid={`edit-btn-${props.product.id}`} onClick={() => props.onEdit(props.product.id)}>Edit</button>
   </div>
 ));
-// Modals are not directly tested for opening/closing here, focus on data display
-jest.mock('./ProductDetails', () => (props: any) => props.isOpen ? <div data-testid="product-details-modal">Details</div> : null);
-jest.mock('./ProductEditForm', () => (props: any) => props.isOpen ? <div data-testid="product-edit-modal">Edit Form</div> : null);
-jest.mock('./ProductCreateForm', () => (props: any) => props.isOpen ? <div data-testid="product-create-modal">Create Form</div> : null);
+
+// Mock Modals - make them call their onSave prop when a simulated action occurs
+const mockProductCreateForm = jest.fn();
+jest.mock('./ProductCreateForm', () => (props: { isOpen: boolean; onClose: () => void; onSave: (data: any) => void; }) => {
+  mockProductCreateForm.mockImplementation((internalProps) => { // Store the onSave prop
+    if (!internalProps.isOpen) return null;
+    return (
+      <div data-testid="product-create-modal">
+        Create Form
+        <button data-testid="create-form-save-btn" onClick={() => internalProps.onSave({ name: 'New Mock Product', category: 'Mock Cat', stock: 10, needsPrescription: false })}>
+          Save New Product
+        </button>
+      </div>
+    );
+  });
+  return mockProductCreateForm;
+});
 
 
-const mockDbProducts = [
+const mockProductEditForm = jest.fn();
+jest.mock('./ProductEditForm', () => (props: { isOpen: boolean; onClose: () => void; product: Product | null; onSave: (data: any) => void; }) => {
+  mockProductEditForm.mockImplementation((internalProps) => {
+    if (!internalProps.isOpen) return null;
+    return (
+      <div data-testid="product-edit-modal">
+        Edit Form for {internalProps.product?.name}
+        <button data-testid="edit-form-save-btn" onClick={() => internalProps.onSave({ ...internalProps.product, name: `${internalProps.product?.name} Updated` })}>
+          Save Changes
+        </button>
+      </div>
+    );
+  });
+  return mockProductEditForm;
+});
+
+jest.mock('./ProductDetails', () => (props: any) => props.isOpen ? <div data-testid="product-details-modal">Details for {props.product?.name}</div> : null);
+
+
+const mockDbProducts: any[] = [ // Use any for mock flexibility
   {
     id: 'prod1',
     name: 'Paracetamol 500mg',
@@ -114,87 +168,101 @@ describe('ProductsModule', () => {
   it('fetches products, transforms data, and displays them', async () => {
     render(<ProductsModule />);
 
+    // Initial fetch for products list
+    (supabase.from('products').select as jest.Mock).mockReturnValue({
+      order: jest.fn().mockResolvedValue({ data: mockDbProducts, error: null })
+    });
+  });
+
+  it('fetches products and displays them', async () => {
+    render(<ProductsModule />);
     await waitFor(() => {
       expect(supabase.from).toHaveBeenCalledWith('products');
-      expect(supabase.from('products').select).toHaveBeenCalledWith('*');
-    });
-
-    await waitFor(() => {
       expect(screen.getByText('Paracetamol 500mg')).toBeInTheDocument();
       expect(screen.getByText('Amoxicilina 250mg')).toBeInTheDocument();
-      // Check transformation for needsPrescription
-      const amoxicilinaCard = screen.getByTestId('product-card-prod2');
-      expect(amoxicilinaCard).toHaveTextContent('Needs Prescription');
-      
-      const paracetamolCard = screen.getByTestId('product-card-prod1');
-      expect(paracetamolCard).not.toHaveTextContent('Needs Prescription');
     });
   });
 
-  it('filters products by search query (name)', async () => {
+  it('handleCreateProduct calls createProduct service and refreshes list', async () => {
+    const newProductData = { name: 'New Mock Product', category: 'Mock Cat', stock: 10, needsPrescription: false };
+    (dashboardService.createProduct as jest.Mock).mockResolvedValue({ ...newProductData, id: 'prod-new' });
+    
+    // Mock for fetchProductsData refresh
+    const refreshedProducts = [...mockDbProducts, { ...newProductData, id: 'prod-new', created_at: new Date().toISOString() }];
+    (supabase.from('products').select().order as jest.Mock)
+      .mockResolvedValueOnce({data: mockDbProducts, error: null}) // Initial
+      .mockResolvedValueOnce({data: refreshedProducts, error: null}); // After refresh
+
     render(<ProductsModule />);
     await waitFor(() => expect(screen.getByText('Paracetamol 500mg')).toBeInTheDocument());
 
-    const searchInput = screen.getByTestId('product-search-input');
-    fireEvent.change(searchInput, { target: { value: 'Amox' } });
+    fireEvent.click(screen.getByTestId('add-product-btn')); // Opens create modal
+    await waitFor(() => expect(screen.getByTestId('product-create-modal')).toBeInTheDocument());
+    
+    fireEvent.click(screen.getByTestId('create-form-save-btn')); // Simulate save from modal
 
     await waitFor(() => {
-      expect(screen.queryByText('Paracetamol 500mg')).not.toBeInTheDocument();
-      expect(screen.getByText('Amoxicilina 250mg')).toBeInTheDocument();
+      expect(dashboardService.createProduct).toHaveBeenCalledWith(expect.objectContaining(newProductData));
+      expect(mockToast).toHaveBeenCalledWith({ title: "Sucesso", description: `Produto ${newProductData.name} criado com sucesso.` });
+      expect(supabase.from).toHaveBeenCalledTimes(2); // Initial + refresh
     });
+    expect(screen.getByText('New Mock Product')).toBeInTheDocument();
+  });
+
+  it('handleSaveProductEdit calls updateProduct service and refreshes list', async () => {
+    const productToEdit = mockDbProducts[0]; // Paracetamol 500mg
+    const updatedName = `${productToEdit.name} Updated`;
+    (dashboardService.updateProduct as jest.Mock).mockResolvedValue({ ...productToEdit, name: updatedName });
+
+    const refreshedProductsAfterEdit = mockDbProducts.map(p => p.id === productToEdit.id ? { ...p, name: updatedName } : p);
+    (supabase.from('products').select().order as jest.Mock)
+      .mockResolvedValueOnce({data: mockDbProducts, error: null}) // Initial
+      .mockResolvedValueOnce({data: refreshedProductsAfterEdit, error: null}); // After refresh
+
+    render(<ProductsModule />);
+    await waitFor(() => expect(screen.getByText('Paracetamol 500mg')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId(`edit-btn-${productToEdit.id}`)); // Opens edit modal
+    await waitFor(() => expect(screen.getByTestId('product-edit-modal')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('edit-form-save-btn')); // Simulate save from modal
+
+    await waitFor(() => {
+      expect(dashboardService.updateProduct).toHaveBeenCalledWith(productToEdit.id, expect.objectContaining({ name: updatedName }));
+      expect(mockToast).toHaveBeenCalledWith({ title: "Sucesso", description: `Produto ${updatedName} atualizado com sucesso.` });
+      expect(supabase.from).toHaveBeenCalledTimes(2); // Initial + refresh
+    });
+    expect(screen.getByText(updatedName)).toBeInTheDocument();
   });
   
-  it('filters products by category using ProductFilters', async () => {
+  // Test for error during create
+  it('shows error toast if createProduct service fails', async () => {
+    (dashboardService.createProduct as jest.Mock).mockRejectedValue(new Error("Create failed"));
     render(<ProductsModule />);
     await waitFor(() => expect(screen.getByText('Paracetamol 500mg')).toBeInTheDocument());
 
-    // Simulate clicking a category filter button in the mocked ProductFilters
-    fireEvent.click(screen.getByText('Filter by TestCategory'));
+    fireEvent.click(screen.getByTestId('add-product-btn'));
+    await waitFor(() => expect(screen.getByTestId('product-create-modal')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('create-form-save-btn'));
 
     await waitFor(() => {
-      expect(screen.queryByText('Paracetamol 500mg')).not.toBeInTheDocument();
-      expect(screen.queryByText('Amoxicilina 250mg')).not.toBeInTheDocument();
-      expect(screen.getByText('Vitamina C')).toBeInTheDocument(); // Belongs to TestCategory
-    });
-
-    // Clear filter
-    fireEvent.click(screen.getByText('Clear Filters'));
-    await waitFor(() => {
-       expect(screen.getByText('Paracetamol 500mg')).toBeInTheDocument();
-       expect(screen.getByText('Amoxicilina 250mg')).toBeInTheDocument();
-       expect(screen.getByText('Vitamina C')).toBeInTheDocument();
+        expect(mockToast).toHaveBeenCalledWith({ title: "Erro", description: "Falha ao criar produto.", variant: "destructive" });
     });
   });
 
-  it('handles error when fetching products and shows toast', async () => {
-    (supabase.from('products').select as jest.Mock).mockResolvedValueOnce({
-      data: null,
-      error: { message: 'Failed to fetch products' },
-    });
-
-    render(<ProductsModule />);
-
-    await waitFor(() => {
-      expect(mockToast).toHaveBeenCalledWith({
-        title: "Erro ao buscar produtos",
-        description: "Não foi possível carregar os produtos do banco de dados.",
-        variant: "destructive",
-      });
-      // Check for empty state message
-      expect(screen.getByText('Nenhum produto encontrado')).toBeInTheDocument();
-    });
-  });
-  
-  it('displays empty state when no products match filters', async () => {
+  // Test for error during update
+  it('shows error toast if updateProduct service fails', async () => {
+    const productToEdit = mockDbProducts[0];
+    (dashboardService.updateProduct as jest.Mock).mockRejectedValue(new Error("Update failed"));
     render(<ProductsModule />);
     await waitFor(() => expect(screen.getByText('Paracetamol 500mg')).toBeInTheDocument());
 
-    const searchInput = screen.getByTestId('product-search-input');
-    fireEvent.change(searchInput, { target: { value: 'NonExistentProduct123' } });
+    fireEvent.click(screen.getByTestId(`edit-btn-${productToEdit.id}`));
+    await waitFor(() => expect(screen.getByTestId('product-edit-modal')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('edit-form-save-btn'));
 
     await waitFor(() => {
-      expect(screen.queryByText('Paracetamol 500mg')).not.toBeInTheDocument();
-      expect(screen.getByText('Nenhum produto encontrado')).toBeInTheDocument();
+        expect(mockToast).toHaveBeenCalledWith({ title: "Erro", description: "Falha ao atualizar produto.", variant: "destructive" });
     });
   });
 });

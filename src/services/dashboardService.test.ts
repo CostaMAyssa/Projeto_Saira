@@ -334,4 +334,127 @@ describe('DashboardService', () => {
         await expect(getForms()).rejects.toThrow('DB error');
     });
   });
+
+  // --- CRUD Tests ---
+
+  // Campaign CRUD
+  describe('Campaign CRUD', () => {
+    const mockCampaign = { id: 'camp1', name: 'Test Campaign' };
+    const newCampaignData = { name: 'New Campaign', trigger: 'manual', status: 'ativa' as 'ativa' };
+
+    it('createCampaign should insert data and return it', async () => {
+      (supabase.from as jest.Mock).mockReturnValue(mockSupabaseChain({ data: mockCampaign }));
+      const result = await dashboardService.createCampaign(newCampaignData);
+      expect(supabase.from).toHaveBeenCalledWith('campaigns');
+      expect((supabase.from('campaigns').insert as jest.Mock).mock.calls[0][0]).toEqual([newCampaignData]);
+      expect(result).toEqual(mockCampaign);
+    });
+     it('createCampaign should throw on error', async () => {
+      (supabase.from as jest.Mock).mockReturnValue(mockSupabaseChain({ error: new Error('Insert failed') }));
+      await expect(dashboardService.createCampaign(newCampaignData)).rejects.toThrow('Insert failed');
+    });
+
+    it('updateCampaignStatus should update status and return data', async () => {
+      (supabase.from as jest.Mock).mockReturnValue(mockSupabaseChain({ data: { ...mockCampaign, status: 'pausada' } }));
+      const result = await dashboardService.updateCampaignStatus('camp1', 'pausada');
+      expect(supabase.from).toHaveBeenCalledWith('campaigns');
+      expect((supabase.from('campaigns').update as jest.Mock).mock.calls[0][0]).toEqual({ status: 'pausada' });
+      expect((supabase.from('campaigns').update({}).eq as jest.Mock).mock.calls[0][0]).toEqual('id');
+      expect((supabase.from('campaigns').update({}).eq as jest.Mock).mock.calls[0][1]).toEqual('camp1');
+      expect(result.status).toBe('pausada');
+    });
+    it('updateCampaignStatus should throw on error', async () => {
+      (supabase.from as jest.Mock).mockReturnValue(mockSupabaseChain({ error: new Error('Update failed') }));
+      await expect(dashboardService.updateCampaignStatus('camp1', 'pausada')).rejects.toThrow('Update failed');
+    });
+  });
+
+  // Form CRUD (assuming createForm, updateForm, deleteForm are standalone, not part of class)
+  // If they were part of the class, tests would be similar to Campaign CRUD.
+  // For now, these tests will assume the existing structure where these are exported constants.
+  // The mock for supabase.from() needs to be flexible for these.
+  
+  // Client CRUD
+  describe('Client CRUD', () => {
+    const mockClient = { id: 'client1', name: 'Test Client' };
+    const clientData = { name: 'New Client', phone: '123', status: 'ativo' as 'ativo' };
+    
+    it('createClient should insert data', async () => {
+      (supabase.from as jest.Mock).mockReturnValue(mockSupabaseChain({ data: mockClient }));
+      await dashboardService.createClient(clientData);
+      expect(supabase.from).toHaveBeenCalledWith('clients');
+      expect((supabase.from('clients').insert as jest.Mock).mock.calls[0][0]).toEqual([clientData]);
+    });
+     it('createClient should throw on error', async () => {
+      (supabase.from as jest.Mock).mockReturnValue(mockSupabaseChain({ error: new Error('Insert failed') }));
+      await expect(dashboardService.createClient(clientData)).rejects.toThrow('Insert failed');
+    });
+
+    it('updateClient should update data', async () => {
+      (supabase.from as jest.Mock).mockReturnValue(mockSupabaseChain({ data: { ...mockClient, name: 'Updated Client' } }));
+      await dashboardService.updateClient('client1', { name: 'Updated Client' });
+      expect(supabase.from).toHaveBeenCalledWith('clients');
+      expect((supabase.from('clients').update as jest.Mock).mock.calls[0][0]).toEqual({ name: 'Updated Client' });
+      expect((supabase.from('clients').update({}).eq as jest.Mock).mock.calls[0][1]).toEqual('client1');
+    });
+    it('updateClient should throw on error', async () => {
+      (supabase.from as jest.Mock).mockReturnValue(mockSupabaseChain({ error: new Error('Update failed') }));
+      await expect(dashboardService.updateClient('client1', {})).rejects.toThrow('Update failed');
+    });
+
+    it('deleteClient should call delete', async () => {
+      const deleteChain = mockSupabaseChain(); // No data expected for delete
+      (supabase.from as jest.Mock).mockReturnValue(deleteChain);
+      await dashboardService.deleteClient('client1');
+      expect(supabase.from).toHaveBeenCalledWith('clients');
+      expect(deleteChain.delete).toHaveBeenCalled();
+      expect((deleteChain.delete().eq as jest.Mock).mock.calls[0][1]).toEqual('client1');
+    });
+     it('deleteClient should throw on error', async () => {
+      (supabase.from as jest.Mock).mockReturnValue(mockSupabaseChain({ error: new Error('Delete failed') }));
+      await expect(dashboardService.deleteClient('client1')).rejects.toThrow('Delete failed');
+    });
+  });
+
+  // Product CRUD
+  describe('Product CRUD', () => {
+    const mockProduct = { id: 'prod1', name: 'Test Product' };
+    const productData = { name: 'New Product', category: 'Test Category' };
+
+    it('createProduct should insert data', async () => {
+      (supabase.from as jest.Mock).mockReturnValue(mockSupabaseChain({ data: mockProduct }));
+      await dashboardService.createProduct(productData);
+      expect(supabase.from).toHaveBeenCalledWith('products');
+      expect((supabase.from('products').insert as jest.Mock).mock.calls[0][0]).toEqual([productData]);
+    });
+     it('createProduct should throw on error', async () => {
+      (supabase.from as jest.Mock).mockReturnValue(mockSupabaseChain({ error: new Error('Insert failed') }));
+      await expect(dashboardService.createProduct(productData)).rejects.toThrow('Insert failed');
+    });
+
+    it('updateProduct should update data', async () => {
+      (supabase.from as jest.Mock).mockReturnValue(mockSupabaseChain({ data: { ...mockProduct, name: 'Updated Product' } }));
+      await dashboardService.updateProduct('prod1', { name: 'Updated Product' });
+      expect(supabase.from).toHaveBeenCalledWith('products');
+      expect((supabase.from('products').update as jest.Mock).mock.calls[0][0]).toEqual({ name: 'Updated Product' });
+      expect((supabase.from('products').update({}).eq as jest.Mock).mock.calls[0][1]).toEqual('prod1');
+    });
+     it('updateProduct should throw on error', async () => {
+      (supabase.from as jest.Mock).mockReturnValue(mockSupabaseChain({ error: new Error('Update failed') }));
+      await expect(dashboardService.updateProduct('prod1', {})).rejects.toThrow('Update failed');
+    });
+
+    it('deleteProduct should call delete', async () => {
+      const deleteChain = mockSupabaseChain();
+      (supabase.from as jest.Mock).mockReturnValue(deleteChain);
+      await dashboardService.deleteProduct('prod1');
+      expect(supabase.from).toHaveBeenCalledWith('products');
+      expect(deleteChain.delete).toHaveBeenCalled();
+      expect((deleteChain.delete().eq as jest.Mock).mock.calls[0][1]).toEqual('prod1');
+    });
+    it('deleteProduct should throw on error', async () => {
+      (supabase.from as jest.Mock).mockReturnValue(mockSupabaseChain({ error: new Error('Delete failed') }));
+      await expect(dashboardService.deleteProduct('prod1')).rejects.toThrow('Delete failed');
+    });
+  });
 });
