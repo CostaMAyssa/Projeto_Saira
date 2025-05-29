@@ -55,40 +55,35 @@ class DashboardService {
   // Buscar estatísticas principais do dashboard
   async getDashboardStats(): Promise<DashboardStats> {
     try {
-      // Buscar conversas das últimas 24 horas
-      const { data: conversations, error: convError } = await supabase
+      // Buscar conversas iniciadas nas últimas 24 horas
+      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { count: totalConversations, error: convError } = await supabase
         .from('conversations')
-        .select('id, created_at')
-        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+        .select('id', { count: 'exact', head: true }) // Count rows
+        .gte('started_at', twentyFourHoursAgo);
 
-      if (convError) throw convError;
+      if (convError) {
+        console.error('Error fetching conversation count:', convError);
+        throw convError;
+      }
 
-      // Buscar clientes ativos deste mês
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
-
-      const { data: activeClients, error: clientError } = await supabase
+      // Buscar clientes com status 'ativo'
+      const { count: totalActiveClients, error: clientError } = await supabase
         .from('clients')
-        .select('id, last_interaction')
-        .gte('last_interaction', startOfMonth.toISOString())
-        .eq('status', 'active');
+        .select('id', { count: 'exact', head: true }) // Count rows
+        .eq('status', 'ativo'); // Use 'ativo' as per schema
 
-      if (clientError) throw clientError;
+      if (clientError) {
+        console.error('Error fetching active client count:', clientError);
+        throw clientError;
+      }
 
-      // Buscar produtos vendidos deste mês
-      const { data: sales, error: salesError } = await supabase
-        .from('sales')
-        .select('quantity')
-        .gte('created_at', startOfMonth.toISOString());
-
-      if (salesError) throw salesError;
-
-      const totalProductsSold = sales?.reduce((sum, sale) => sum + (sale.quantity || 0), 0) || 0;
+      // ProductsSold: No 'sales' table in schema. Returning 0 for now.
+      const totalProductsSold = 0;
 
       return {
         conversations: {
-          total: conversations?.length || 0,
+          total: totalConversations || 0,
           change: '+12%',
           period: 'Últimas 24 horas'
         },
@@ -176,29 +171,41 @@ class DashboardService {
   async getUpcomingReminders(): Promise<Reminder[]> {
     try {
       const { data, error } = await supabase
-        .from('reminders')
-        .select(`
-          id,
-          title,
-          client_count,
-          scheduled_date,
-          type
-        `)
-        .gte('scheduled_date', new Date().toISOString())
-        .order('scheduled_date')
+        .from('campaigns') // Query 'campaigns' table
+        .select('id, name, scheduled_for, trigger, target_audience')
+        .gte('scheduled_for', new Date().toISOString()) // Campaigns scheduled for future
+        .order('scheduled_for', { ascending: true })
         .limit(6);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching upcoming campaigns:', error);
+        throw error;
+      }
 
-      return data?.map(item => ({
-        id: item.id,
-        title: item.title,
-        clientCount: item.client_count,
-        scheduledDate: item.scheduled_date,
-        type: item.type
-      })) || [];
+      return data?.map((campaign: any) => {
+        let type: Reminder['type'] = 'recompra'; // Default type
+        if (campaign.trigger === 'aniversario') {
+          type = 'aniversario';
+        } else if (campaign.trigger === 'posvenda' || campaign.name.toLowerCase().includes('pós-venda') || campaign.name.toLowerCase().includes('pos venda')) {
+          // Basic logic to map trigger/name to type, can be more sophisticated
+          type = 'posvenda';
+        }
+        // clientCount is complex to calculate from target_audience here. Using 0 as placeholder.
+        // In a real scenario, this might involve parsing JSON in target_audience or a separate query if possible.
+        // Or, if campaign_executions table stores sent counts for scheduled campaigns, that could be used.
+        // For now, we'll use a placeholder.
+        const clientCount = 0; // Placeholder for client count
+
+        return {
+          id: campaign.id,
+          title: campaign.name,
+          clientCount: clientCount, 
+          scheduledDate: campaign.scheduled_for,
+          type: type,
+        };
+      }) || [];
     } catch (error) {
-      console.error('Erro ao buscar lembretes:', error);
+      console.error('Erro ao buscar lembretes de campanhas:', error);
       return [];
     }
   }

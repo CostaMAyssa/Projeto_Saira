@@ -8,12 +8,14 @@ import ProductsHeader from './ProductsHeader';
 import ProductDetails from './ProductDetails';
 import ProductEditForm from './ProductEditForm';
 import ProductCreateForm from './ProductCreateForm';
-import { mockProducts } from './mockData';
+// import { mockProducts } from './mockData'; // To be removed
 import { Product } from './types';
+import { supabase } from '@/lib/supabaseClient'; // Import Supabase
+import { useEffect } from 'react'; // Import useEffect
 
 const ProductsModule = () => {
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
-  const [products, setProducts] = useState<Product[]>(mockProducts);
+  const [products, setProducts] = useState<Product[]>([]); // Initialize with empty array
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState<boolean>(false);
   const [isEditFormOpen, setIsEditFormOpen] = useState<boolean>(false);
@@ -21,11 +23,47 @@ const ProductsModule = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const { toast } = useToast();
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*');
+
+      if (error) {
+        console.error('Error fetching products:', error);
+        toast({
+          title: "Erro ao buscar produtos",
+          description: "Não foi possível carregar os produtos do banco de dados.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (data) {
+        const transformedProducts: Product[] = data.map((dbProduct: any) => ({
+          id: dbProduct.id,
+          name: dbProduct.name,
+          category: dbProduct.category,
+          stock: dbProduct.stock,
+          interval: dbProduct.interval,
+          tags: dbProduct.tags || [], // Ensure tags is always an array
+          needsPrescription: dbProduct.needs_prescription, // Map from snake_case
+          controlled: dbProduct.controlled,
+        }));
+        setProducts(transformedProducts);
+      }
+    };
+
+    fetchProducts();
+  }, [toast]); // Added toast to dependencies as it's used in the effect
   
   const handleAddProduct = () => {
     setIsCreateFormOpen(true);
   };
 
+  // Create, Edit, Save functions currently modify local state.
+  // Their persistence logic would be a separate task.
   const handleCreateProduct = (newProduct: Omit<Product, 'id'>) => {
     // Gerar ID único baseado no timestamp
     const id = `product-${Date.now()}`;
