@@ -1,89 +1,101 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Added useEffect
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Filter, FileText, Plus, Copy, Eye, Edit, Trash } from 'lucide-react';
+import { Search, Filter, FileText, Plus, Copy, Eye, Edit, Trash, AlertTriangle } from 'lucide-react'; // Added AlertTriangle
 import NewFormModal from './modals/NewFormModal';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { getForms } from '../../services/dashboardService'; // Import getForms
+// The Form interface from dashboardService is for DB structure. We'll adapt it to FormData for UI.
 
-interface FormData {
+interface FormData { // This interface remains for the component's internal use
   id: string;
-  name: string;
-  questions: number;
-  responses: number;
-  status: 'active' | 'inactive';
-  createdAt: string;
-  lastResponse: string;
+  name: string; // maps from title
+  questions: number; // maps from question_count
+  responses: number; // maps from form_responses (count)
+  status: 'active' | 'inactive'; // maps from status ('ativo'/'inativo')
+  createdAt: string; // maps from created_at (formatted)
+  lastResponse: string; // Placeholder for now
 }
 
 const FormsModule = () => {
   const [isNewFormModalOpen, setIsNewFormModalOpen] = useState(false);
   const isMobile = useIsMobile();
-  const [forms, setForms] = useState<FormData[]>([
-    {
-      id: '1',
-      name: 'Pesquisa de Satisfação',
-      questions: 8,
-      responses: 42,
-      status: 'active',
-      createdAt: '10/04/2023',
-      lastResponse: '2 horas atrás',
-    },
-    {
-      id: '2',
-      name: 'Cadastro de Novos Clientes',
-      questions: 12,
-      responses: 87,
-      status: 'active',
-      createdAt: '15/03/2023',
-      lastResponse: '5 horas atrás',
-    },
-    {
-      id: '3',
-      name: 'Avaliação de Atendimento',
-      questions: 6,
-      responses: 35,
-      status: 'inactive',
-      createdAt: '22/02/2023',
-      lastResponse: '5 dias atrás',
-    },
-    {
-      id: '4',
-      name: 'Histórico Médico',
-      questions: 15,
-      responses: 65,
-      status: 'active',
-      createdAt: '08/01/2023',
-      lastResponse: '1 dia atrás',
-    },
-    {
-      id: '5',
-      name: 'Preferências de Comunicação',
-      questions: 5,
-      responses: 28,
-      status: 'inactive',
-      createdAt: '30/12/2022',
-      lastResponse: '1 semana atrás',
-    },
-  ]);
+  const [forms, setForms] = useState<FormData[]>([]); // Initialize with empty array
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const handleAddForm = (newForm: Omit<FormData, 'id' | 'responses' | 'lastResponse'>) => {
+
+  useEffect(() => {
+    const fetchForms = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const dbForms = await getForms(); // Fetches data from Supabase
+        if (dbForms) {
+          const transformedForms: FormData[] = dbForms.map((form: any) => {
+            let responseCount = 0;
+            // Supabase returns joined table data as an array.
+            // If form_responses is an array and has an object with count:
+            if (Array.isArray(form.form_responses) && form.form_responses.length > 0 && form.form_responses[0].count !== undefined) {
+              responseCount = form.form_responses[0].count;
+            } 
+            // If form_responses is an object with count (less likely for Supabase joins but good to check):
+            else if (form.form_responses && typeof form.form_responses === 'object' && form.form_responses.count !== undefined) {
+                 responseCount = form.form_responses.count;
+            }
+
+
+            return {
+              id: form.id,
+              name: form.title,
+              questions: form.question_count || 0,
+              responses: responseCount,
+              status: form.status === 'ativo' ? 'active' : 'inactive',
+              createdAt: new Date(form.created_at).toLocaleDateString('pt-BR'),
+              lastResponse: 'N/A', // Placeholder as per requirements
+            };
+          });
+          setForms(transformedForms);
+        }
+      } catch (err) {
+        console.error("Failed to fetch forms:", err);
+        setError("Falha ao carregar formulários. Tente novamente mais tarde.");
+        toast.error("Erro ao carregar formulários.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchForms();
+  }, []);
+
+  const handleAddForm = (newFormUI: Omit<FormData, 'id' | 'responses' | 'lastResponse' | 'createdAt'> & { name: string, questions: number, status: 'active' | 'inactive' }) => {
+    // This function is for local state update as per instructions
     const currentDate = new Date();
-    const formattedDate = `${currentDate.getDate().toString().padStart(2, '0')}/${(currentDate.getMonth() + 1).toString().padStart(2, '0')}/${currentDate.getFullYear()}`;
+    const formattedDate = currentDate.toLocaleDateString('pt-BR');
     
     const newFormWithId: FormData = {
-      ...newForm,
-      id: (forms.length + 1).toString(),
-      responses: 0,
-      lastResponse: 'Sem respostas',
+      id: `local-${Date.now()}`, // Simple local ID
+      name: newFormUI.name,
+      questions: newFormUI.questions,
+      status: newFormUI.status,
+      responses: 0, // Default for new local form
+      lastResponse: 'N/A', // Default for new local form
       createdAt: formattedDate,
     };
     
-    setForms([newFormWithId, ...forms]);
-    toast.success('Formulário criado com sucesso!');
+    setForms(prevForms => [newFormWithId, ...prevForms]);
+    toast.success('Formulário adicionado localmente!');
   };
+
+  const filteredForms = forms.filter(form => 
+    form.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (form.status === 'active' && 'ativo'.includes(searchTerm.toLowerCase())) ||
+    (form.status === 'inactive' && 'inativo'.includes(searchTerm.toLowerCase()))
+  );
 
   const renderMobileFormCard = (form: FormData) => (
     <div 
@@ -93,14 +105,14 @@ const FormsModule = () => {
       <div className="flex justify-between items-start mb-2">
         <div className="font-medium text-gray-900">{form.name}</div>
         <Badge 
-          className={form.status === 'active' ? "bg-green-600 text-white text-xs" : "bg-gray-500 text-white text-xs"}
+          className={form.status === 'active' ? "bg-green-100 text-green-700 border border-green-200" : "bg-gray-100 text-gray-700 border border-gray-200"}
         >
           {form.status === 'active' ? 'Ativo' : 'Inativo'}
         </Badge>
       </div>
       
       <div className="text-xs text-gray-500 mb-3">
-        <div>Criado em {form.createdAt}</div>
+        <div>Criado em: {form.createdAt}</div>
         <div>Última resposta: {form.lastResponse}</div>
       </div>
       
@@ -143,7 +155,7 @@ const FormsModule = () => {
         <div className="col-span-3">Ações</div>
       </div>
         
-      {forms.map((form) => (
+      {filteredForms.map((form) => (
         <div 
           key={form.id} 
           className="grid grid-cols-12 gap-4 p-4 border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
@@ -151,7 +163,7 @@ const FormsModule = () => {
           <div className="col-span-4">
             <div className="text-gray-900 font-medium">{form.name}</div>
             <div className="flex items-center text-xs text-gray-500 mt-1">
-              <span>Criado em {form.createdAt}</span>
+              <span>Criado em: {form.createdAt}</span>
               <span className="mx-2">•</span>
               <span>Última resposta: {form.lastResponse}</span>
             </div>
@@ -164,7 +176,7 @@ const FormsModule = () => {
           </div>
           <div className="col-span-2 flex items-center">
             <Badge 
-              className={form.status === 'active' ? "bg-green-600 text-white" : "bg-gray-500 text-white"}
+              className={form.status === 'active' ? "bg-green-100 text-green-700 border border-green-200" : "bg-gray-100 text-gray-700 border border-gray-200"}
             >
               {form.status === 'active' ? 'Ativo' : 'Inativo'}
             </Badge>
@@ -191,6 +203,20 @@ const FormsModule = () => {
     </div>
   );
 
+  if (loading) {
+    return <div className="flex-1 p-6 flex justify-center items-center text-gray-500">Carregando formulários...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="flex-1 p-6 flex flex-col justify-center items-center text-red-600">
+        <AlertTriangle className="h-10 w-10 mb-4" />
+        <p>{error}</p>
+        <Button onClick={() => window.location.reload()} className="mt-4">Tentar Novamente</Button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 p-4 md:p-6 overflow-y-auto bg-white no-scrollbar">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 md:mb-6 gap-3 md:gap-0">
@@ -208,8 +234,10 @@ const FormsModule = () => {
         <div className="relative flex-1 w-full">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
           <Input
-            placeholder="Buscar formulários..."
+            placeholder="Buscar formulários por nome ou status (ativo/inativo)..."
             className="pl-8 bg-white border-gray-300 focus:border-pharmacy-accent w-full"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
         <Button variant="outline" className="text-pharmacy-accent border-gray-300 w-full md:w-auto">
@@ -218,16 +246,19 @@ const FormsModule = () => {
         </Button>
       </div>
       
+      {filteredForms.length === 0 && !loading && (
+         <div className="p-4 text-center text-gray-500">Nenhum formulário encontrado.</div>
+      )}
       {isMobile ? (
         <div className="space-y-4">
-          {forms.map(renderMobileFormCard)}
+          {filteredForms.map(renderMobileFormCard)}
         </div>
       ) : (
         renderDesktopFormList()
       )}
       
       <div className="mt-4 text-center text-sm text-gray-500">
-        Exibindo {forms.length} de 15 formulários
+        Exibindo {filteredForms.length} formulário(s)
       </div>
 
       <NewFormModal 
