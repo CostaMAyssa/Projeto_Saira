@@ -1,13 +1,14 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+// Input not used directly, can be removed if not needed for future search/filter
+// import { Input } from '@/components/ui/input'; 
 import { Button } from '@/components/ui/button';
 import { 
   BarChart, Bar, LineChart, Line, PieChart, Pie, 
   Cell, XAxis, YAxis, CartesianGrid, Tooltip, 
   Legend, ResponsiveContainer 
 } from 'recharts';
-import { Download, FileDown } from 'lucide-react';
+import { Download, FileDown, AlertTriangle } from 'lucide-react'; // Added AlertTriangle
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -15,46 +16,136 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
+import { 
+  dashboardService, 
+  ReportStats, 
+  ChartData, 
+  CampaignReportRow 
+} from '../../services/dashboardService'; // Import service and types
+
+// Mock data removed
 
 const ReportsModule = () => {
-  const barData = [
-    { name: 'Jan', whatsapp: 65, email: 45 },
-    { name: 'Fev', whatsapp: 59, email: 40 },
-    { name: 'Mar', whatsapp: 80, email: 55 },
-    { name: 'Abr', whatsapp: 81, email: 60 },
-    { name: 'Mai', whatsapp: 56, email: 45 },
-    { name: 'Jun', whatsapp: 55, email: 48 },
-  ];
+  const [reportStats, setReportStats] = useState<ReportStats | null>(null);
+  const [messagesByTypeData, setMessagesByTypeData] = useState<ChartData[]>([]);
+  const [clientsServedData, setClientsServedData] = useState<ChartData[]>([]);
+  const [productCategoryData, setProductCategoryData] = useState<ChartData[]>([]);
+  const [campaignReportDisplayData, setCampaignReportDisplayData] = useState<CampaignReportRow[]>([]);
 
-  const lineData = [
-    { name: 'Seg', clientes: 12 },
-    { name: 'Ter', clientes: 19 },
-    { name: 'Qua', clientes: 15 },
-    { name: 'Qui', clientes: 8 },
-    { name: 'Sex', clientes: 22 },
-    { name: 'Sáb', clientes: 16 },
-    { name: 'Dom', clientes: 7 },
-  ];
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [loadingMessagesByType, setLoadingMessagesByType] = useState(true);
+  const [loadingClientsServed, setLoadingClientsServed] = useState(true);
+  const [loadingProductCategories, setLoadingProductCategories] = useState(true);
+  const [loadingCampaigns, setLoadingCampaigns] = useState(true);
+  
+  useEffect(() => {
+    const fetchAllReportData = async () => {
+      try {
+        // Fetch report stats
+        dashboardService.getReportStats().then(data => {
+          setReportStats(data);
+          setLoadingStats(false);
+        }).catch(err => { 
+          console.error("Error fetching report stats:", err); 
+          // Set default placeholder data
+          setReportStats({
+            responseRate: "N/A",
+            avgResponseTime: "N/A", 
+            conversionRate: "N/A"
+          });
+          setLoadingStats(false);
+        });
 
-  const pieData = [
-    { name: 'Hipertensão', value: 35 },
-    { name: 'Diabetes', value: 25 },
-    { name: 'Antibióticos', value: 15 },
-    { name: 'Outros', value: 25 },
-  ];
+        // Fetch messages by type
+        dashboardService.getMessagesByType().then(data => {
+          setMessagesByTypeData(data.length > 0 ? data : [
+            { name: 'WhatsApp', value: 0 },
+            { name: 'Email', value: 0 },
+            { name: 'Telefone', value: 0 }
+          ]);
+          setLoadingMessagesByType(false);
+        }).catch(err => { 
+          console.error("Error fetching messages by type:", err); 
+          setMessagesByTypeData([
+            { name: 'WhatsApp', value: 0 },
+            { name: 'Email', value: 0 },
+            { name: 'Telefone', value: 0 }
+          ]);
+          setLoadingMessagesByType(false);
+        });
+        
+        // Fetch clients served
+        dashboardService.getClientsServedLastWeek().then(data => {
+          setClientsServedData(data.length > 0 ? data : [
+            { name: 'Dom', value: 0 },
+            { name: 'Seg', value: 0 },
+            { name: 'Ter', value: 0 },
+            { name: 'Qua', value: 0 },
+            { name: 'Qui', value: 0 },
+            { name: 'Sex', value: 0 },
+            { name: 'Sáb', value: 0 }
+          ]);
+          setLoadingClientsServed(false);
+        }).catch(err => { 
+          console.error("Error fetching clients served:", err); 
+          setClientsServedData([
+            { name: 'Dom', value: 0 },
+            { name: 'Seg', value: 0 },
+            { name: 'Ter', value: 0 },
+            { name: 'Qua', value: 0 },
+            { name: 'Qui', value: 0 },
+            { name: 'Sex', value: 0 },
+            { name: 'Sáb', value: 0 }
+          ]);
+          setLoadingClientsServed(false);
+        });
 
-  const campaignData = [
-    { name: 'Lembrete de Recompra - Hipertensão', rate: '35%', sent: 150, responses: 52 },
-    { name: 'Aniversariantes do Mês', rate: '28%', sent: 45, responses: 13 },
-    { name: 'Pós-venda - Antibióticos', rate: '23%', sent: 78, responses: 18 },
-    { name: 'Lembrete de Recompra - Diabetes', rate: '20%', sent: 112, responses: 22 },
-    { name: 'Reativação de Clientes Inativos', rate: '12%', sent: 200, responses: 24 },
-  ];
+        // Fetch product categories
+        dashboardService.getProductCategoryDistribution().then(data => {
+          setProductCategoryData(data.length > 0 ? data : [
+            { name: 'Sem dados', value: 1 }
+          ]);
+          setLoadingProductCategories(false);
+        }).catch(err => { 
+          console.error("Error fetching product categories:", err); 
+          setProductCategoryData([
+            { name: 'Sem dados', value: 1 }
+          ]);
+          setLoadingProductCategories(false);
+        });
 
-  const COLORS = ['#91925c', '#709488', '#666f41', '#3a4543'];
+        // Fetch campaign reports
+        dashboardService.getCampaignReportData().then(data => {
+          setCampaignReportDisplayData(data.length > 0 ? data : []);
+          setLoadingCampaigns(false);
+        }).catch(err => { 
+          console.error("Error fetching campaign reports:", err); 
+          setCampaignReportDisplayData([]);
+          setLoadingCampaigns(false);
+        });
+
+      } catch (error) {
+        console.error("Error in fetchAllReportData:", error);
+        // Ensure all loading states are false
+        setLoadingStats(false);
+        setLoadingMessagesByType(false);
+        setLoadingClientsServed(false);
+        setLoadingProductCategories(false);
+        setLoadingCampaigns(false);
+      }
+    };
+    
+    fetchAllReportData();
+  }, []);
+
+  const COLORS = ['#91925c', '#709488', '#666f41', '#3a4543', '#A4B06A', '#869A7C']; // Added more colors
 
   // Função para converter array em CSV
-  const convertToCSV = (objArray) => {
+  const convertToCSV = (objArray: any[]) => { // Added type for objArray
+    if (!objArray || objArray.length === 0) {
+      toast.error("Não há dados para exportar.");
+      return '';
+    }
     const array = typeof objArray !== 'object' ? JSON.parse(objArray) : objArray;
     let str = '';
 
@@ -80,8 +171,14 @@ const ReportsModule = () => {
   };
 
   // Função para exportar dados como CSV
-  const exportCSV = (data, fileName) => {
+  const exportCSV = (data: any[], fileName: string) => { // Added types
+    if (!data || data.length === 0) {
+      toast.error(`Não há dados para exportar para ${fileName}.`);
+      return;
+    }
     const csv = convertToCSV(data);
+    if (!csv) return; // Do not proceed if CSV string is empty (e.g. no data)
+
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -95,29 +192,25 @@ const ReportsModule = () => {
     toast.success(`Relatório ${fileName} exportado com sucesso!`);
   };
 
-  const handleExportBarData = () => {
-    exportCSV(barData, 'mensagens_por_canal.csv');
-  };
-
-  const handleExportLineData = () => {
-    exportCSV(lineData, 'clientes_atendidos.csv');
-  };
-
-  const handleExportPieData = () => {
-    exportCSV(pieData, 'distribuicao_categorias.csv');
+  const exportChartDataToCSV = (data: ChartData[], fileName: string) => {
+    exportCSV(data, fileName);
   };
 
   const handleExportCampaignData = () => {
-    exportCSV(campaignData, 'top_campanhas.csv');
+    exportCSV(campaignReportDisplayData, 'top_campanhas.csv');
   };
 
   const handleExportAll = () => {
-    handleExportBarData();
-    handleExportLineData();
-    handleExportPieData();
-    handleExportCampaignData();
-    toast.success('Todos os relatórios foram exportados com sucesso!');
+    exportChartDataToCSV(messagesByTypeData, 'mensagens_por_tipo.csv');
+    exportChartDataToCSV(clientsServedData, 'clientes_atendidos_semana.csv');
+    exportChartDataToCSV(productCategoryData, 'distribuicao_categorias_produto.csv');
+    handleExportCampaignData(); // Uses its own data state
+    // toast.success('Todos os relatórios foram exportados com sucesso!'); // Individual toasts are now shown
   };
+
+  const renderLoadingIndicator = () => (
+    <div className="flex justify-center items-center h-full text-gray-500">Carregando dados...</div>
+  );
 
   return (
     <div className="flex-1 p-6 overflow-y-auto bg-white">
@@ -135,13 +228,13 @@ const ReportsModule = () => {
               <DropdownMenuItem onClick={handleExportAll} className="cursor-pointer">
                 Exportar todos os relatórios
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleExportBarData} className="cursor-pointer">
-                Mensagens por Canal
+              <DropdownMenuItem onClick={() => exportChartDataToCSV(messagesByTypeData, 'mensagens_por_tipo.csv')} className="cursor-pointer">
+                Mensagens por Tipo
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleExportLineData} className="cursor-pointer">
-                Clientes Atendidos
+              <DropdownMenuItem onClick={() => exportChartDataToCSV(clientsServedData, 'clientes_atendidos_semana.csv')} className="cursor-pointer">
+                Clientes Atendidos (Semana)
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleExportPieData} className="cursor-pointer">
+              <DropdownMenuItem onClick={() => exportChartDataToCSV(productCategoryData, 'distribuicao_categorias_produto.csv')} className="cursor-pointer">
                 Distribuição por Categoria
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleExportCampaignData} className="cursor-pointer">
@@ -151,15 +244,20 @@ const ReportsModule = () => {
           </DropdownMenu>
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <Card className="bg-white border-gray-200 shadow-sm">
           <CardHeader className="pb-2">
             <CardTitle className="text-gray-900 text-lg">Taxa de Resposta</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-gray-900">78%</div>
-            <p className="text-sm text-green-600">↑ 5% em relação ao período anterior</p>
+            {loadingStats ? renderLoadingIndicator() : (
+              <>
+                <div className="text-3xl font-bold text-gray-900">{reportStats?.responseRate ?? 'N/A'}</div>
+                {/* <p className="text-sm text-green-600">↑ 5% em relação ao período anterior</p> */}
+                 <p className="text-xs text-gray-500">(Placeholder)</p>
+              </>
+            )}
           </CardContent>
         </Card>
         
@@ -168,8 +266,13 @@ const ReportsModule = () => {
             <CardTitle className="text-gray-900 text-lg">Tempo Médio de Resposta</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-gray-900">12min</div>
-            <p className="text-sm text-green-600">↓ 3min em relação ao período anterior</p>
+            {loadingStats ? renderLoadingIndicator() : (
+              <>
+                <div className="text-3xl font-bold text-gray-900">{reportStats?.avgResponseTime ?? 'N/A'}</div>
+                {/* <p className="text-sm text-green-600">↓ 3min em relação ao período anterior</p> */}
+                <p className="text-xs text-gray-500">(Placeholder)</p>
+              </>
+            )}
           </CardContent>
         </Card>
         
@@ -178,8 +281,13 @@ const ReportsModule = () => {
             <CardTitle className="text-gray-900 text-lg">Taxa de Conversão</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-gray-900">22%</div>
-            <p className="text-sm text-green-600">↑ 2% em relação ao período anterior</p>
+            {loadingStats ? renderLoadingIndicator() : (
+              <>
+                <div className="text-3xl font-bold text-gray-900">{reportStats?.conversionRate ?? 'N/A'}</div>
+                {/* <p className="text-sm text-green-600">↑ 2% em relação ao período anterior</p> */}
+                <p className="text-xs text-gray-500">(Placeholder)</p>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -187,66 +295,74 @@ const ReportsModule = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <Card className="bg-white border-gray-200 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-gray-900">Mensagens por Canal</CardTitle>
+            <CardTitle className="text-gray-900">Mensagens por Tipo</CardTitle> {/* Renamed */}
             <CardDescription className="text-gray-500">
-              Últimos 6 meses
+              Distribuição por tipo de mensagem
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={barData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="name" stroke="#6b7280" />
-                  <YAxis stroke="#6b7280" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#ffffff', 
-                      borderColor: '#e5e7eb',
-                      color: '#111827' 
-                    }} 
-                  />
-                  <Legend />
-                  <Bar dataKey="whatsapp" name="WhatsApp" fill="#91925c" />
-                  <Bar dataKey="email" name="Email" fill="#709488" />
-                </BarChart>
-              </ResponsiveContainer>
+              {loadingMessagesByType ? renderLoadingIndicator() : messagesByTypeData.length === 0 ? <div className="flex justify-center items-center h-full text-gray-500">Sem dados de mensagens.</div> : (
+                <ResponsiveContainer width="100%" height="100%">
+                  {/* Assuming messagesByTypeData is [{name: 'text', value: 100}, {name: 'image', value: 20}] 
+                      The original chart had 'whatsapp' and 'email' keys. We need to adapt.
+                      A simple BarChart with one Bar should work if dataKey is "value".
+                  */}
+                  <BarChart data={messagesByTypeData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="name" stroke="#6b7280" />
+                    <YAxis stroke="#6b7280" />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: '#ffffff', 
+                        borderColor: '#e5e7eb',
+                        color: '#111827' 
+                      }} 
+                    />
+                    <Legend />
+                    {/* Dynamically create bars if needed, or assume a single value per type */}
+                    <Bar dataKey="value" name="Quantidade" fill="#91925c" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </CardContent>
         </Card>
         
         <Card className="bg-white border-gray-200 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-gray-900">Clientes Atendidos</CardTitle>
+            <CardTitle className="text-gray-900">Clientes Atendidos (Semana)</CardTitle> {/* Updated Title */}
             <CardDescription className="text-gray-500">
-              Última semana
+              Contagem diária de clientes únicos nos últimos 7 dias
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={lineData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="name" stroke="#6b7280" />
-                  <YAxis stroke="#6b7280" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#ffffff', 
-                      borderColor: '#e5e7eb',
-                      color: '#111827' 
-                    }} 
-                  />
-                  <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="clientes" 
-                    name="Clientes" 
-                    stroke="#91925c" 
-                    activeDot={{ r: 8 }} 
-                    strokeWidth={2}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              {loadingClientsServed ? renderLoadingIndicator() : clientsServedData.length === 0 ? <div className="flex justify-center items-center h-full text-gray-500">Sem dados de clientes.</div> : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={clientsServedData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="name" stroke="#6b7280" />
+                    <YAxis stroke="#6b7280" allowDecimals={false} />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: '#ffffff', 
+                        borderColor: '#e5e7eb',
+                        color: '#111827' 
+                      }} 
+                    />
+                    <Legend />
+                    <Line 
+                      type="monotone" 
+                      dataKey="value" 
+                      name="Clientes Únicos" 
+                      stroke="#91925c" 
+                      activeDot={{ r: 8 }} 
+                      strokeWidth={2}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -255,67 +371,73 @@ const ReportsModule = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="bg-white border-gray-200 shadow-sm lg:col-span-1">
           <CardHeader>
-            <CardTitle className="text-gray-900">Distribuição por Categoria</CardTitle>
+            <CardTitle className="text-gray-900">Distribuição de Produtos por Categoria</CardTitle> {/* Updated Title */}
             <CardDescription className="text-gray-500">
-              Produtos vendidos
+              Quantidade de produtos em estoque por categoria
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-80 flex items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#ffffff', 
-                      borderColor: '#e5e7eb',
-                      color: '#111827' 
-                    }} 
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              {loadingProductCategories ? renderLoadingIndicator() : productCategoryData.length === 0 ? <div className="flex justify-center items-center h-full text-gray-500">Sem dados de produtos.</div> : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={productCategoryData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                      nameKey="name" // Ensure nameKey is set for labels/tooltips
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {productCategoryData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: '#ffffff', 
+                        borderColor: '#e5e7eb',
+                        color: '#111827' 
+                      }} 
+                    />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </CardContent>
         </Card>
         
         <Card className="bg-white border-gray-200 shadow-sm lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-gray-900">Top Campanhas</CardTitle>
+            <CardTitle className="text-gray-900">Relatório de Campanhas</CardTitle> {/* Updated Title */}
             <CardDescription className="text-gray-500">
-              Por taxa de conversão
+              Desempenho geral das campanhas
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {campaignData.map((campaign, index) => (
-                <div key={index} className="flex items-center justify-between border-b border-gray-200 pb-3">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-900">
-                      {campaign.name}
-                    </h3>
-                    <p className="text-xs text-green-600">
-                      {campaign.sent} enviadas, {campaign.responses} respostas
-                    </p>
+            {loadingCampaigns ? renderLoadingIndicator() : campaignReportDisplayData.length === 0 ? <div className="flex justify-center items-center h-full text-gray-500">Sem dados de campanhas.</div> : (
+              <div className="space-y-4 max-h-80 overflow-y-auto custom-scrollbar pr-2">
+                {campaignReportDisplayData.map((campaign, index) => (
+                  <div key={index} className="flex items-center justify-between border-b border-gray-200 pb-3">
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-900">
+                        {campaign.name}
+                      </h3>
+                      <p className="text-xs text-gray-600"> {/* Changed color for better contrast with N/A */}
+                        {campaign.sent} enviadas, {campaign.responses} respostas
+                      </p>
+                    </div>
+                    <span className="text-sm font-medium text-gray-900">
+                      {campaign.rate}
+                    </span>
                   </div>
-                  <span className="text-sm font-medium text-gray-900">
-                    {campaign.rate}
-                  </span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

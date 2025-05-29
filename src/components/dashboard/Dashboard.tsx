@@ -1,33 +1,60 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { MessageSquare, Users, Package, Bell, ArrowRight } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'; // Removed LineChart, Line as they are not used
+import { MessageSquare, Users, Package, Bell, ArrowRight, AlertTriangle } from 'lucide-react'; // Added AlertTriangle for errors
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { dashboardService, DashboardStats, ChartData, Reminder } from '../../services/dashboardService'; // Import service and types
 
-const dailyData = [
-  { name: 'Seg', value: 12 },
-  { name: 'Ter', value: 19 },
-  { name: 'Qua', value: 15 },
-  { name: 'Qui', value: 8 },
-  { name: 'Sex', value: 22 },
-  { name: 'Sáb', value: 16 },
-  { name: 'Dom', value: 7 },
-];
-
-const monthlyData = [
-  { name: 'Jan', value: 65 },
-  { name: 'Fev', value: 78 },
-  { name: 'Mar', value: 90 },
-  { name: 'Abr', value: 81 },
-  { name: 'Mai', value: 86 },
-  { name: 'Jun', value: 103 },
-];
+// Mock data removed
 
 const Dashboard = () => {
   const { toast } = useToast();
-  const [activeChart, setActiveChart] = useState('daily');
+  const [activeChart, setActiveChart] = useState<'daily' | 'monthly'>('daily');
+  
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [dailyChartData, setDailyChartData] = useState<ChartData[]>([]);
+  const [monthlyChartData, setMonthlyChartData] = useState<ChartData[]>([]);
+  const [upcomingReminders, setUpcomingReminders] = useState<Reminder[]>([]);
+  
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [loadingCharts, setLoadingCharts] = useState(true);
+  const [loadingReminders, setLoadingReminders] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoadingStats(true);
+        const stats = await dashboardService.getDashboardStats();
+        setDashboardStats(stats);
+        setLoadingStats(false);
+
+        setLoadingCharts(true);
+        const dailyData = await dashboardService.getDailyConversations();
+        setDailyChartData(dailyData);
+        const monthlyData = await dashboardService.getMonthlyConversations();
+        setMonthlyChartData(monthlyData);
+        setLoadingCharts(false);
+
+        setLoadingReminders(true);
+        const reminders = await dashboardService.getUpcomingReminders();
+        setUpcomingReminders(reminders);
+        setLoadingReminders(false);
+        
+      } catch (err) {
+        console.error("Failed to fetch dashboard data:", err);
+        setError("Falha ao carregar dados do dashboard. Tente novamente mais tarde.");
+        // Set all loading states to false on error to stop loading indicators
+        setLoadingStats(false);
+        setLoadingCharts(false);
+        setLoadingReminders(false);
+      }
+    };
+
+    fetchData();
+  }, []);
   
   const handleViewAllReminders = () => {
     toast({
@@ -50,20 +77,34 @@ const Dashboard = () => {
         <div className="flex space-x-2">
           <Button 
             variant="outline" 
-            className={`${activeChart === 'daily' ? 'bg-pharmacy-accent text-white' : 'text-pharmacy-accent'}`}
+            className={`${activeChart === 'daily' ? 'bg-pharmacy-accent text-white hover:bg-pharmacy-accent/90' : 'text-pharmacy-accent hover:bg-gray-100'}`}
             onClick={() => setActiveChart('daily')}
           >
             Diário
           </Button>
           <Button 
             variant="outline" 
-            className={`${activeChart === 'monthly' ? 'bg-pharmacy-accent text-white' : 'text-pharmacy-accent'}`}
+            className={`${activeChart === 'monthly' ? 'bg-pharmacy-accent text-white hover:bg-pharmacy-accent/90' : 'text-pharmacy-accent hover:bg-gray-100'}`}
             onClick={() => setActiveChart('monthly')}
           >
             Mensal
           </Button>
         </div>
       </div>
+
+      {error && (
+        <Card className="mb-6 bg-red-50 border-red-200 shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-red-700 flex items-center">
+              <AlertTriangle className="mr-2 h-5 w-5" />
+              Erro ao carregar dados
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-red-600">{error}</p>
+          </CardContent>
+        </Card>
+      )}
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <Card className="bg-white border-gray-200 shadow-sm">
@@ -73,12 +114,18 @@ const Dashboard = () => {
               Conversas
             </CardTitle>
             <CardDescription className="text-gray-500 text-xs">
-              Últimas 24 horas
+              {loadingStats ? "Carregando..." : dashboardStats?.conversations.period || "Últimas 24 horas"}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-gray-900">28</div>
-            <p className="text-sm text-green-600">↑ 12% em relação a ontem</p>
+            {loadingStats ? (
+              <div className="text-2xl font-bold text-gray-400">Carregando...</div>
+            ) : (
+              <>
+                <div className="text-3xl font-bold text-gray-900">{dashboardStats?.conversations.total ?? 'N/A'}</div>
+                <p className="text-sm text-green-600">{dashboardStats?.conversations.change ?? ''}</p>
+              </>
+            )}
           </CardContent>
         </Card>
         
@@ -89,12 +136,18 @@ const Dashboard = () => {
               Clientes Ativos
             </CardTitle>
             <CardDescription className="text-gray-500 text-xs">
-              Este mês
+              {loadingStats ? "Carregando..." : dashboardStats?.activeClients.period || "Este mês"}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-gray-900">142</div>
-            <p className="text-sm text-green-600">↑ 5% em relação ao mês anterior</p>
+            {loadingStats ? (
+              <div className="text-2xl font-bold text-gray-400">Carregando...</div>
+            ) : (
+              <>
+                <div className="text-3xl font-bold text-gray-900">{dashboardStats?.activeClients.total ?? 'N/A'}</div>
+                <p className="text-sm text-green-600">{dashboardStats?.activeClients.change ?? ''}</p>
+              </>
+            )}
           </CardContent>
         </Card>
         
@@ -105,12 +158,18 @@ const Dashboard = () => {
               Produtos Vendidos
             </CardTitle>
             <CardDescription className="text-gray-500 text-xs">
-              Este mês
+              {loadingStats ? "Carregando..." : dashboardStats?.productsSold.period || "Este mês"}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-gray-900">215</div>
-            <p className="text-sm text-green-600">↑ 8% em relação ao mês anterior</p>
+            {loadingStats ? (
+              <div className="text-2xl font-bold text-gray-400">Carregando...</div>
+            ) : (
+              <>
+                <div className="text-3xl font-bold text-gray-900">{dashboardStats?.productsSold.total ?? 'N/A'}</div>
+                <p className="text-sm text-green-600">{dashboardStats?.productsSold.change ?? ''}</p>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -119,7 +178,7 @@ const Dashboard = () => {
         <Card className="bg-white border-gray-200 shadow-sm">
           <CardHeader className="flex justify-between items-start">
             <div>
-              <CardTitle className="text-gray-900">Conversas por Dia</CardTitle>
+              <CardTitle className="text-gray-900">Conversas</CardTitle> {/* Title simplified */}
               <CardDescription className="text-gray-500">
                 {activeChart === 'daily' ? 'Últimos 7 dias' : 'Últimos 6 meses'}
               </CardDescription>
@@ -127,7 +186,7 @@ const Dashboard = () => {
             <Button 
               variant="ghost" 
               size="sm" 
-              className="text-pharmacy-accent" 
+              className="text-pharmacy-accent hover:text-pharmacy-accent/80" 
               onClick={handleViewAllConversations}
             >
               Ver todos
@@ -135,23 +194,27 @@ const Dashboard = () => {
             </Button>
           </CardHeader>
           <CardContent>
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={activeChart === 'daily' ? dailyData : monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="name" stroke="#6b7280" />
-                  <YAxis stroke="#6b7280" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#ffffff', 
-                      borderColor: '#e5e7eb',
-                      color: '#111827' 
-                    }} 
-                  />
-                  <Bar dataKey="value" fill="#91925c" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            {loadingCharts ? (
+              <div className="h-80 flex items-center justify-center text-gray-400">Carregando gráfico...</div>
+            ) : (
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={activeChart === 'daily' ? dailyChartData : monthlyChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis dataKey="name" stroke="#6b7280" />
+                    <YAxis stroke="#6b7280" />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: '#ffffff', 
+                        borderColor: '#e5e7eb',
+                        color: '#111827' 
+                      }} 
+                    />
+                    <Bar dataKey="value" fill="#91925c" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </CardContent>
         </Card>
         
@@ -166,7 +229,7 @@ const Dashboard = () => {
             <Button 
               variant="ghost" 
               size="sm" 
-              className="text-pharmacy-accent"
+              className="text-pharmacy-accent hover:text-pharmacy-accent/80"
               onClick={handleViewAllReminders}
             >
               Ver todos
@@ -175,47 +238,38 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="h-80 overflow-y-auto pr-1 custom-scrollbar">
-              <div className="space-y-4">
-                {[1, 2, 3, 4, 5, 6].map((index) => (
-                  <div 
-                    key={index} 
-                    className="flex items-center justify-between border-b border-gray-200 pb-3 cursor-pointer hover:bg-gray-50 rounded-md p-2"
-                    onClick={() => {
-                      toast({
-                        title: "Detalhe do lembrete",
-                        description: `Detalhes do lembrete ${index} serão exibidos em breve.`,
-                      });
-                    }}
-                  >
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-900">
-                        {index === 1 ? 'Lembrete de Recompra - Losartana' : 
-                         index === 2 ? 'Aniversário - Maria Santos' : 
-                         index === 3 ? 'Lembrete de Recompra - Insulina' : 
-                         index === 4 ? 'Pós-venda - Medicamentos novos' :
-                         index === 5 ? 'Lembrete de Recompra - Dipirona' : 
-                         'Aniversário - João Silva'}
-                      </h3>
-                      <p className="text-xs text-green-600">
-                        {index === 1 ? '15 clientes' : 
-                         index === 2 ? '1 cliente' : 
-                         index === 3 ? '8 clientes' : 
-                         index === 4 ? '12 clientes' :
-                         index === 5 ? '7 clientes' : 
-                         '1 cliente'}
-                      </p>
+              {loadingReminders ? (
+                <div className="h-full flex items-center justify-center text-gray-400">Carregando lembretes...</div>
+              ) : upcomingReminders.length === 0 && !loadingReminders ? (
+                 <div className="h-full flex items-center justify-center text-gray-400">Nenhum lembrete próximo.</div>
+              ) : (
+                <div className="space-y-4">
+                  {upcomingReminders.map((reminder) => (
+                    <div 
+                      key={reminder.id} 
+                      className="flex items-center justify-between border-b border-gray-200 pb-3 cursor-pointer hover:bg-gray-50 rounded-md p-2"
+                      onClick={() => {
+                        toast({
+                          title: "Detalhe do lembrete",
+                          description: `Detalhes do lembrete "${reminder.title}" serão exibidos em breve.`,
+                        });
+                      }}
+                    >
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-900">
+                          {reminder.title}
+                        </h3>
+                        <p className="text-xs text-green-600">
+                          {reminder.clientCount > 0 ? `${reminder.clientCount} cliente(s)` : 'Contagem de clientes não disponível'}
+                        </p>
+                      </div>
+                      <span className="text-xs text-gray-500 whitespace-nowrap ml-2">
+                        {dashboardService.formatRelativeDate(reminder.scheduledDate)}
+                      </span>
                     </div>
-                    <span className="text-xs text-gray-500 whitespace-nowrap ml-2">
-                      {index === 1 ? 'Hoje' : 
-                       index === 2 ? 'Amanhã' : 
-                       index === 3 ? 'Em 2 dias' : 
-                       index === 4 ? 'Em 3 dias' :
-                       index === 5 ? 'Em 4 dias' : 
-                       'Em 5 dias'}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

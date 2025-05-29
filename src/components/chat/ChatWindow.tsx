@@ -5,7 +5,8 @@ import MessageList from './chat-window/MessageList';
 import MessageInput from './chat-window/MessageInput';
 import EmptyState from './chat-window/EmptyState';
 import { Message } from './types';
-import { mockMessages } from './mockMessages';
+// import { mockMessages } from './mockMessages'; // Will be removed
+import { supabase } from '@/lib/supabase'; // Import Supabase client
 
 interface ChatWindowProps {
   activeConversation: string | null;
@@ -22,11 +23,35 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   
   // Load messages when active conversation changes
   useEffect(() => {
-    if (activeConversation && mockMessages[activeConversation]) {
-      setMessages(mockMessages[activeConversation]);
-    } else {
-      setMessages([]);
-    }
+    const fetchMessages = async () => {
+      if (!activeConversation) {
+        setMessages([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', activeConversation)
+        .order('sent_at', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching messages:', error);
+        setMessages([]);
+        // Handle error appropriately
+      } else if (data) {
+        const fetchedMessages = data.map((msg: any) => ({
+          id: msg.id,
+          content: msg.content,
+          // Assuming 'user' sender in DB maps to 'pharmacy' in UI
+          sender: msg.sender === 'user' ? 'pharmacy' : 'client', 
+          timestamp: new Date(msg.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        }));
+        setMessages(fetchedMessages);
+      }
+    };
+
+    fetchMessages();
   }, [activeConversation]);
   
   const handleSendMessage = (content: string) => {

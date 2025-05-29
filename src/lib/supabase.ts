@@ -11,19 +11,18 @@ const supabaseUrl = 'https://supapainel.insignemarketing.com.br';
 const serviceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogInNlcnZpY2Vfcm9sZSIsCiAgImlzcyI6ICJzdXBhYmFzZSIsCiAgImlhdCI6IDE3MTUwNTA4MDAsCiAgImV4cCI6IDE4NzI4MTcyMDAKfQ.ek3IR6aUgUyvile2qJGvt3KcAwrtoX12MXOS5NUaA_c';
 const anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzE1MDUwODAwLAogICJleHAiOiAxODcyODE3MjAwCn0.fT85MMmzeF1BtM3K8NDQm8aYQOVhSDfmjoVuXK_PgIc';
 
-console.log("Usando URLs e credenciais:", {
+console.log("Configurando clientes Supabase:", {
   url: supabaseUrl,
   serviceKeyStart: serviceKey.substring(0, 20) + "...",
-  anonKeyStart: anonKey.substring(0, 20) + "...",
-  jwtSecret: JWT_SECRET.substring(0, 5) + "..."
+  anonKeyStart: anonKey.substring(0, 20) + "..."
 });
 
-// Opções adicionais para depuração e configuração
-const supabaseOptions = {
+// Opções para cliente de autenticação
+const authOptions = {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    debug: true,
+    debug: false,
     storageKey: 'sb-auth-token',
   },
   global: {
@@ -36,16 +35,37 @@ const supabaseOptions = {
   },
 };
 
+// Opções para cliente administrativo
+const adminOptions = {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'supabase-js/2.x-admin',
+    },
+  },
+  db: {
+    schema: 'public',
+  },
+};
+
 // Verificar se estamos online
 const isOnline = window.navigator.onLine;
 console.log("Status de conexão:", isOnline ? "Online" : "Offline");
 console.log("Inicializando Supabase com URL:", supabaseUrl);
 
-// Inicializa o cliente Supabase com a chave de serviço para permissões completas
-export const supabase = createClient(supabaseUrl, serviceKey, supabaseOptions);
+// Cliente principal para autenticação de usuários
+export const supabase = createClient(supabaseUrl, anonKey, authOptions);
 
-// Log para depuração
-console.log("Cliente Supabase inicializado:", !!supabase);
+// Cliente administrativo para operações que requerem privilégios elevados
+export const supabaseAdmin = createClient(supabaseUrl, serviceKey, adminOptions);
+
+console.log("Clientes Supabase inicializados:", {
+  auth: !!supabase,
+  admin: !!supabaseAdmin
+});
 
 // Função para verificar se o Supabase está acessível
 export const verifySupabaseConnection = async () => {
@@ -58,7 +78,6 @@ export const verifySupabaseConnection = async () => {
     
     try {
       console.log("Verificando autenticação...");
-      // Usar um método de autenticação que não requer rede
       const { data, error } = await Promise.race([
         supabase.auth.getSession(),
         timeout

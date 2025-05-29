@@ -117,7 +117,7 @@
 | `id` | UUID | Identificador |
 | `title` | string | Título |
 | `fields` | JSON | Campos/pedidos |
-| `redirect_url` | string | Página de “obrigado” |
+| `redirect_url` | string | Página de "obrigado" |
 | `status` | string | `ativo`, `inativo` |
 | `question_count` | int | Total de questões |
 | `created_by` | UUID | Usuário criador |
@@ -215,5 +215,37 @@
 | `campaign_executions.campaign_id` | → `campaigns.id` |
 | `client_product_associations.client_id` | → `clients.id` |
 | `client_product_associations.product_id` | → `products.id` |
+
+---
+
+## VIEWS SQL
+
+### `daily_conversations_view`
+
+View para gráficos de conversas diárias (últimos 7 dias).
+
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| `date` | date | Data do dia |
+| `day_name` | string | Nome do dia da semana (`Dom`, `Seg`, etc) |
+| `day_order` | int | Ordem do dia da semana (0=Dom, 1=Seg, etc) |
+| `conversation_count` | int | Número de conversas iniciadas neste dia |
+
+**Funcionalidade:** Agrega conversas por dia da semana dos últimos 7 dias, incluindo dias sem conversas (contagem = 0).
+
+---
+
+### `monthly_conversations_view`
+
+View para gráficos de conversas mensais (últimos 6 meses).
+
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| `month_start` | date | Primeiro dia do mês |
+| `month_name` | string | Nome do mês (`Jan`, `Fev`, etc) |
+| `month_order` | int | Número do mês (1-12) |
+| `conversation_count` | int | Número de conversas iniciadas neste mês |
+
+**Funcionalidade:** Agrega conversas por mês dos últimos 6 meses, incluindo meses sem conversas (contagem = 0).
 
 ---
