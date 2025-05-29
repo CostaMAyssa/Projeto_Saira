@@ -7,31 +7,10 @@ import { Search, Filter, FileText, Plus, Copy, Eye, Edit, Trash, AlertTriangle }
 import NewFormModal from './modals/NewFormModal';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { getForms } from '../../services/dashboardService'; // Import getForms
-// The Form interface from dashboardService is for DB structure. We'll adapt it to FormData for UI.
+// Removed initial getForms import, will use the consolidated one.
+import { getForms, createForm, updateForm, deleteForm, Form as DbForm } from '../../services/dashboardService'; // MOVED TO TOP & CONSOLIDATED
 
-interface FormData { // This interface remains for the component's internal use
-  id: string;
-  name: string; // maps from title
-  questions: number; // maps from question_count
-  responses: number; // maps from form_responses (count)
-  status: 'active' | 'inactive'; // maps from status ('ativo'/'inativo')
-  createdAt: string; // maps from created_at (formatted)
-  lastResponse: string; // Placeholder for now
-}
-
-const FormsModule = () => {
-  const [isNewFormModalOpen, setIsNewFormModalOpen] = useState(false);
-  const isMobile = useIsMobile();
-  const [forms, setForms] = useState<FormData[]>([]); // Initialize with empty array
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-
-
-import { getForms, createForm, updateForm, deleteForm, Form as DbForm } from '../../services/dashboardService'; // Import service functions and DbForm type
-
-// FormData interface for UI state
+// FormData interface for UI state - Using the more detailed version
 interface FormData {
   id: string;
   name: string; // maps from title
@@ -45,11 +24,11 @@ interface FormData {
   redirect_url?: string; // from DbForm.redirect_url
 }
 
-
+// Single, consolidated FormsModule component definition
 const FormsModule = () => {
   const [isNewFormModalOpen, setIsNewFormModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false); // State for edit modal
-  const [selectedFormToEdit, setSelectedFormToEdit] = useState<FormData | null>(null); // State for form being edited
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false); 
+  const [selectedFormToEdit, setSelectedFormToEdit] = useState<FormData | null>(null); 
   const isMobile = useIsMobile();
   const [forms, setForms] = useState<FormData[]>([]);
   const [loading, setLoading] = useState(true);
