@@ -6,30 +6,10 @@ import ClientsCardView from './ClientsCardView';
 import { getTagBadge, getStatusBadge } from './ClientUtilities';
 import { Client } from './types';
 import { supabase } from '@/lib/supabase'; // Import Supabase
+import { dashboardService, ClientData } from '../../services/dashboardService'; // MOVED
+import { toast } from 'sonner'; // MOVED
 
-const ClientsModule = () => {
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
-  const [clients, setClients] = useState<Client[]>([]); // Initialize with empty array
-  const [filteredClients, setFilteredClients] = useState<Client[]>([]); // Initialize with empty array
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isMobile, setIsMobile] = useState(false);
-
-  // Verificar se é dispositivo móvel
-  useEffect(() => {
-    const checkIfMobile = () => {
-      setIsMobile(window.innerWidth < 640);
-    };
-    checkIfMobile();
-    window.addEventListener('resize', checkIfMobile);
-    return () => window.removeEventListener('resize', checkIfMobile);
-  }, []);
-
-  // Fetch clients from Supabase
-import { dashboardService, ClientData } from '../../services/dashboardService'; // Import service and ClientData
-import { toast } from 'sonner'; // Assuming sonner for toasts, or useToast if defined
-// import { supabase } from '@/lib/supabase'; // Already imported if used directly, but prefer service
-
-// Define a type for the data expected from a client form (modal)
+// Define a type for the data expected from a client form (modal) - Moved to top level
 export type ClientModalFormData = {
   name: string;
   phone: string;
@@ -42,6 +22,8 @@ export type ClientModalFormData = {
 };
 
 const ClientsModule = () => {
+  // Removed the first set of state declarations and the first useEffect for mobile check,
+  // as they were duplicated by the second block.
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [clients, setClients] = useState<Client[]>([]);
   const [filteredClients, setFilteredClients] = useState<Client[]>([]);
