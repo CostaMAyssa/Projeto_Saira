@@ -587,7 +587,7 @@ class DashboardService {
         created_at: new Date().toISOString(), // Add created_at
       };
 
-      console.log('Creating product with data for Supabase:', productDataForSupabase);
+      console.log("📦 Dados enviados para o Supabase (insert):", productDataForSupabase); // Updated log message
       
       const { data, error } = await supabase
         .from('products')
