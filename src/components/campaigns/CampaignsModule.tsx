@@ -133,13 +133,8 @@ const CampaignsModule = () => {
   }
 
   return (
-    };
-    
-    setCampaigns([newCampaignWithId, ...campaigns]);
-    toast.success('Campanha criada com sucesso!');
-  };
-
-  const handleToggleCampaignStatus = (id: string) => {
+    // Stray "};" and misplaced code block removed from here.
+    // The return statement now directly returns the main div.
     <div className="flex-1 p-3 sm:p-6 overflow-y-auto bg-white">
       <div className="flex justify-between items-center mb-4 sm:mb-6">
         <h1 className="text-xl sm:text-2xl font-bold text-pharmacy-text1">Campanhas e Automações</h1>
