@@ -25,9 +25,8 @@ const ClientFormModal: React.FC<ClientFormModalProps> = ({
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'active' | 'inactive'>('active');
-  const [tagsString, setTagsString] = useState(''); // Comma-separated string for tags
+  const [tags, setTags] = useState<string[]>([]); // Changed back to array
   const [is_vip, setIsVip] = useState(false);
-  const [profile_type, setProfileType] = useState<'regular' | 'occasional' | 'vip' | ''>('');
   const [birth_date, setBirthDate] = useState(''); // YYYY-MM-DD
 
   useEffect(() => {
@@ -36,52 +35,73 @@ const ClientFormModal: React.FC<ClientFormModalProps> = ({
       setPhone(initialClientData.phone || '');
       setEmail(initialClientData.email || '');
       setStatus(initialClientData.status || 'active');
-      setTagsString(Array.isArray(initialClientData.tags) ? initialClientData.tags.join(', ') : '');
+      setTags(Array.isArray(initialClientData.tags) ? initialClientData.tags : []);
       setIsVip(initialClientData.isVip || false);
-      // Ensure profile_type from Client matches one of the Select options or is empty
-      const pfType = initialClientData.profile_type as 'regular' | 'occasional' | 'vip' | undefined;
-      setProfileType(pfType && ['regular', 'occasional', 'vip'].includes(pfType) ? pfType : '');
-      // Assuming initialClientData.birth_date is already in YYYY-MM-DD or needs conversion
-      // For simplicity, assuming it's directly usable or empty string if not present.
-      // If initialClientData.birth_date is a Date object or full ISO string, it needs formatting.
-      // The `Client` type doesn't specify birth_date, but ClientModalFormData does.
-      // So, if initialClientData (type Client) doesn't have it, it should default.
-      setBirthDate(initialClientData.birth_date || ''); // Assuming birth_date is on Client type from previous changes
+      setBirthDate(initialClientData.birth_date || '');
     } else if (isOpen && !initialClientData) {
       // Reset form for "Add New" case when modal opens
       setName('');
       setPhone('');
       setEmail('');
       setStatus('active');
-      setTagsString('');
+      setTags([]);
       setIsVip(false);
-      setProfileType('');
       setBirthDate('');
     }
   }, [isOpen, initialClientData]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const tagsArray = tagsString.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
-    
-    onSubmit({
-      name,
-      phone,
-      email,
-      status,
-      tags: tagsArray.length > 0 ? tagsArray : undefined, // Pass undefined if no tags, so service can use null
-      is_vip,
-      profile_type: profile_type || undefined, // Pass undefined if empty, so service can use null
-      birth_date: birth_date || undefined, // Pass undefined if empty
+  const handleTagToggle = (tag: string) => {
+    setTags(prev => {
+      if (prev.includes(tag)) {
+        return prev.filter(t => t !== tag);
+      } else {
+        return [...prev, tag];
+      }
     });
   };
 
-  // Common Profile Types for Select
-  const profileTypes: { value: 'regular' | 'occasional' | 'vip'; label: string }[] = [
-    { value: 'regular', label: 'Regular' },
-    { value: 'occasional', label: 'Ocasional' },
-    { value: 'vip', label: 'VIP' },
-  ];
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      console.log('ClientFormModal: Submitting form data', {
+        name,
+        phone,
+        email,
+        status,
+        tags,
+        is_vip,
+        birth_date
+      });
+
+      // Determine profile_type based on selected tags
+      let profile_type: 'regular' | 'occasional' | 'vip' | undefined = undefined;
+      if (tags.includes('VIP') || is_vip) {
+        profile_type = 'vip';
+      } else if (tags.includes('Ocasional')) {
+        profile_type = 'occasional';
+      } else if (tags.includes('Regular')) {
+        profile_type = 'regular';
+      }
+      
+      const formData = {
+        name,
+        phone,
+        email,
+        status,
+        tags: tags.length > 0 ? tags : undefined,
+        is_vip,
+        profile_type,
+        birth_date: birth_date || undefined,
+      };
+
+      console.log('ClientFormModal: Prepared form data', formData);
+      
+      onSubmit(formData);
+    } catch (error) {
+      console.error('ClientFormModal: Error in handleSubmit', error);
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -117,24 +137,52 @@ const ClientFormModal: React.FC<ClientFormModalProps> = ({
             </Select>
           </div>
           <div>
-            <Label htmlFor="tags">Tags (separadas por vírgula)</Label>
-            <Input id="tags" value={tagsString} onChange={(e) => setTagsString(e.target.value)} className="bg-white border-gray-300" />
+            <Label>Tags</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="tag-vip" 
+                  checked={tags.includes('VIP')} 
+                  onCheckedChange={() => handleTagToggle('VIP')} 
+                  className="border-gray-300 data-[state=checked]:bg-pharmacy-accent"
+                />
+                <Label htmlFor="tag-vip" className="text-sm font-medium">VIP</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="tag-regular" 
+                  checked={tags.includes('Regular')} 
+                  onCheckedChange={() => handleTagToggle('Regular')} 
+                  className="border-gray-300 data-[state=checked]:bg-pharmacy-accent"
+                />
+                <Label htmlFor="tag-regular" className="text-sm font-medium">Regular</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="tag-occasional" 
+                  checked={tags.includes('Ocasional')} 
+                  onCheckedChange={() => handleTagToggle('Ocasional')} 
+                  className="border-gray-300 data-[state=checked]:bg-pharmacy-accent"
+                />
+                <Label htmlFor="tag-occasional" className="text-sm font-medium">Ocasional</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="tag-continuous" 
+                  checked={tags.includes('Uso Contínuo')} 
+                  onCheckedChange={() => handleTagToggle('Uso Contínuo')} 
+                  className="border-gray-300 data-[state=checked]:bg-pharmacy-accent"
+                />
+                <Label htmlFor="tag-continuous" className="text-sm font-medium">Uso Contínuo</Label>
+              </div>
+            </div>
           </div>
           <div className="flex items-center space-x-2">
             <Checkbox id="is_vip" checked={is_vip} onCheckedChange={(checked) => setIsVip(!!checked)} />
             <Label htmlFor="is_vip">Cliente VIP</Label>
-          </div>
-          <div>
-            <Label htmlFor="profile_type">Tipo de Perfil</Label>
-            <Select value={profile_type} onValueChange={(value) => setProfileType(value as 'regular' | 'occasional' | 'vip' | '')}>
-              <SelectTrigger id="profile_type" className="bg-white border-gray-300">
-                <SelectValue placeholder="Selecione um tipo" />
-              </SelectTrigger>
-              <SelectContent className="bg-white">
-                <SelectItem value="">Nenhum</SelectItem>
-                {profileTypes.map(pt => <SelectItem key={pt.value} value={pt.value}>{pt.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
           </div>
           <div>
             <Label htmlFor="birth_date">Data de Nascimento</Label>

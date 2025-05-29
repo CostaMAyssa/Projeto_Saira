@@ -9,7 +9,7 @@ import { ClientModalFormData } from './ClientsModule'; // Import the FormData ty
 interface ClientSearchHeaderProps {
   viewMode: 'table' | 'cards';
   setViewMode: (mode: 'table' | 'cards') => void;
-  onAddClient: (formData: ClientModalFormData) => void; // Changed type to ClientModalFormData
+  onAddClient: (formData: ClientModalFormData) => Promise<boolean>; // Fixed to return Promise<boolean>
   onSearch: (query: string) => void;
   isMobile?: boolean;
 }
@@ -84,9 +84,14 @@ const ClientSearchHeader = ({
         isOpen={isAddClientModalOpen} 
         onClose={() => setIsAddClientModalOpen(false)} 
         onSubmit={async (formData) => {
-          const success = await onAddClient(formData); // onAddClient is handleAddClient from ClientsModule
-          if (success) {
-            setIsAddClientModalOpen(false); // Close modal on success
+          try {
+            const success = await onAddClient(formData); // onAddClient is handleAddClient from ClientsModule
+            if (success) {
+              setIsAddClientModalOpen(false); // Close modal on success
+            }
+          } catch (error) {
+            console.error('Error adding client:', error);
+            // Modal will remain open on error so user can try again
           }
         }}
         initialClientData={null} // No initial data for new client

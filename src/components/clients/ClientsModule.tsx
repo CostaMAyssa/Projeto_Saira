@@ -8,6 +8,8 @@ import { Client } from './types';
 import { supabase } from '@/lib/supabase'; // Import Supabase
 import { dashboardService, ClientData } from '../../services/dashboardService'; // MOVED
 import { toast } from 'sonner'; // MOVED
+import { Button } from '@/components/ui/button';
+import ClientFormModal from './ClientFormModal';
 
 // Define a type for the data expected from a client form (modal) - Moved to top level
 export type ClientModalFormData = {
@@ -17,7 +19,7 @@ export type ClientModalFormData = {
   status: 'active' | 'inactive'; // UI status
   tags?: string[];
   is_vip?: boolean;
-  profile_type?: string;
+  profile_type?: 'regular' | 'occasional' | 'vip';
   birth_date?: string; // YYYY-MM-DD for date input
 };
 
@@ -58,21 +60,38 @@ const ClientsModule = () => {
       if (fetchError) throw fetchError;
 
       if (data) {
-        const transformedClients: Client[] = data.map((dbClient: any) => ({
-          id: dbClient.id,
-          name: dbClient.name,
-          phone: dbClient.phone,
-          email: dbClient.email || '', // Ensure email is not null
-          status: dbClient.status === 'ativo' ? 'active' : 'inactive',
-          tags: dbClient.tags || [],
-          lastPurchase: dbClient.last_purchase ? new Date(dbClient.last_purchase).toLocaleDateString('pt-BR') : 'N/A',
-          isVip: dbClient.is_vip || false,
-          isRegular: dbClient.profile_type === 'regular',
-          isOccasional: dbClient.profile_type === 'occasional',
-        }));
+        const transformedClients: Client[] = data.map((dbClient: unknown): Client => {
+          const client = dbClient as {
+            id: string;
+            name: string;
+            phone: string;
+            email?: string;
+            status: string;
+            tags?: string[];
+            last_purchase?: string;
+            is_vip?: boolean;
+            profile_type?: string;
+            birth_date?: string;
+          };
+          
+          return {
+            id: client.id,
+            name: client.name,
+            phone: client.phone,
+            email: client.email || '', // Ensure email is not null
+            status: client.status === 'ativo' ? 'active' : 'inactive',
+            tags: client.tags || [],
+            lastPurchase: client.last_purchase ? new Date(client.last_purchase).toLocaleDateString('pt-BR') : 'N/A',
+            isVip: client.is_vip || false,
+            isRegular: client.profile_type === 'regular',
+            isOccasional: client.profile_type === 'occasional',
+            profile_type: client.profile_type as 'regular' | 'occasional' | 'vip' | undefined,
+            birth_date: client.birth_date,
+          };
+        });
         setClients(transformedClients);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching clients:', err);
       setError('Falha ao carregar clientes.');
       toast.error('Falha ao carregar clientes.');
@@ -100,7 +119,7 @@ const ClientsModule = () => {
       toast.success('Cliente adicionado com sucesso!');
       fetchClientsData(); // Refresh list
       return true; // Indicate success
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error creating client:", err);
       toast.error('Erro ao adicionar cliente.');
       return false; // Indicate failure
@@ -122,7 +141,7 @@ const ClientsModule = () => {
       toast.success('Cliente atualizado com sucesso!');
       fetchClientsData();
       return true; // Indicate success for modal closing
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error updating client:", err);
       toast.error('Erro ao atualizar cliente.');
       return false; // Indicate failure
@@ -135,7 +154,7 @@ const ClientsModule = () => {
         await dashboardService.deleteClient(clientId);
         toast.success('Cliente excluído com sucesso!');
         fetchClientsData();
-      } catch (err) {
+      } catch (err: unknown) {
         console.error("Error deleting client:", err);
         toast.error('Erro ao excluir cliente.');
       }
@@ -148,7 +167,7 @@ const ClientsModule = () => {
       await dashboardService.updateClient(client.id, { status: newDbStatus });
       toast.success(`Status do cliente alterado para ${newDbStatus === 'ativo' ? 'ativo' : 'inativo'}.`);
       fetchClientsData();
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error updating client status:", err);
       toast.error('Erro ao alterar status do cliente.');
     }
@@ -185,8 +204,14 @@ const ClientsModule = () => {
 
   // Determinar o componente a ser renderizado (tabela ou cards)
   const handleOpenEditClientModal = (client: Client) => {
-    setSelectedClientToEdit(client);
-    setIsEditClientModalOpen(true);
+    console.log('ClientsModule: Opening edit modal for client:', client);
+    try {
+      setSelectedClientToEdit(client);
+      setIsEditClientModalOpen(true);
+      console.log('ClientsModule: Modal state set successfully');
+    } catch (error) {
+      console.error('ClientsModule: Error opening edit modal:', error);
+    }
   };
 
   const handleCloseEditClientModal = () => {
@@ -194,16 +219,14 @@ const ClientsModule = () => {
     setSelectedClientToEdit(null);
   };
 
-  // Determinar o componente a ser renderizado (tabela ou cards)
   const renderClientList = () => {
     const listProps = {
       clients: filteredClients,
       getStatusBadge,
       getTagBadge,
-      onOpenEditModal: handleOpenEditClientModal, // Pass this to ClientTable
+      onOpenEditModal: handleOpenEditClientModal,
       onDeleteClient: handleDeleteClientFromModule,
       onToggleStatus: handleToggleClientStatusInModule,
-      // Note: onEditClient (which was handleSaveClientUpdate) is now handled by the modal in ClientsModule
     };
 
     if (loading) {
@@ -250,34 +273,26 @@ const ClientsModule = () => {
       </div>
 
       {/* Edit Client Modal using ClientFormModal */}
-      {selectedClientToEdit && ( // Render modal only if a client is selected for editing
-        <ClientFormModal
-          isOpen={isEditClientModalOpen}
-          onClose={handleCloseEditClientModal}
-          initialClientData={selectedClientToEdit}
-          onSubmit={async (formDataFromModal) => {
-            // The selectedClientToEdit is guaranteed to be non-null here by the conditional rendering
-            const success = await handleSaveClientUpdate(selectedClientToEdit.id, formDataFromModal);
-            if (success) {
-              handleCloseEditClientModal();
-            }
-          }}
-        />
+      {selectedClientToEdit && selectedClientToEdit.id && (
+        <div key={`edit-modal-${selectedClientToEdit.id}`}>
+          <ClientFormModal
+            isOpen={isEditClientModalOpen}
+            onClose={handleCloseEditClientModal}
+            initialClientData={selectedClientToEdit}
+            onSubmit={async (formDataFromModal) => {
+              try {
+                console.log('ClientsModule: Submitting edit form:', formDataFromModal);
+                const success = await handleSaveClientUpdate(selectedClientToEdit.id, formDataFromModal);
+                if (success) {
+                  handleCloseEditClientModal();
+                }
+              } catch (error) {
+                console.error('ClientsModule: Error submitting edit form:', error);
+              }
+            }}
+          />
+        </div>
       )}
-      {/* 
-        Note on Add Client: 
-        ClientSearchHeader currently calls `props.onAddClient` which is `handleAddClient` in this module.
-        `handleAddClient` expects `ClientModalFormData`.
-        If ClientSearchHeader is to use ClientFormModal, it would manage its own instance of it,
-        or ClientsModule would need another state for 'isAddModalOpen' and pass null as initialClientData
-        to *this* ClientFormModal instance.
-        For now, handleAddClient is compatible with ClientModalFormData.
-        The ClientSearchHeader's own modal (if it has one) needs to provide data in this format.
-        If ClientSearchHeader is to be refactored to use THIS ClientFormModal, then ClientsModule
-        would need to manage an `isAddModalOpen` state as well.
-        The `ClientSearchHeader`'s `onAddClient` prop is effectively the submit handler for adding.
-      */}
-      </div>
     </div>
   );
 };

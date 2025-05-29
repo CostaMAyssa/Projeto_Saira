@@ -9,4 +9,6 @@ export interface Client {
   isVip?: boolean;
   isRegular?: boolean;
   isOccasional?: boolean;
+  profile_type?: 'regular' | 'occasional' | 'vip';
+  birth_date?: string; // YYYY-MM-DD format
 }

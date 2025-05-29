@@ -26,9 +26,19 @@ interface ClientCardProps {
   client: Client;
   getStatusBadge: (status: 'active' | 'inactive') => React.ReactNode;
   getTagBadge: (tag: string) => React.ReactNode;
+  onOpenEditModal?: (client: Client) => void;
+  onDeleteClient?: (clientId: string) => void;
+  onToggleStatus?: (client: Client) => void;
 }
 
-const ClientCard = ({ client, getStatusBadge, getTagBadge }: ClientCardProps) => {
+const ClientCard = ({ 
+  client, 
+  getStatusBadge, 
+  getTagBadge,
+  onOpenEditModal,
+  onDeleteClient,
+  onToggleStatus 
+}: ClientCardProps) => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [name, setName] = useState(client.name);
   const [phone, setPhone] = useState(client.phone);
@@ -37,12 +47,17 @@ const ClientCard = ({ client, getStatusBadge, getTagBadge }: ClientCardProps) =>
   const [tags, setTags] = useState<string[]>([...client.tags]);
 
   const handleEditClick = () => {
-    setName(client.name);
-    setPhone(client.phone);
-    setEmail(client.email);
-    setStatus(client.status);
-    setTags([...client.tags]);
-    setIsEditModalOpen(true);
+    if (onOpenEditModal) {
+      onOpenEditModal(client);
+    } else {
+      // Fallback para modal local
+      setName(client.name);
+      setPhone(client.phone);
+      setEmail(client.email);
+      setStatus(client.status);
+      setTags([...client.tags]);
+      setIsEditModalOpen(true);
+    }
   };
 
   const handleCloseEditModal = () => {
@@ -71,11 +86,19 @@ const ClientCard = ({ client, getStatusBadge, getTagBadge }: ClientCardProps) =>
   };
 
   const handleToggleStatus = () => {
-    console.log(`Alterando status do cliente ${client.id} para ${client.status === 'active' ? 'inactive' : 'active'}`);
+    if (onToggleStatus) {
+      onToggleStatus(client);
+    } else {
+      console.log(`Alterando status do cliente ${client.id} para ${client.status === 'active' ? 'inactive' : 'active'}`);
+    }
   };
 
   const handleDeleteClient = () => {
-    console.log('Excluindo cliente:', client.id);
+    if (onDeleteClient) {
+      onDeleteClient(client.id);
+    } else {
+      console.log('Excluindo cliente:', client.id);
+    }
   };
 
   return (

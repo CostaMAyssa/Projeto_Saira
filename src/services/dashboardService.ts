@@ -96,7 +96,7 @@ export interface ClientData { // For creating/updating clients
   status: 'ativo' | 'inativo'; // DB status
   tags?: string[] | null;
   is_vip?: boolean | null;
-  profile_type?: string | null; // e.g., 'regular', 'occasional', 'vip'
+  profile_type?: 'regular' | 'occasional' | 'vip' | null; // More specific types
   birth_date?: string | null; // ISO string for date
   // created_by: string; // Assuming RLS or DB default handles this
 }
