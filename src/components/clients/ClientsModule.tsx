@@ -233,7 +233,7 @@ const ClientsModule = () => {
       : <ClientsCardView {...listProps} />;
   };
 
-  return (
+  return ( // This is the main return statement
     <div className="flex-1 p-6 overflow-y-auto bg-white">
       <ClientSearchHeader 
         viewMode={viewMode} 
