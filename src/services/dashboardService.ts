@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseAdmin } from '@/lib/supabase';
 
 export interface DashboardStats {
   conversations: {
@@ -98,7 +98,7 @@ export interface ClientData { // For creating/updating clients
   is_vip?: boolean | null;
   profile_type?: 'regular' | 'occasional' | 'vip' | null; // More specific types
   birth_date?: string | null; // ISO string for date
-  // created_by: string; // Assuming RLS or DB default handles this
+  created_by?: string; // User ID who created the client - required for creation
 }
 
 // --- Product CRUD Interfaces ---
@@ -537,15 +537,32 @@ class DashboardService {
   // --- Client CRUD Methods ---
   async createClient(clientData: ClientData): Promise<any> {
     try {
+      console.log('DashboardService.createClient: Starting client creation with data:', clientData);
+      
+      // Usar o mesmo padrão do createProduct que está funcionando
+      const clientDataForSupabase = {
+        ...clientData,
+        created_by: '58ce41aa-d63d-4655-b1a1-9ee705e05c3a', // João da Silva (usuário existente)
+        created_at: new Date().toISOString(), // Add created_at
+      };
+
+      console.log("👤 Dados enviados para o Supabase (insert):", clientDataForSupabase);
+      
       const { data, error } = await supabase
         .from('clients')
-        .insert([clientData])
+        .insert([clientDataForSupabase])
         .select()
         .single();
-      if (error) throw error;
+
+      if (error) {
+        console.error('Error creating client in Supabase:', error);
+        throw error;
+      }
+      
+      console.log('DashboardService.createClient: Successfully created client:', data);
       return data;
     } catch (err) {
-      console.error('Error creating client:', err);
+      console.error('DashboardService.createClient: Error creating client:', err);
       throw err;
     }
   }
@@ -632,6 +649,55 @@ class DashboardService {
       if (error) throw error;
     } catch (err) {
       console.error(`Error deleting product ${productId}:`, err);
+      throw err;
+    }
+  }
+
+  // --- Campaign CRUD Methods ---
+  async createCampaign(campaignData: NewCampaignData): Promise<any> {
+    try {
+      console.log('DashboardService.createCampaign: Starting campaign creation with data:', campaignData);
+      
+      // Usar o mesmo padrão do createProduct e createClient que estão funcionando
+      const campaignDataForSupabase = {
+        ...campaignData,
+        created_by: '58ce41aa-d63d-4655-b1a1-9ee705e05c3a', // João da Silva (usuário existente)
+        created_at: new Date().toISOString(), // Add created_at
+      };
+
+      console.log("📢 Dados enviados para o Supabase (insert):", campaignDataForSupabase);
+      
+      const { data, error } = await supabase
+        .from('campaigns')
+        .insert([campaignDataForSupabase])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating campaign in Supabase:', error);
+        throw error;
+      }
+      
+      console.log('DashboardService.createCampaign: Successfully created campaign:', data);
+      return data;
+    } catch (err) {
+      console.error('DashboardService.createCampaign: Error creating campaign:', err);
+      throw err;
+    }
+  }
+
+  async updateCampaignStatus(campaignId: string, status: string): Promise<any> {
+    try {
+      const { data, error } = await supabase
+        .from('campaigns')
+        .update({ status })
+        .eq('id', campaignId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error(`Error updating campaign status ${campaignId}:`, err);
       throw err;
     }
   }

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,24 +41,59 @@ const CampaignsModule = () => {
   };
   
   // Updated handleAddCampaign to use dashboardService.createCampaign
-  // The data from NewCampaignModal should align with NewCampaignData from dashboardService
-  const handleAddCampaign = async (formData: {
+  // Transforma dados do modal (UI format) para o formato do banco (NewCampaignData)
+  const handleAddCampaign = async (modalData: {
     name: string;
-    trigger: string; // e.g., 'manual', 'aniversario', 'recorrente'
-    status: 'ativa' | 'pausada' | 'agendada'; // DB status
-    template?: string;
-    target_audience?: object;
-    scheduled_for?: string | null; // ISO string
+    type: string;
+    audience: string;
+    schedule: string;
+    status: 'active' | 'paused' | 'scheduled';
+    lastRun: string;
   }) => {
     try {
-      // Assuming created_by is handled by DB/RLS
-      await dashboardService.createCampaign(formData);
-      toast.success('Campanha criada com sucesso no banco de dados!');
+      console.log('CampaignsModule: Received data from modal:', modalData);
+      
+      // Transformar dados do formato UI para formato do banco
+      const campaignData = {
+        name: modalData.name,
+        trigger: mapTypeToTrigger(modalData.type), // Converter tipo UI para trigger do banco
+        status: mapStatusToDb(modalData.status), // Converter status UI para status do banco
+        template: 'Template padrão', // TODO: pegar do modal
+        target_audience: { count: modalData.audience }, // Converter audiência para JSON
+        scheduled_for: modalData.status === 'scheduled' ? new Date().toISOString() : null,
+      };
+
+      console.log('CampaignsModule: Transformed data for database:', campaignData);
+      
+      await dashboardService.createCampaign(campaignData);
+      toast.success('Campanha criada com sucesso!');
       fetchCampaignsData(); // Refresh list
       setIsNewCampaignModalOpen(false); // Close modal on success
     } catch (error) {
       console.error('Error creating campaign:', error);
       toast.error('Erro ao criar campanha.');
+    }
+  };
+
+  // Funções auxiliares para transformar dados UI -> DB
+  const mapTypeToTrigger = (type: string): string => {
+    switch (type) {
+      case 'Lembrete de Recompra': return 'recorrente';
+      case 'Aniversário': return 'aniversario';
+      case 'Pós-venda': return 'posvenda';
+      case 'Manual': return 'manual';
+      case 'Reativação': return 'reativacao';
+      case 'Promoção': return 'promocao';
+      default: return 'manual';
+    }
+  };
+
+  const mapStatusToDb = (status: 'active' | 'paused' | 'scheduled'): 'ativa' | 'pausada' | 'agendada' => {
+    switch (status) {
+      case 'active': return 'ativa';
+      case 'paused': return 'pausada';
+      case 'scheduled': return 'agendada';
+      default: return 'pausada';
     }
   };
 
