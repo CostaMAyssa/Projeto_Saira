@@ -102,14 +102,15 @@ export interface ClientData { // For creating/updating clients
 }
 
 // --- Product CRUD Interfaces ---
-export interface ProductData { // For creating/updating products
+// Updated ProductData to be stricter based on instruction for create operation
+export interface ProductData { 
   name: string;
-  category?: string | null;
-  stock?: number | null;
-  tags?: string[] | null;
-  needs_prescription?: boolean | null;
-  controlled?: boolean | null;
-  interval?: number | null; // Recommended interval in days
+  category: string; 
+  stock: number;    
+  tags: string[];   
+  needs_prescription: boolean; 
+  controlled: boolean;         
+  interval: number;            
 }
 
 
@@ -579,21 +580,33 @@ class DashboardService {
   }
 
   // --- Product CRUD Methods ---
-  async createProduct(productData: ProductData): Promise<any> {
+  async createProduct(productData: ProductData): Promise<any> { // productData now adheres to stricter interface
     try {
+      const productDataForSupabase = {
+        ...productData, // Spread all fields from the stricter ProductData
+        created_at: new Date().toISOString(), // Add created_at
+      };
+
+      console.log('Creating product with data for Supabase:', productDataForSupabase);
+      
       const { data, error } = await supabase
         .from('products')
-        .insert([productData])
+        .insert([productDataForSupabase])
         .select()
         .single();
-      if (error) throw error;
+
+      if (error) {
+        console.error('Error creating product in Supabase:', error);
+        throw error;
+      }
       return data;
     } catch (err) {
-      console.error('Error creating product:', err);
+      console.error('Exception in createProduct service method:', err);
       throw err;
     }
   }
 
+  // For update, Partial<ProductData> is still good, but ProductData itself is now stricter
   async updateProduct(productId: string, productData: Partial<ProductData>): Promise<any> {
     try {
       const { data, error } = await supabase

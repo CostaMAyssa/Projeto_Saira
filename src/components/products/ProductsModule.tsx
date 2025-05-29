@@ -75,15 +75,21 @@ const ProductsModule = () => {
 
   // ProductCreateForm's onSave calls this
   const handleCreateProduct = async (formData: Omit<Product, 'id'>) => {
+    // Ensure data aligns with the stricter ProductData interface for the service
+    // The UI Product type (from types.ts) is:
+    // name: string; category: string; stock: number; interval?: number; tags: string[]; needsPrescription: boolean; controlled?: boolean;
+
+    // Convert/default values from UI Product type to stricter service ProductData type
     const productDataToSave: ProductData = {
-      name: formData.name,
-      category: formData.category,
-      stock: formData.stock,
-      tags: formData.tags,
-      needs_prescription: formData.needsPrescription,
-      controlled: formData.controlled,
-      interval: formData.interval,
+      name: formData.name, // Required string
+      category: formData.category || "Sem Categoria", // Required string, default if UI allows empty
+      stock: typeof formData.stock === 'number' ? formData.stock : 0, // Required number, default if not number
+      tags: Array.isArray(formData.tags) ? formData.tags : [], // Required string[], default if not array
+      needs_prescription: !!formData.needsPrescription, // Required boolean
+      controlled: formData.controlled === undefined ? false : !!formData.controlled, // Required boolean, default if undefined
+      interval: typeof formData.interval === 'number' ? formData.interval : 0, // Required number, default if not number or undefined
     };
+
     try {
       await dashboardService.createProduct(productDataToSave);
       toast({ title: "Sucesso", description: `Produto ${formData.name} criado com sucesso.` });
