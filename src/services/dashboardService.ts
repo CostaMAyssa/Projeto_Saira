@@ -532,6 +532,96 @@ class DashboardService {
       return [];
     }
   }
+
+  // --- Client CRUD Methods ---
+  async createClient(clientData: ClientData): Promise<any> {
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .insert([clientData])
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('Error creating client:', err);
+      throw err;
+    }
+  }
+
+  async updateClient(clientId: string, clientData: Partial<ClientData>): Promise<any> {
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .update(clientData)
+        .eq('id', clientId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error(`Error updating client ${clientId}:`, err);
+      throw err;
+    }
+  }
+
+  async deleteClient(clientId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', clientId);
+      if (error) throw error;
+    } catch (err) {
+      console.error(`Error deleting client ${clientId}:`, err);
+      throw err;
+    }
+  }
+
+  // --- Product CRUD Methods ---
+  async createProduct(productData: ProductData): Promise<any> {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .insert([productData])
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error('Error creating product:', err);
+      throw err;
+    }
+  }
+
+  async updateProduct(productId: string, productData: Partial<ProductData>): Promise<any> {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .update(productData)
+        .eq('id', productId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.error(`Error updating product ${productId}:`, err);
+      throw err;
+    }
+  }
+
+  async deleteProduct(productId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', productId);
+      if (error) throw error;
+    } catch (err) {
+      console.error(`Error deleting product ${productId}:`, err);
+      throw err;
+    }
+  }
 } // End of DashboardService class
 
 export const dashboardService = new DashboardService();
