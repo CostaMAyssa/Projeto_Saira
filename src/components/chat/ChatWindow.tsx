@@ -6,7 +6,7 @@ import MessageInput from './chat-window/MessageInput';
 import EmptyState from './chat-window/EmptyState';
 import { Message } from './types';
 // import { mockMessages } from './mockMessages'; // Will be removed
-import { supabase } from '@/lib/supabaseClient'; // Import Supabase client
+import { supabase } from '@/lib/supabase'; // Import Supabase client
 
 interface ChatWindowProps {
   activeConversation: string | null;

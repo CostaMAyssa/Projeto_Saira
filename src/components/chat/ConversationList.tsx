@@ -6,7 +6,7 @@ import ConversationItem from './conversation-list/ConversationItem';
 import EmptyState from './conversation-list/EmptyState';
 // import { mockConversations } from './mockConversations'; // Will be removed
 import { Conversation } from './types';
-import { supabase } from '@/lib/supabaseClient'; // Import Supabase client
+import { supabase } from '@/lib/supabase'; // Import Supabase client
 import { useEffect, useState as reactUseState } from 'react'; // Renamed useState to avoid conflict if any
 
 interface ConversationListProps {

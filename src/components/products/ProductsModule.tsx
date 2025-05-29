@@ -10,7 +10,7 @@ import ProductEditForm from './ProductEditForm';
 import ProductCreateForm from './ProductCreateForm';
 // import { mockProducts } from './mockData'; // To be removed
 import { Product } from './types';
-import { supabase } from '@/lib/supabaseClient'; // Import Supabase
+import { supabase } from '@/lib/supabase'; // Import Supabase
 import { useEffect } from 'react'; // Import useEffect
 
 const ProductsModule = () => {

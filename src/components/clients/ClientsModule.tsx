@@ -5,7 +5,7 @@ import ClientsCardView from './ClientsCardView';
 // import { mockClients } from './mockData'; // To be removed
 import { getTagBadge, getStatusBadge } from './ClientUtilities';
 import { Client } from './types';
-import { supabase } from '@/lib/supabaseClient'; // Import Supabase
+import { supabase } from '@/lib/supabase'; // Import Supabase
 
 const ClientsModule = () => {
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
