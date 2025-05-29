@@ -12,23 +12,12 @@ import ProductCreateForm from './ProductCreateForm';
 import { Product } from './types';
 import { supabase } from '@/lib/supabase'; // Import Supabase
 import { useEffect } from 'react'; // Import useEffect
+import { dashboardService, ProductData } from '../../services/dashboardService'; // MOVED
+import { AlertTriangle } from 'lucide-react'; // MOVED
 
+// Single, consolidated ProductsModule component definition
 const ProductsModule = () => {
-  const [activeFilter, setActiveFilter] = useState<string | null>(null);
-  const [products, setProducts] = useState<Product[]>([]); // Initialize with empty array
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [isDetailsOpen, setIsDetailsOpen] = useState<boolean>(false);
-  const [isEditFormOpen, setIsEditFormOpen] = useState<boolean>(false);
-  const [isCreateFormOpen, setIsCreateFormOpen] = useState<boolean>(false);
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const { toast } = useToast();
-  const isMobile = useIsMobile();
-
-// import { supabase } from '@/lib/supabase'; // Prefer service for consistency
-import { dashboardService, ProductData } from '../../services/dashboardService'; // Import service and ProductData
-import { AlertTriangle } from 'lucide-react'; // For error display
-
-const ProductsModule = () => {
+  // Removed the first set of state declarations, as they were duplicated by the second block.
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
