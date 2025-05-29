@@ -1,4 +1,6 @@
 import { supabase } from '@/lib/supabase';
+import { v4 as uuidv4 } from 'uuid';
+import { Client } from '@/components/clients/types';
 
 export interface DashboardStats {
   conversations: {
@@ -89,16 +91,18 @@ export interface NewCampaignData {
 }
 
 // --- Client CRUD Interfaces ---
-export interface ClientData { // For creating/updating clients
+export interface ClientData {
   name: string;
   phone: string;
   email?: string | null;
-  status: 'ativo' | 'inativo'; // DB status
+  status: 'ativo' | 'inativo';
   tags?: string[] | null;
   is_vip?: boolean | null;
-  profile_type?: string | null; // e.g., 'regular', 'occasional', 'vip'
-  birth_date?: string | null; // ISO string for date
-  // created_by: string; // Assuming RLS or DB default handles this
+  profile_type: 'regular' | 'occasional' | 'vip';
+  birth_date?: string | null;
+  created_at?: string;
+  created_by?: string | null;
+  last_purchase?: string | null;
 }
 
 // --- Product CRUD Interfaces ---
@@ -535,15 +539,71 @@ class DashboardService {
   }
 
   // --- Client CRUD Methods ---
-  async createClient(clientData: ClientData): Promise<any> {
+  async createClient(clientData: ClientData): Promise<Client> {
     try {
+      // Verificar se já existe um cliente com este telefone
+      const { data: existingClient, error: searchError } = await supabase
+        .from('clients')
+        .select('id')
+        .eq('phone', clientData.phone)
+        .single();
+
+      if (searchError && searchError.code !== 'PGRST116') { // PGRST116 significa que não encontrou resultados
+        throw searchError;
+      }
+
+      if (existingClient) {
+        throw new Error('Já existe um cliente cadastrado com este número de telefone.');
+      }
+
+      // Garantir que as tags sejam um array válido
+      const tags = clientData.tags || [];
+      
+      const clientDataForSupabase = {
+        id: uuidv4(),
+        name: clientData.name,
+        phone: clientData.phone,
+        email: clientData.email || null,
+        status: clientData.status === 'active' ? 'ativo' : 'inativo',
+        tags: tags,
+        created_by: null as string | null,
+        is_vip: clientData.is_vip || false,
+        profile_type: clientData.profile_type,
+        birth_date: clientData.birth_date || null,
+        last_purchase: null as string | null,
+        created_at: new Date().toISOString()
+      };
+
+      console.log("📝 Dados enviados para o Supabase (insert):", clientDataForSupabase);
+
       const { data, error } = await supabase
         .from('clients')
-        .insert([clientData])
+        .insert([clientDataForSupabase])
         .select()
         .single();
-      if (error) throw error;
-      return data;
+
+      if (error) {
+        console.error('Erro detalhado do Supabase:', error);
+        if (error.code === '23505') { // Código de erro para violação de unique constraint
+          throw new Error('Já existe um cliente cadastrado com este número de telefone.');
+        }
+        throw error;
+      }
+      
+      // Transform the data to match the Client interface
+      const clientResponse: Client = {
+        id: data.id,
+        name: data.name,
+        phone: data.phone,
+        email: data.email || '',
+        status: data.status === 'ativo' ? 'active' : 'inactive',
+        tags: Array.isArray(data.tags) ? data.tags : [],
+        lastPurchase: data.last_purchase ? new Date(data.last_purchase).toLocaleDateString('pt-BR') : 'N/A',
+        isVip: data.is_vip || false,
+        profile_type: data.profile_type || 'regular'
+      };
+
+      return clientResponse;
     } catch (err) {
       console.error('Error creating client:', err);
       throw err;

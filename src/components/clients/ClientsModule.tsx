@@ -8,16 +8,17 @@ import { Client } from './types';
 import { supabase } from '@/lib/supabase'; // Import Supabase
 import { dashboardService, ClientData } from '../../services/dashboardService'; // MOVED
 import { toast } from 'sonner'; // MOVED
+import { Button } from '@/components/ui/button';
 
-// Define a type for the data expected from a client form (modal) - Moved to top level
+// Define a type for the data expected from a client form (modal)
 export type ClientModalFormData = {
   name: string;
   phone: string;
   email?: string;
-  status: 'active' | 'inactive'; // UI status
+  status: 'active' | 'inactive';
   tags?: string[];
   is_vip?: boolean;
-  profile_type?: string;
+  profile_type: 'regular' | 'occasional' | 'vip';
   birth_date?: string; // YYYY-MM-DD for date input
 };
 
@@ -43,12 +44,6 @@ const ClientsModule = () => {
     setLoading(true);
     setError(null);
     try {
-      // The direct Supabase call was here before, now we should ensure this logic is consistent
-      // with how dashboardService might fetch or if we keep direct fetching here.
-      // For consistency with the task (using dashboardService for CRUD), let's assume
-      // a getClients method could be in dashboardService, or use direct Supabase here for read.
-      // The previous code used direct supabase.from('clients').select('*').
-      // Let's keep that for fetching all clients for now.
       const { data, error: fetchError } = await supabase.from('clients').select('*').order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
@@ -58,13 +53,12 @@ const ClientsModule = () => {
           id: dbClient.id,
           name: dbClient.name,
           phone: dbClient.phone,
-          email: dbClient.email || '', // Ensure email is not null
+          email: dbClient.email || '',
           status: dbClient.status === 'ativo' ? 'active' : 'inactive',
           tags: dbClient.tags || [],
           lastPurchase: dbClient.last_purchase ? new Date(dbClient.last_purchase).toLocaleDateString('pt-BR') : 'N/A',
           isVip: dbClient.is_vip || false,
-          isRegular: dbClient.profile_type === 'regular',
-          isOccasional: dbClient.profile_type === 'occasional',
+          profile_type: dbClient.profile_type || 'regular'
         }));
         setClients(transformedClients);
       }
@@ -83,22 +77,31 @@ const ClientsModule = () => {
 
   const handleAddClient = async (formData: ClientModalFormData) => {
     const clientDataToSave: ClientData = {
-      ...formData,
-      email: formData.email || null, // Ensure null if empty string for DB
-      tags: formData.tags || null,
-      is_vip: formData.is_vip || null,
-      profile_type: formData.profile_type || null,
+      name: formData.name,
+      phone: formData.phone,
+      email: formData.email || null,
+      status: formData.status === 'active' ? 'ativo' : 'inativo',
+      tags: formData.tags || [],
+      is_vip: formData.is_vip || false,
+      profile_type: formData.profile_type,
       birth_date: formData.birth_date || null,
-      status: formData.status === 'active' ? 'ativo' : 'inativo', // Map to DB status
+      created_at: new Date().toISOString(),
+      created_by: null, // Será preenchido quando implementarmos autenticação
+      last_purchase: null
     };
+
     try {
       await dashboardService.createClient(clientDataToSave);
       toast.success('Cliente adicionado com sucesso!');
       fetchClientsData(); // Refresh list
-      // Logic to close modal should be here or in ClientSearchHeader/modal component
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error creating client:", err);
-      toast.error('Erro ao adicionar cliente.');
+      // Verificar se é o erro de telefone duplicado
+      if (err.message && err.message.includes('telefone')) {
+        toast.error(err.message);
+      } else {
+        toast.error('Erro ao adicionar cliente. Por favor, tente novamente.');
+      }
     }
   };
   
