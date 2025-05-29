@@ -736,6 +736,19 @@ class DashboardService {
       throw err;
     }
   }
+
+  async deleteCampaign(campaignId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('campaigns')
+        .delete()
+        .eq('id', campaignId);
+      if (error) throw error;
+    } catch (err) {
+      console.error(`Error deleting campaign ${campaignId}:`, err);
+      throw err;
+    }
+  }
 } // End of DashboardService class
 
 export const dashboardService = new DashboardService();

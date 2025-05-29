@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Bell, Plus, Play, Pause, Calendar, Clock, BarChart, RefreshCcw, AlertTriangle } from 'lucide-react'; // Added AlertTriangle
+import { Search, Bell, Plus, Play, Pause, Calendar, Clock, BarChart, RefreshCcw, AlertTriangle, Trash2 } from 'lucide-react'; // Added Trash2
 import NewCampaignModal from './modals/NewCampaignModal';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -128,6 +128,22 @@ const CampaignsModule = () => {
     }
   };
   
+  // Função para deletar campanha
+  const handleDeleteCampaign = async (campaignId: string, campaignName: string) => {
+    if (!confirm(`Tem certeza que deseja excluir a campanha "${campaignName}"? Esta ação não pode ser desfeita.`)) {
+      return;
+    }
+
+    try {
+      await dashboardService.deleteCampaign(campaignId);
+      toast.success('Campanha excluída com sucesso!');
+      fetchCampaignsData(); // Refresh list
+    } catch (error) {
+      console.error(`Error deleting campaign ${campaignId}:`, error);
+      toast.error('Erro ao excluir campanha.');
+    }
+  };
+  
   const filteredCampaigns = campaigns.filter(campaign => 
     campaign.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     campaign.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -245,20 +261,30 @@ const CampaignsModule = () => {
                   )}
                 </div>
                 <div className="col-span-1 flex justify-center">
-                  {campaign.status !== 'scheduled' && ( // Assuming 'scheduled' campaigns cannot be paused/played directly from here
+                  <div className="flex gap-1">
+                    {campaign.status !== 'scheduled' && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="text-pharmacy-text2 hover:text-pharmacy-accent h-8 w-8"
+                        onClick={(e) => { e.stopPropagation(); handleToggleCampaignStatus(campaign.id, campaign.status); }}
+                      >
+                        {campaign.status === 'active' ? (
+                          <Pause className="h-4 w-4" />
+                        ) : (
+                          <Play className="h-4 w-4" />
+                        )}
+                      </Button>
+                    )}
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="text-pharmacy-text2 hover:text-pharmacy-accent"
-                      onClick={(e) => { e.stopPropagation(); handleToggleCampaignStatus(campaign.id, campaign.status); }}
+                      className="text-red-600 hover:text-red-700 h-8 w-8"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteCampaign(campaign.id, campaign.name); }}
                     >
-                      {campaign.status === 'active' ? (
-                        <Pause className="h-4 w-4" />
-                      ) : (
-                        <Play className="h-4 w-4" />
-                      )}
+                      <Trash2 className="h-4 w-4" />
                     </Button>
-                  )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -276,20 +302,30 @@ const CampaignsModule = () => {
               >
                 <div className="flex justify-between items-center mb-2">
                   <div className="font-medium text-pharmacy-text1">{campaign.name}</div>
-                  {campaign.status !== 'scheduled' && (
+                  <div className="flex gap-1">
+                    {campaign.status !== 'scheduled' && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-pharmacy-text2 hover:text-pharmacy-accent p-1 h-auto"
+                        onClick={(e) => { e.stopPropagation(); handleToggleCampaignStatus(campaign.id, campaign.status);}}
+                      >
+                        {campaign.status === 'active' ? (
+                          <Pause className="h-4 w-4" />
+                        ) : (
+                          <Play className="h-4 w-4" />
+                        )}
+                      </Button>
+                    )}
                     <Button 
                       variant="ghost" 
                       size="sm" 
-                      className="text-pharmacy-text2 hover:text-pharmacy-accent p-1 h-auto"
-                      onClick={(e) => { e.stopPropagation(); handleToggleCampaignStatus(campaign.id, campaign.status);}}
+                      className="text-red-600 hover:text-red-700 p-1 h-auto"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteCampaign(campaign.id, campaign.name);}}
                     >
-                      {campaign.status === 'active' ? (
-                        <Pause className="h-4 w-4" />
-                      ) : (
-                        <Play className="h-4 w-4" />
-                      )}
+                      <Trash2 className="h-4 w-4" />
                     </Button>
-                  )}
+                  </div>
                 </div>
                 
                 <div className="flex justify-between items-center mb-1">

@@ -37,44 +37,96 @@ const ReportsModule = () => {
   const [loadingClientsServed, setLoadingClientsServed] = useState(true);
   const [loadingProductCategories, setLoadingProductCategories] = useState(true);
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
     const fetchAllReportData = async () => {
       try {
-        setLoadingStats(true);
+        // Fetch report stats
         dashboardService.getReportStats().then(data => {
           setReportStats(data);
           setLoadingStats(false);
-        }).catch(err => { console.error("Error fetching report stats:", err); setLoadingStats(false); throw err; });
+        }).catch(err => { 
+          console.error("Error fetching report stats:", err); 
+          // Set default placeholder data
+          setReportStats({
+            responseRate: "N/A",
+            avgResponseTime: "N/A", 
+            conversionRate: "N/A"
+          });
+          setLoadingStats(false);
+        });
 
-        setLoadingMessagesByType(true);
+        // Fetch messages by type
         dashboardService.getMessagesByType().then(data => {
-          setMessagesByTypeData(data);
+          setMessagesByTypeData(data.length > 0 ? data : [
+            { name: 'WhatsApp', value: 0 },
+            { name: 'Email', value: 0 },
+            { name: 'Telefone', value: 0 }
+          ]);
           setLoadingMessagesByType(false);
-        }).catch(err => { console.error("Error fetching messages by type:", err); setLoadingMessagesByType(false); throw err; });
+        }).catch(err => { 
+          console.error("Error fetching messages by type:", err); 
+          setMessagesByTypeData([
+            { name: 'WhatsApp', value: 0 },
+            { name: 'Email', value: 0 },
+            { name: 'Telefone', value: 0 }
+          ]);
+          setLoadingMessagesByType(false);
+        });
         
-        setLoadingClientsServed(true);
+        // Fetch clients served
         dashboardService.getClientsServedLastWeek().then(data => {
-          setClientsServedData(data);
+          setClientsServedData(data.length > 0 ? data : [
+            { name: 'Dom', value: 0 },
+            { name: 'Seg', value: 0 },
+            { name: 'Ter', value: 0 },
+            { name: 'Qua', value: 0 },
+            { name: 'Qui', value: 0 },
+            { name: 'Sex', value: 0 },
+            { name: 'Sáb', value: 0 }
+          ]);
           setLoadingClientsServed(false);
-        }).catch(err => { console.error("Error fetching clients served:", err); setLoadingClientsServed(false); throw err; });
+        }).catch(err => { 
+          console.error("Error fetching clients served:", err); 
+          setClientsServedData([
+            { name: 'Dom', value: 0 },
+            { name: 'Seg', value: 0 },
+            { name: 'Ter', value: 0 },
+            { name: 'Qua', value: 0 },
+            { name: 'Qui', value: 0 },
+            { name: 'Sex', value: 0 },
+            { name: 'Sáb', value: 0 }
+          ]);
+          setLoadingClientsServed(false);
+        });
 
-        setLoadingProductCategories(true);
+        // Fetch product categories
         dashboardService.getProductCategoryDistribution().then(data => {
-          setProductCategoryData(data);
+          setProductCategoryData(data.length > 0 ? data : [
+            { name: 'Sem dados', value: 1 }
+          ]);
           setLoadingProductCategories(false);
-        }).catch(err => { console.error("Error fetching product categories:", err); setLoadingProductCategories(false); throw err; });
+        }).catch(err => { 
+          console.error("Error fetching product categories:", err); 
+          setProductCategoryData([
+            { name: 'Sem dados', value: 1 }
+          ]);
+          setLoadingProductCategories(false);
+        });
 
-        setLoadingCampaigns(true);
+        // Fetch campaign reports
         dashboardService.getCampaignReportData().then(data => {
-          setCampaignReportDisplayData(data);
+          setCampaignReportDisplayData(data.length > 0 ? data : []);
           setLoadingCampaigns(false);
-        }).catch(err => { console.error("Error fetching campaign reports:", err); setLoadingCampaigns(false); throw err; });
+        }).catch(err => { 
+          console.error("Error fetching campaign reports:", err); 
+          setCampaignReportDisplayData([]);
+          setLoadingCampaigns(false);
+        });
 
-      } catch (err) {
-        setError("Falha ao carregar dados dos relatórios. Verifique o console para mais detalhes.");
-        // Ensure all individual loading states are false if a general error occurs during promise setup
+      } catch (error) {
+        console.error("Error in fetchAllReportData:", error);
+        // Ensure all loading states are false
         setLoadingStats(false);
         setLoadingMessagesByType(false);
         setLoadingClientsServed(false);
@@ -82,6 +134,7 @@ const ReportsModule = () => {
         setLoadingCampaigns(false);
       }
     };
+    
     fetchAllReportData();
   }, []);
 
@@ -192,20 +245,6 @@ const ReportsModule = () => {
         </div>
       </div>
 
-      {error && (
-        <Card className="mb-6 bg-red-50 border-red-200 shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-red-700 flex items-center">
-              <AlertTriangle className="mr-2 h-5 w-5" />
-              Erro ao carregar dados
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-red-600">{error}</p>
-          </CardContent>
-        </Card>
-      )}
-      
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <Card className="bg-white border-gray-200 shadow-sm">
           <CardHeader className="pb-2">
