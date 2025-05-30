@@ -10,6 +10,7 @@ interface UserMetadata {
 }
 
 interface SupabaseContextType {
+  supabase: typeof supabase; // Add this line (typeof supabase from the import)
   user: User | null;
   session: Session | null;
   loading: boolean;
@@ -245,6 +246,7 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   };
 
   const value = {
+    supabase, // Add this line (the imported supabase client instance)
     user,
     session,
     loading,
