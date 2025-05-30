@@ -324,10 +324,7 @@ const FormsModule = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Button variant="outline" className="text-pharmacy-accent border-gray-300 w-full md:w-auto">
-          <Filter className="mr-2 h-4 w-4" />
-          Filtros
-        </Button>
+        {/* The Filter button that was here has been removed */}
       </div>
 
       {/* Display error message here if it exists, instead of blocking the whole page */}
