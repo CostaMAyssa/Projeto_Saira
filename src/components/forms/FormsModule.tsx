@@ -39,6 +39,7 @@ const FormsModule = () => {
     setLoading(true);
     setError(null);
     try {
+      // setError(null); // Ensure error is cleared at the beginning of a fetch attempt - already done by fetchFormsData
       const dbForms = await getForms();
       if (dbForms) {
         const transformedForms: FormData[] = dbForms.map((form: any) => {
@@ -64,6 +65,10 @@ const FormsModule = () => {
         setForms(transformedForms);
       }
     } catch (err) {
+      // The existing logic assumes any error caught here is a "real request failure".
+      // More specific error checking (e.g., for network errors or 5xx status codes)
+      // could be implemented if the `getForms` service provided typed errors or status codes.
+      // For now, any exception leads to an error message.
       console.error("Failed to fetch forms:", err);
       const errorMessage = "Falha ao carregar formulários. Tente novamente mais tarde.";
       setError(errorMessage);
@@ -274,15 +279,7 @@ const FormsModule = () => {
     return <div className="flex-1 p-6 flex justify-center items-center text-gray-500">Carregando formulários...</div>;
   }
 
-  if (error) {
-    return (
-      <div className="flex-1 p-6 flex flex-col justify-center items-center text-red-600">
-        <AlertTriangle className="h-10 w-10 mb-4" />
-        <p>{error}</p>
-        <Button onClick={() => window.location.reload()} className="mt-4">Tentar Novamente</Button>
-      </div>
-    );
-  }
+  // The error display is now part of the main return block.
 
   return (
     <div className="flex-1 p-4 md:p-6 overflow-y-auto bg-white no-scrollbar">
@@ -312,28 +309,53 @@ const FormsModule = () => {
           Filtros
         </Button>
       </div>
-      
-      {filteredForms.length === 0 && !loading && (
-         <div className="p-4 text-center text-gray-500">Nenhum formulário encontrado.</div>
-      )}
-      {isMobile ? (
-        <div className="space-y-4">
-          {filteredForms.map(renderMobileFormCard)}
+
+      {/* Display error message here if it exists, instead of blocking the whole page */}
+      {error && (
+        <div className="mb-4 p-4 flex flex-col justify-center items-center text-red-600 border border-red-300 bg-red-50 rounded-md">
+          <AlertTriangle className="h-8 w-8 mb-2" />
+          <p className="text-center">{error}</p>
+          <Button 
+            onClick={() => {
+              // setError(null); // fetchFormsData already sets error to null at the beginning
+              fetchFormsData(); // Attempt to refetch
+            }} 
+            className="mt-3 bg-red-600 hover:bg-red-700 text-white"
+          >
+            Tentar Novamente
+          </Button>
         </div>
-      ) : (
-        renderDesktopFormList()
       )}
       
-      <div className="mt-4 text-center text-sm text-gray-500">
-        Exibindo {filteredForms.length} formulário(s)
-      </div>
+      {/* Show "No forms registered yet" if there's no error, not loading, and no forms */}
+      {!loading && !error && filteredForms.length === 0 && (
+         <div className="p-4 text-center text-gray-500">Nenhum formulário cadastrado ainda.</div>
+      )}
+
+      {/* Render forms only if there is no error, not loading, and there are forms to display */}
+      {!loading && !error && filteredForms.length > 0 && (
+        isMobile ? (
+          <div className="space-y-4">
+            {filteredForms.map(renderMobileFormCard)}
+          </div>
+        ) : (
+          renderDesktopFormList()
+        )
+      )}
+      
+      {/* Show form count only if not loading, no error, and there are forms */}
+      {!loading && !error && filteredForms.length > 0 && (
+        <div className="mt-4 text-center text-sm text-gray-500">
+          Exibindo {filteredForms.length} formulário(s)
+        </div>
+      )}
 
       <NewFormModal 
         open={isNewFormModalOpen} 
         onOpenChange={setIsNewFormModalOpen}
         onSubmit={selectedFormToEdit ? (data => handleSaveFormUpdate(selectedFormToEdit.id, data as EditFormModalData)) : handleAddForm}
-        initialData={selectedFormToEdit} // Pass selected form data for editing
-        key={selectedFormToEdit ? selectedFormToEdit.id : 'new-form-modal'} // Re-mount modal when initialData changes
+        initialData={selectedFormToEdit} 
+        key={selectedFormToEdit ? selectedFormToEdit.id : 'new-form-modal'} 
       />
       {/* If using a separate Edit Modal:
       {selectedFormToEdit && isEditModalOpen && (
