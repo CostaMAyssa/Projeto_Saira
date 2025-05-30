@@ -28,10 +28,10 @@ interface FormData {
 // Single, consolidated FormsModule component definition
 const FormsModule = () => {
   const [isNewFormModalOpen, setIsNewFormModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  // const [isEditModalOpen, setIsEditModalOpen] = useState(false); // Ensure this is removed or not used for NewFormModal's visibility
   const [selectedFormToEdit, setSelectedFormToEdit] = useState<FormData | null>(null);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false); // State for ViewModal
-  const [selectedFormToView, setSelectedFormToView] = useState<FormData | null>(null); // State for form to view
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [selectedFormToView, setSelectedFormToView] = useState<FormData | null>(null);
   const isMobile = useIsMobile();
   const [forms, setForms] = useState<FormData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,11 +118,9 @@ const FormsModule = () => {
 
   const handleEditForm = (form: FormData) => {
     setSelectedFormToEdit(form);
-    setIsEditModalOpen(true); 
-    // Assuming NewFormModal is reused for editing. If not, a different modal state would be set.
-    // setIsNewFormModalOpen(true); // If reusing NewFormModal for edit
+    setIsNewFormModalOpen(true); // Open NewFormModal for editing
   };
-  
+
   // Type for data coming from an Edit Modal (UI representation)
   type EditFormModalData = {
     name: string;
@@ -145,7 +143,7 @@ const FormsModule = () => {
       await updateForm(formId, updatesForDb);
       toast.success('Formulário atualizado com sucesso!');
       fetchFormsData(); // Refresh list
-      setIsEditModalOpen(false);
+      setIsNewFormModalOpen(false); // Close NewFormModal after update
       setSelectedFormToEdit(null);
     } catch (err) {
       console.error(`Error updating form ${formId}:`, err);
@@ -304,9 +302,12 @@ const FormsModule = () => {
     <div className="flex-1 p-4 md:p-6 overflow-y-auto bg-white no-scrollbar">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 md:mb-6 gap-3 md:gap-0">
         <h1 className="text-xl md:text-2xl font-bold text-gray-900">Formulários</h1>
-        <Button 
+        <Button
           className="bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white w-full md:w-auto"
-          onClick={() => setIsNewFormModalOpen(true)}
+          onClick={() => {
+            setSelectedFormToEdit(null); // Ensure modal opens in "create" mode
+            setIsNewFormModalOpen(true);
+          }}
         >
           <Plus className="mr-2 h-4 w-4" />
           Novo Formulário
@@ -384,18 +385,8 @@ const FormsModule = () => {
           form={selectedFormToView}
         />
       )}
-      {/* If using a separate Edit Modal:
-      {selectedFormToEdit && isEditModalOpen && (
-        <EditFormModal // Assuming an EditFormModal component exists or NewFormModal is adapted
-          open={isEditModalOpen}
-          onOpenChange={(isOpen) => {
-            setIsEditModalOpen(isOpen);
-            if (!isOpen) setSelectedFormToEdit(null);
-          }}
-          initialData={selectedFormToEdit}
-          onSubmit={(updatedData) => handleSaveFormUpdate(selectedFormToEdit.id, updatedData)}
-        />
-      )}
+      {/* Comment regarding separate Edit Modal is still relevant if that path was ever considered.
+          The current implementation reuses NewFormModal.
       */}
     </div>
   );
