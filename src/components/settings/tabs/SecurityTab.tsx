@@ -1,12 +1,188 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react'; // Added useEffect
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
+// Switch might not be needed anymore if 2FA was the only user, but keeping for now.
+// import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
+import { useSupabase } from '@/contexts/SupabaseContext'; // Import useSupabase
+import { toast } from '@/components/ui/use-toast'; // Import toast
 
 const SecurityTab = () => {
+  const { supabase } = useSupabase(); // Get Supabase client
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+
+  // State for current session display
+  const [currentSession, setCurrentSession] = useState<any>(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [sessionError, setSessionError] = useState('');
+
+  const handlePasswordInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setPasswordError(''); // Clear error on input change
+    if (id === 'current-password') setCurrentPassword(value);
+    else if (id === 'new-password') setNewPassword(value);
+    else if (id === 'confirm-password') setConfirmNewPassword(value);
+  };
+
+  const handleChangePassword = async () => {
+    setPasswordLoading(true);
+    setPasswordError('');
+
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      setPasswordError('Todos os campos de senha são obrigatórios.');
+      setPasswordLoading(false);
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError('As novas senhas não coincidem.');
+      setPasswordLoading(false);
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordError('A nova senha deve ter pelo menos 6 caracteres.');
+      setPasswordLoading(false);
+      return;
+    }
+
+    if (!supabase) {
+      setPasswordError('Erro de conexão. Tente novamente.');
+      setPasswordLoading(false);
+      return;
+    }
+
+    try {
+      // No need to fetch user or email for password update with Supabase,
+      // updateUser under an authenticated session handles it.
+      // The re-authentication step is more for verifying the old password,
+      // but Supabase's updateUser doesn't require the old password.
+      // If we wanted to strictly verify, we'd need a custom function or different flow.
+      // For now, directly attempting updateUser as per common Supabase patterns.
+      // If explicit old password verification is a MUST, then the signInWithPassword approach is needed,
+      // but it complicates session handling.
+      // Let's proceed with the direct updateUser, which is simpler if allowed by security model.
+      // The prompt mentioned: "Update Password: If current password is correct, update to the new password"
+      // This implies we need to verify currentPassword. The signInWithPassword is the way for that.
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !user.email) {
+        setPasswordError('Usuário não encontrado ou e-mail ausente.');
+        setPasswordLoading(false);
+        return;
+      }
+      const email = user.email;
+
+      // 1. Verify current password by trying to sign in
+      // This is a critical step as per the prompt's logic.
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password: currentPassword,
+      });
+
+      if (signInError) {
+        // Important: After a failed sign-in, Supabase might clear the session.
+        // The user might need to re-login fully if this happens.
+        // Or, restore the original session if possible (Supabase client might do this automatically or require manual handling).
+        // For this example, we'll assume the main session context handles re-authentication if necessary.
+        setPasswordError('A senha atual está incorreta.');
+        setPasswordLoading(false);
+        return;
+      }
+
+      // 2. If current password is correct, update to the new password
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (updateError) {
+        setPasswordError(`Erro ao atualizar senha: ${updateError.message}`);
+        setPasswordLoading(false);
+        return;
+      }
+
+      toast({
+        title: "Sucesso!",
+        description: "Sua senha foi atualizada com sucesso.",
+        variant: "default",
+      });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+
+    } catch (error: any) {
+      console.error('Erro ao alterar senha:', error);
+      setPasswordError(error.message || 'Ocorreu um erro inesperado.');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  const fetchCurrentSession = async () => {
+    setSessionLoading(true);
+    setSessionError('');
+    if (!supabase) {
+      setSessionError('Erro de conexão Supabase.');
+      setSessionLoading(false);
+      return;
+    }
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error) {
+        setSessionError(error.message);
+      } else if (data && data.session) {
+        setCurrentSession(data.session);
+      } else {
+        setSessionError('Nenhuma sessão ativa encontrada.');
+        setCurrentSession(null);
+      }
+    } catch (e: any) {
+      setSessionError(e.message || 'Falha ao buscar sessão.');
+    } finally {
+      setSessionLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCurrentSession();
+  }, [supabase]); // Added supabase to dependency array in case it can change
+
+  const handleSignOutCurrentSession = async () => {
+    if (!supabase) {
+      toast.error('Erro de conexão Supabase.');
+      return;
+    }
+
+    const confirmed = window.confirm("Tem certeza que deseja encerrar a sessão atual neste dispositivo?");
+    if (!confirmed) {
+      return;
+    }
+
+    // Optionally use sessionLoading or a new loading state for the button
+    setSessionLoading(true); // Re-using sessionLoading for simplicity
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        toast.error(`Erro ao encerrar a sessão: ${error.message}`);
+      } else {
+        toast.success('Sessão encerrada com sucesso.');
+        setCurrentSession(null); // Clear session from UI
+        // Application should redirect to login via global auth state listener
+      }
+    } catch (e: any) {
+      toast.error(`Erro inesperado ao encerrar sessão: ${e.message}`);
+    } finally {
+      setSessionLoading(false); // Reset loading state
+    }
+  };
+
   return (
     <Card className="bg-white border border-pharmacy-border1 shadow-sm">
       <CardHeader className="p-4 md:p-6">
@@ -22,63 +198,81 @@ const SecurityTab = () => {
           <div className="space-y-3">
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="current-password" className="text-pharmacy-text1">Senha Atual</Label>
-              <Input id="current-password" type="password" className="bg-white border-gray-300 text-pharmacy-text1" />
+              <Input
+                id="current-password"
+                type="password"
+                className="bg-white border-gray-300 text-pharmacy-text1"
+                value={currentPassword}
+                onChange={handlePasswordInputChange}
+              />
             </div>
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="new-password" className="text-pharmacy-text1">Nova Senha</Label>
-              <Input id="new-password" type="password" className="bg-white border-gray-300 text-pharmacy-text1" />
+              <Input
+                id="new-password"
+                type="password"
+                className="bg-white border-gray-300 text-pharmacy-text1"
+                value={newPassword}
+                onChange={handlePasswordInputChange}
+              />
             </div>
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="confirm-password" className="text-pharmacy-text1">Confirmar Nova Senha</Label>
-              <Input id="confirm-password" type="password" className="bg-white border-gray-300 text-pharmacy-text1" />
+              <Input
+                id="confirm-password"
+                type="password"
+                className="bg-white border-gray-300 text-pharmacy-text1"
+                value={confirmNewPassword}
+                onChange={handlePasswordInputChange}
+              />
             </div>
           </div>
           
-          <Button className="w-full md:w-auto bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white">
-            Atualizar Senha
+          {passwordError && <p className="text-sm text-red-500 pt-1">{passwordError}</p>}
+
+          <Button
+            onClick={handleChangePassword}
+            disabled={passwordLoading}
+            className="w-full md:w-auto bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white"
+          >
+            {passwordLoading ? 'Atualizando...' : 'Atualizar Senha'}
           </Button>
         </div>
         
-        <div className="space-y-4">
-          <h3 className="text-base md:text-lg font-medium text-pharmacy-text1">Verificação em Duas Etapas</h3>
-          
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-0">
-            <div>
-              <Label className="text-sm md:text-base text-pharmacy-text1">Ativar Verificação em Duas Etapas</Label>
-              <p className="text-xs md:text-sm text-pharmacy-text2">Aumenta a segurança da sua conta</p>
-            </div>
-            <Switch id="two-factor" defaultChecked={true} />
-          </div>
-          
-          <div className="bg-pharmacy-light2 p-3 md:p-4 rounded-lg">
-            <div className="text-sm md:text-base text-pharmacy-text1 font-medium mb-1">Método de verificação</div>
-            <div className="text-xs md:text-sm text-pharmacy-text2">SMS para +55 11 98765-4321</div>
-            <Button variant="link" className="p-0 text-xs md:text-sm text-pharmacy-accent">Alterar método</Button>
-          </div>
-        </div>
+        {/* Verificação em Duas Etapas section removed */}
         
         <div className="space-y-4">
           <h3 className="text-base md:text-lg font-medium text-pharmacy-text1">Sessões Ativas</h3>
           
-          <div className="bg-pharmacy-light2 p-3 md:p-4 rounded-lg flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-0">
-            <div>
-              <div className="text-sm md:text-base text-pharmacy-text1 font-medium">Este dispositivo</div>
-              <div className="text-xs md:text-sm text-pharmacy-text2">Última atividade: Agora</div>
+          {sessionLoading && <p className="text-sm text-gray-500">Carregando informações da sessão...</p>}
+          {sessionError && <p className="text-sm text-red-500">{sessionError}</p>}
+
+          {currentSession && (
+            <div className="bg-pharmacy-light2 p-3 md:p-4 rounded-lg flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-0">
+              <div>
+                <div className="text-sm md:text-base text-pharmacy-text1 font-medium">Este dispositivo (Sessão Atual)</div>
+                <div className="text-xs md:text-sm text-pharmacy-text2">
+                  Último login: {currentSession.user?.last_sign_in_at ? new Date(currentSession.user.last_sign_in_at).toLocaleString('pt-BR') : 'Não disponível'}
+                </div>
+                {/* <div className="text-xs md:text-sm text-pharmacy-text2">Expira em: {new Date(currentSession.expires_at * 1000).toLocaleString('pt-BR')}</div> */}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs md:text-sm text-pharmacy-text2 border-gray-300 hover:bg-pharmacy-light2"
+                onClick={handleSignOutCurrentSession}
+                disabled={sessionLoading} // Disable button while any session operation is in progress
+              >
+                {sessionLoading ? 'Encerrando...' : 'Encerrar Sessão Atual'}
+              </Button>
             </div>
-            <Button variant="outline" size="sm" className="text-xs md:text-sm text-pharmacy-text2 border-gray-300 hover:bg-pharmacy-light2">
-              Encerrar
-            </Button>
-          </div>
+          )}
           
-          <div className="bg-pharmacy-light2 p-3 md:p-4 rounded-lg flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-0">
-            <div>
-              <div className="text-sm md:text-base text-pharmacy-text1 font-medium">MacBook Pro</div>
-              <div className="text-xs md:text-sm text-pharmacy-text2">Última atividade: 2 horas atrás</div>
-            </div>
-            <Button variant="outline" size="sm" className="text-xs md:text-sm text-pharmacy-text2 border-gray-300 hover:bg-pharmacy-light2">
-              Encerrar
-            </Button>
-          </div>
+          {!sessionLoading && (
+            <p className="text-xs text-gray-400 mt-2">
+              A listagem e gerenciamento de outras sessões ativas não está disponível diretamente no navegador por motivos de segurança.
+            </p>
+          )}
         </div>
       </CardContent>
     </Card>

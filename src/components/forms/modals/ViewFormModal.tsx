@@ -31,8 +31,8 @@ const ViewFormModal: React.FC<ViewFormModalProps> = ({ open, onOpenChange, form 
   }
 
   const getStatusClass = (status: 'active' | 'inactive') => {
-    return status === 'active' 
-      ? "bg-green-100 text-green-700 border border-green-200" 
+    return status === 'active'
+      ? "bg-green-100 text-green-700 border border-green-200"
       : "bg-gray-100 text-gray-700 border border-gray-200";
   };
 
@@ -53,7 +53,7 @@ const ViewFormModal: React.FC<ViewFormModalProps> = ({ open, onOpenChange, form 
               <Label className="text-sm font-medium text-gray-700">Nome</Label>
               <p className="text-gray-900 mt-1">{form.name}</p>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-sm font-medium text-gray-700">Status</Label>
