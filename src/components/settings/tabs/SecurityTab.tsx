@@ -32,6 +32,14 @@ const SecurityTab = () => {
   };
 
   const handleChangePassword = async () => {
+    console.log('SecurityTab: Attempting password change...');
+    if (!supabase) {
+      console.error('SecurityTab: Supabase client is not available at the start of handleChangePassword.');
+      setPasswordError('Erro crítico: Cliente Supabase não disponível.');
+      setPasswordLoading(false);
+      return;
+    }
+
     setPasswordLoading(true);
     setPasswordError('');
 
@@ -53,56 +61,43 @@ const SecurityTab = () => {
       return;
     }
 
-    if (!supabase) {
-      setPasswordError('Erro de conexão. Tente novamente.');
-      setPasswordLoading(false);
-      return;
-    }
+    // This check is now at the top of the function.
+    // if (!supabase) {
+    //   setPasswordError('Erro de conexão. Tente novamente.');
+    //   setPasswordLoading(false);
+    //   return;
+    // }
 
     try {
-      // No need to fetch user or email for password update with Supabase,
-      // updateUser under an authenticated session handles it.
-      // The re-authentication step is more for verifying the old password,
-      // but Supabase's updateUser doesn't require the old password.
-      // If we wanted to strictly verify, we'd need a custom function or different flow.
-      // For now, directly attempting updateUser as per common Supabase patterns.
-      // If explicit old password verification is a MUST, then the signInWithPassword approach is needed,
-      // but it complicates session handling.
-      // Let's proceed with the direct updateUser, which is simpler if allowed by security model.
-      // The prompt mentioned: "Update Password: If current password is correct, update to the new password"
-      // This implies we need to verify currentPassword. The signInWithPassword is the way for that.
-
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || !user.email) {
+        console.error('SecurityTab: User or email not found before password verification.');
         setPasswordError('Usuário não encontrado ou e-mail ausente.');
         setPasswordLoading(false);
         return;
       }
       const email = user.email;
 
-      // 1. Verify current password by trying to sign in
-      // This is a critical step as per the prompt's logic.
+      console.log('SecurityTab: Verifying current password for user:', email);
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password: currentPassword,
       });
 
       if (signInError) {
-        // Important: After a failed sign-in, Supabase might clear the session.
-        // The user might need to re-login fully if this happens.
-        // Or, restore the original session if possible (Supabase client might do this automatically or require manual handling).
-        // For this example, we'll assume the main session context handles re-authentication if necessary.
+        console.error('SecurityTab: Error during signInWithPassword for verification:', signInError);
         setPasswordError('A senha atual está incorreta.');
         setPasswordLoading(false);
         return;
       }
 
-      // 2. If current password is correct, update to the new password
+      console.log('SecurityTab: Attempting to update user password.');
       const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword,
       });
 
       if (updateError) {
+        console.error('SecurityTab: Error during updateUser for password change:', updateError);
         setPasswordError(`Erro ao atualizar senha: ${updateError.message}`);
         setPasswordLoading(false);
         return;
@@ -118,32 +113,41 @@ const SecurityTab = () => {
       setConfirmNewPassword('');
 
     } catch (error: any) {
-      console.error('Erro ao alterar senha:', error);
-      setPasswordError(error.message || 'Ocorreu um erro inesperado.');
+      // General catch block, specific errors logged above.
+      console.error('SecurityTab: Unexpected error in handleChangePassword:', error);
+      setPasswordError(error.message || 'Ocorreu um erro inesperado ao alterar a senha.');
     } finally {
       setPasswordLoading(false);
     }
   };
 
   const fetchCurrentSession = async () => {
-    setSessionLoading(true);
-    setSessionError('');
+    console.log('SecurityTab: Attempting to fetch current session...');
     if (!supabase) {
-      setSessionError('Erro de conexão Supabase.');
+      console.error('SecurityTab: Supabase client is not available at the start of fetchCurrentSession.');
+      setSessionError('Erro crítico: Cliente Supabase não disponível.');
       setSessionLoading(false);
       return;
     }
+
+    setSessionLoading(true);
+    setSessionError('');
+
     try {
       const { data, error } = await supabase.auth.getSession();
       if (error) {
+        console.error('SecurityTab: Error during supabase.auth.getSession():', error);
         setSessionError(error.message);
       } else if (data && data.session) {
+        console.log('SecurityTab: Successfully fetched session:', data.session);
         setCurrentSession(data.session);
       } else {
+        console.log('SecurityTab: No active session found.');
         setSessionError('Nenhuma sessão ativa encontrada.');
         setCurrentSession(null);
       }
     } catch (e: any) {
+      console.error('SecurityTab: Unexpected error in fetchCurrentSession:', e);
       setSessionError(e.message || 'Falha ao buscar sessão.');
     } finally {
       setSessionLoading(false);
@@ -155,8 +159,10 @@ const SecurityTab = () => {
   }, [supabase]); // Added supabase to dependency array in case it can change
 
   const handleSignOutCurrentSession = async () => {
+    console.log('SecurityTab: Attempting to sign out current session...');
     if (!supabase) {
-      toast.error('Erro de conexão Supabase.');
+      console.error('SecurityTab: Supabase client is not available at the start of handleSignOutCurrentSession.');
+      toast.error('Erro crítico: Cliente Supabase não disponível.');
       return;
     }
 
@@ -165,21 +171,22 @@ const SecurityTab = () => {
       return;
     }
 
-    // Optionally use sessionLoading or a new loading state for the button
-    setSessionLoading(true); // Re-using sessionLoading for simplicity
+    setSessionLoading(true);
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
+        console.error('SecurityTab: Error during supabase.auth.signOut():', error);
         toast.error(`Erro ao encerrar a sessão: ${error.message}`);
       } else {
+        console.log('SecurityTab: Successfully signed out.');
         toast.success('Sessão encerrada com sucesso.');
-        setCurrentSession(null); // Clear session from UI
-        // Application should redirect to login via global auth state listener
+        setCurrentSession(null);
       }
     } catch (e: any) {
+      console.error('SecurityTab: Unexpected error in handleSignOutCurrentSession:', e);
       toast.error(`Erro inesperado ao encerrar sessão: ${e.message}`);
     } finally {
-      setSessionLoading(false); // Reset loading state
+      setSessionLoading(false);
     }
   };
 
@@ -231,7 +238,10 @@ const SecurityTab = () => {
           {passwordError && <p className="text-sm text-red-500 pt-1">{passwordError}</p>}
 
           <Button
-            onClick={handleChangePassword}
+            onClick={() => {
+              console.log('SecurityTab: "Atualizar Senha" button clicked.'); // ADD THIS LINE
+              handleChangePassword();
+            }}
             disabled={passwordLoading}
             className="w-full md:w-auto bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white"
           >
