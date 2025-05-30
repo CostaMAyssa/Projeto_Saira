@@ -35,7 +35,6 @@ const App = () => (
       </TooltipProvider>
     </QueryClientProvider>
   </SupabaseProvider>
-  {/* Close wrapper */}
 );
 
 export default App;
