@@ -49,39 +49,37 @@ const ClientsModule = () => {
     setLoading(true);
     setError(null);
     try {
-      // The direct Supabase call was here before, now we should ensure this logic is consistent
-      // with how dashboardService might fetch or if we keep direct fetching here.
-      // For consistency with the task (using dashboardService for CRUD), let's assume
-      // a getClients method could be in dashboardService, or use direct Supabase here for read.
-      // The previous code used direct supabase.from('clients').select('*').
-      // Let's keep that for fetching all clients for now.
-      const { data, error: fetchError } = await supabase.from('clients').select('*').order('created_at', { ascending: false });
+      const data = await dashboardService.getClients(); // Use the new service method
 
-      if (fetchError) throw fetchError;
+      // No need to check for fetchError here as dashboardService.getClients should handle it or throw
+      // if (fetchError) throw fetchError; // This line is removed
 
       if (data) {
-        const transformedClients: Client[] = data.map((dbClient: unknown): Client => {
-          const client = dbClient as {
+        const transformedClients: Client[] = data.map((dbClient: any): Client => { // dbClient can be typed as ClientDBResponse if imported
+          const client = dbClient as { // Type assertion, ensure fields match ClientDBResponse and are used below
             id: string;
             name: string;
             phone: string;
             email?: string;
-            status: string;
+            status: string; // This comes from ClientDBResponse
             tags?: string[];
-            last_purchase?: string;
+            last_purchase?: string; // This field is used in transformation but might not be in ClientDBResponse
             is_vip?: boolean;
             profile_type?: string;
             birth_date?: string;
+            // Add other fields from ClientDBResponse if they are used in transformation
+            phone: string; // from ClientDBResponse
+            email?: string | null; // from ClientDBResponse
           };
           
           return {
             id: client.id,
             name: client.name,
             phone: client.phone,
-            email: client.email || '', // Ensure email is not null
-            status: client.status === 'ativo' ? 'active' : 'inactive',
+            email: client.email || '',
+            status: client.status === 'ativo' ? 'active' : 'inactive', // Assumes 'status' field exists and is 'ativo' or 'inativo'
             tags: client.tags || [],
-            lastPurchase: client.last_purchase ? new Date(client.last_purchase).toLocaleDateString('pt-BR') : 'N/A',
+            lastPurchase: client.last_purchase ? new Date(client.last_purchase).toLocaleDateString('pt-BR') : 'N/A', // check if last_purchase is in ClientDBResponse
             isVip: client.is_vip || false,
             isRegular: client.profile_type === 'regular',
             isOccasional: client.profile_type === 'occasional',
@@ -93,8 +91,10 @@ const ClientsModule = () => {
       }
     } catch (err: unknown) {
       console.error('Error fetching clients:', err);
-      setError('Falha ao carregar clientes.');
-      toast.error('Falha ao carregar clientes.');
+      // Ensure err has a message property or handle appropriately
+      const errorMessage = err instanceof Error ? err.message : 'Falha ao carregar clientes.';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

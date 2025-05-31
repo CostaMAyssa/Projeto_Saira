@@ -146,15 +146,39 @@ interface ClientDBResponse {
   created_at: string;
 }
 
+// Placeholder for Product type, ensure it aligns with frontend needs
+// Ideally, this would be imported from a shared types definition
+export interface Product {
+  id: string;
+  name: string;
+  category: string;
+  stock: number;
+  tags: string[];
+  needs_prescription: boolean;
+  controlled: boolean;
+  interval: number;
+  // Add other fields if necessary, like created_at, user_id etc.
+  // For now, mirroring ProductData and common DB fields
+  user_id?: string;
+  created_by?: string;
+  created_at?: string;
+}
+
+
 class DashboardService {
   // Buscar estatísticas principais do dashboard
   async getDashboardStats(): Promise<DashboardStats> {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      const userId = user.id;
+
       // Buscar conversas iniciadas nas últimas 24 horas
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const { count: totalConversations, error: convError } = await supabase
         .from('conversations')
         .select('id', { count: 'exact', head: true }) // Count rows
+        .eq('user_id', userId)
         .gte('started_at', twentyFourHoursAgo);
 
       if (convError) {
@@ -166,6 +190,7 @@ class DashboardService {
       const { count: totalActiveClients, error: clientError } = await supabase
         .from('clients')
         .select('id', { count: 'exact', head: true }) // Count rows
+        .eq('user_id', userId)
         .eq('status', 'ativo'); // Use 'ativo' as per schema
 
       if (clientError) {
@@ -204,9 +229,64 @@ class DashboardService {
     }
   }
 
+  async getClients(): Promise<ClientDBResponse[]> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('User not authenticated for getClients');
+        return []; // Or throw error
+      }
+      const userId = user.id;
+
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching clients:', error);
+        throw error;
+      }
+      return data || [];
+    } catch (err) {
+      console.error('DashboardService.getClients: Error fetching clients:', err);
+      throw err;
+    }
+  }
+
+  async getProducts(): Promise<Product[]> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('User not authenticated for getProducts');
+        return []; // Or throw error
+      }
+      const userId = user.id;
+
+      const { data, error } = await supabase
+        .from('products')
+        .select('*') // Adjust selection if needed for the Product type
+        .eq('created_by', userId) // Filter by created_by
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching products:', error);
+        throw error;
+      }
+      // Assuming the data from DB largely matches the Product interface structure
+      // Transformation might be needed here if DB schema differs significantly from Product type
+      return (data as Product[]) || [];
+    } catch (err) {
+      console.error('DashboardService.getProducts: Error fetching products:', err);
+      throw err;
+    }
+  }
+
   // Buscar dados para gráfico de conversas diárias
   async getDailyConversations(): Promise<ChartData[]> {
     try {
+      // TODO: Apply RLS or create a user-specific view for daily_conversations_view
       const { data, error } = await supabase
         .from('daily_conversations_view')
         .select('day_name, conversation_count')
@@ -230,6 +310,7 @@ class DashboardService {
   // Buscar dados para gráfico de conversas mensais
   async getMonthlyConversations(): Promise<ChartData[]> {
     try {
+      // TODO: Apply RLS or create a user-specific view for monthly_conversations_view
       const { data, error } = await supabase
         .from('monthly_conversations_view')
         .select('month_name, conversation_count')
@@ -254,9 +335,14 @@ class DashboardService {
   // Buscar próximos lembretes/automações
   async getUpcomingReminders(): Promise<Reminder[]> {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      const userId = user.id;
+
       const { data, error } = await supabase
         .from('campaigns') // Query 'campaigns' table
         .select('id, name, scheduled_for, trigger, target_audience')
+        .eq('user_id', userId)
         .gte('scheduled_for', new Date().toISOString()) // Campaigns scheduled for future
         .order('scheduled_for', { ascending: true })
         .limit(6);
@@ -319,10 +405,18 @@ class DashboardService {
 
   async getMessagesByType(): Promise<ChartData[]> {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      const userId = user.id;
+
       // Workaround: Fetch all message types and aggregate in JS (inefficient for large data)
+      // TODO: This still fetches all messages then filters in JS if user_id is not on messages directly.
+      // If messages table has user_id, this can be .eq('user_id', userId)
       const { data: allMessages, error: messagesError } = await supabase
         .from('messages')
-        .select('type');
+        .select('type, user_id') // Assuming user_id exists or will be added
+        .eq('user_id', userId);
+
 
       if (messagesError) throw messagesError;
       if (!allMessages) return [];
@@ -345,10 +439,15 @@ class DashboardService {
     try {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      const userId = user.id;
       
       const { data, error } = await supabase
         .from('conversations')
         .select('client_id, started_at')
+        .eq('user_id', userId)
         .gte('started_at', sevenDaysAgo.toISOString());
 
       if (error) throw error;
@@ -390,9 +489,14 @@ class DashboardService {
 
   async getProductCategoryDistribution(): Promise<ChartData[]> {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      const userId = user.id;
+
       const { data: allProducts, error: productsError } = await supabase
         .from('products')
-        .select('category');
+        .select('category')
+        .eq('created_by', userId); // Filter by created_by
 
       if (productsError) throw productsError;
       if (!allProducts) return [];
@@ -413,15 +517,21 @@ class DashboardService {
 
   async getCampaignReportData(): Promise<CampaignReportRow[]> {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      const userId = user.id;
+
       const { data: campaigns, error: campaignsError } = await supabase
         .from('campaigns')
-        .select('id, name');
+        .select('id, name')
+        .eq('user_id', userId);
       
       if (campaignsError) throw campaignsError;
       if (!campaigns) return [];
 
       const reportData: CampaignReportRow[] = [];
       for (const campaign of campaigns) {
+        // TODO: campaign_executions might need user_id or join for RLS
         const { data: executions, error: execError } = await supabase
           .from('campaign_executions')
           .select('messages_sent')
@@ -500,9 +610,14 @@ class DashboardService {
   
   async getAllCampaignsDetails(): Promise<CampaignUIData[]> {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      const userId = user.id;
+
       const { data: campaigns, error: campaignsError } = await supabase
         .from('campaigns')
-        .select('*'); 
+        .select('*')
+        .eq('user_id', userId);
 
       if (campaignsError) {
         console.error('Error fetching campaigns:', campaignsError);
@@ -514,6 +629,7 @@ class DashboardService {
 
       for (const campaign of campaigns) {
         let lastRunString = "Nunca executado";
+        // TODO: campaign_executions might need user_id or join for RLS
         const { data: executions, error: execError } = await supabase
           .from('campaign_executions')
           .select('executed_at')
@@ -568,13 +684,17 @@ class DashboardService {
   // --- Client CRUD Methods ---
   async createClient(clientData: ClientData): Promise<any> {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated for creating client');
+      const userId = user.id;
+
       console.log('DashboardService.createClient: Starting client creation with data:', clientData);
       
-      // Usar o mesmo padrão do createProduct que está funcionando
       const clientDataForSupabase = {
         ...clientData,
-        created_by: '58ce41aa-d63d-4655-b1a1-9ee705e05c3a', // João da Silva (usuário existente)
-        created_at: new Date().toISOString(), // Add created_at
+        created_by: userId,
+        user_id: userId, // Assuming 'user_id' is the column for ownership
+        created_at: new Date().toISOString(),
       };
 
       console.log("👤 Dados enviados para o Supabase (insert):", clientDataForSupabase);
@@ -600,10 +720,15 @@ class DashboardService {
 
   async updateClient(clientId: string, clientData: Partial<ClientData>): Promise<any> {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated for updating client');
+      const userId = user.id;
+
       const { data, error } = await supabase
         .from('clients')
         .update(clientData)
         .eq('id', clientId)
+        .eq('user_id', userId) // Ensure user owns the client
         .select()
         .single();
       if (error) throw error;
@@ -616,10 +741,15 @@ class DashboardService {
 
   async deleteClient(clientId: string): Promise<void> {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated for deleting client');
+      const userId = user.id;
+
       const { error } = await supabase
         .from('clients')
         .delete()
-        .eq('id', clientId);
+        .eq('id', clientId)
+        .eq('user_id', userId); // Ensure user owns the client
       if (error) throw error;
     } catch (err) {
       console.error(`Error deleting client ${clientId}:`, err);
@@ -630,12 +760,18 @@ class DashboardService {
   // --- Product CRUD Methods ---
   async createProduct(productData: ProductData): Promise<any> { // productData now adheres to stricter interface
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated for creating product');
+      const userId = user.id;
+
       const productDataForSupabase = {
-        ...productData, // Spread all fields from the stricter ProductData
-        created_at: new Date().toISOString(), // Add created_at
+        ...productData,
+        // user_id: userId, // Remove if created_by is the sole field for user association
+        created_by: userId, // Ensure created_by is set to the user's ID
+        created_at: new Date().toISOString(),
       };
 
-      console.log("📦 Dados enviados para o Supabase (insert):", productDataForSupabase); // Updated log message
+      console.log("📦 Dados enviados para o Supabase (insert):", productDataForSupabase);
       
       const { data, error } = await supabase
         .from('products')
@@ -657,10 +793,15 @@ class DashboardService {
   // For update, Partial<ProductData> is still good, but ProductData itself is now stricter
   async updateProduct(productId: string, productData: Partial<ProductData>): Promise<any> {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated for updating product');
+      const userId = user.id;
+
       const { data, error } = await supabase
         .from('products')
         .update(productData)
         .eq('id', productId)
+        .eq('created_by', userId) // Ensure user owns the product by checking created_by
         .select()
         .single();
       if (error) throw error;
@@ -673,10 +814,15 @@ class DashboardService {
 
   async deleteProduct(productId: string): Promise<void> {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated for deleting product');
+      const userId = user.id;
+
       const { error } = await supabase
         .from('products')
         .delete()
-        .eq('id', productId);
+        .eq('id', productId)
+        .eq('created_by', userId); // Ensure user owns the product by checking created_by
       if (error) throw error;
     } catch (err) {
       console.error(`Error deleting product ${productId}:`, err);
@@ -687,17 +833,21 @@ class DashboardService {
   // --- Campaign CRUD Methods ---
   async createCampaign(campaignData: NewCampaignData): Promise<any> {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated for creating campaign');
+      const userId = user.id;
+
       console.log('DashboardService.createCampaign: Starting campaign creation with data:', campaignData);
       
-      // Usar EXATAMENTE o mesmo padrão do createClient que está funcionando
       const campaignDataForSupabase = {
         name: campaignData.name,
         trigger: campaignData.trigger,
         status: campaignData.status,
         template: campaignData.template || 'Template padrão',
-        target_audience: campaignData.target_audience || {}, // Manter como objeto JSON
+        target_audience: campaignData.target_audience || {},
         scheduled_for: campaignData.scheduled_for,
-        created_by: '58ce41aa-d63d-4655-b1a1-9ee705e05c3a' // João da Silva (usuário existente)
+        created_by: userId, // Set actual user ID
+        user_id: userId, // Assuming 'user_id' is the column for ownership
       };
 
       console.log("📢 Dados enviados para o Supabase (insert):", campaignDataForSupabase);
@@ -723,10 +873,15 @@ class DashboardService {
 
   async updateCampaignStatus(campaignId: string, status: string): Promise<any> {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated for updating campaign status');
+      const userId = user.id;
+
       const { data, error } = await supabase
         .from('campaigns')
         .update({ status })
         .eq('id', campaignId)
+        .eq('user_id', userId) // Ensure user owns the campaign
         .select()
         .single();
       if (error) throw error;
@@ -739,10 +894,15 @@ class DashboardService {
 
   async deleteCampaign(campaignId: string): Promise<void> {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated for deleting campaign');
+      const userId = user.id;
+
       const { error } = await supabase
         .from('campaigns')
         .delete()
-        .eq('id', campaignId);
+        .eq('id', campaignId)
+        .eq('user_id', userId); // Ensure user owns the campaign
       if (error) throw error;
     } catch (err) {
       console.error(`Error deleting campaign ${campaignId}:`, err);
@@ -754,6 +914,10 @@ class DashboardService {
 export const dashboardService = new DashboardService();
 
 export const getForms = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+  const userId = user.id;
+
   const { data, error } = await supabase
     .from('forms')
     .select(`
@@ -762,6 +926,7 @@ export const getForms = async () => {
         count
       )
     `)
+    .eq('user_id', userId) // Filter by user_id
     .order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -769,20 +934,35 @@ export const getForms = async () => {
 };
 
 export const getFormById = async (id: string) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+  const userId = user.id;
+
   const { data, error } = await supabase
     .from('forms')
     .select('*')
     .eq('id', id)
+    .eq('user_id', userId) // Filter by user_id
     .single();
 
   if (error) throw error;
   return data;
 };
 
-export const createForm = async (form: Omit<Form, 'id' | 'created_at'>) => {
+export const createForm = async (form: Omit<Form, 'id' | 'created_at' | 'created_by'> & { user_id?: string }) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+  const userId = user.id;
+
+  const formData = {
+    ...form,
+    user_id: userId, // Ensure user_id is set
+    created_by: userId, // Also set created_by if it's a separate field
+  };
+
   const { data, error } = await supabase
     .from('forms')
-    .insert([form])
+    .insert([formData])
     .select()
     .single();
 
@@ -791,10 +971,15 @@ export const createForm = async (form: Omit<Form, 'id' | 'created_at'>) => {
 };
 
 export const updateForm = async (id: string, updates: Partial<Form>) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+  const userId = user.id;
+
   const { data, error } = await supabase
     .from('forms')
     .update(updates)
     .eq('id', id)
+    .eq('user_id', userId) // Filter by user_id
     .select()
     .single();
 
@@ -803,15 +988,28 @@ export const updateForm = async (id: string, updates: Partial<Form>) => {
 };
 
 export const deleteForm = async (id: string) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+  const userId = user.id;
+
   const { error } = await supabase
     .from('forms')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .eq('user_id', userId); // Filter by user_id
 
   if (error) throw error;
 };
 
 export const getFormResponses = async (formId: string) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('User not authenticated');
+  // const userId = user.id; // userId might not be directly on form_responses
+
+  // TODO: Filter form_responses based on user ownership.
+  // This might require joining with 'forms' table and filtering by forms.user_id
+  // or ensuring form_responses has a user_id if responses are user-specific beyond form ownership.
+  // For now, assuming direct query if form_id implies user access (e.g. user can only request their forms' responses).
   const { data, error } = await supabase
     .from('form_responses')
     .select('*')

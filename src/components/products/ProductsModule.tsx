@@ -35,28 +35,31 @@ const ProductsModule = () => {
     setLoading(true);
     setError(null);
     try {
-      // Direct Supabase call was here, ideally this could be a service method e.g. dashboardService.getAllProducts()
-      // For now, keeping direct fetch as per previous structure, but noting for consistency.
-      const { data, error: fetchError } = await supabase.from('products').select('*').order('created_at', { ascending: false });
+      const data = await dashboardService.getProducts(); // Use the new service method
 
-      if (fetchError) throw fetchError;
+      // No need to check for fetchError here as dashboardService.getProducts should handle it or throw
+      // if (fetchError) throw fetchError; // This line is removed
 
       if (data) {
-        const transformedProducts: Product[] = data.map((dbProduct: any) => ({
+        // The data from dashboardService.getProducts() is expected to be Product[]
+        // which should align with the Product type used in this module.
+        // If dashboardService.Product is different from local Product, transformation is needed.
+        // Assuming they are compatible for now as dashboardService.Product was defined based on ProductData.
+        const transformedProducts: Product[] = data.map((dbProduct: any): Product => ({ // dbProduct can be typed as dashboardService.Product if imported
           id: dbProduct.id,
           name: dbProduct.name,
-          category: dbProduct.category || '', // Ensure not null
-          stock: dbProduct.stock || 0, // Ensure not null
-          interval: dbProduct.interval,
+          category: dbProduct.category || '',
+          stock: dbProduct.stock || 0,
+          interval: dbProduct.interval, // Ensure this is part of the Product type from service or handle if optional
           tags: dbProduct.tags || [],
-          needsPrescription: dbProduct.needs_prescription || false,
+          needsPrescription: dbProduct.needs_prescription || false, // ensure 'needs_prescription' matches service Product type field name
           controlled: dbProduct.controlled || false,
         }));
         setProducts(transformedProducts);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching products:', err);
-      const errorMessage = "Falha ao carregar produtos.";
+      const errorMessage = err instanceof Error ? err.message : "Falha ao carregar produtos.";
       setError(errorMessage);
       toast({ title: "Erro", description: errorMessage, variant: "destructive" });
     } finally {
