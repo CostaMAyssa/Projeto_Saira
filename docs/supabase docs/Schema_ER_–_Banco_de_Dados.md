@@ -39,18 +39,43 @@
 
 ---
 
+### `settings`
+
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| `id` | UUID | Identificador único |
+| `api_url` | string | URL da API do WhatsApp |
+| `api_key` | string | Chave de autenticação da API |
+| `instance_name` | string | Nome da instância do WhatsApp |
+| `created_at` | timestamp | Data de criação |
+| `updated_at` | timestamp | Data de atualização |
+
+---
+
+### `chats`
+
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| `id` | UUID | Identificador único |
+| `phone_number` | string | Número do WhatsApp |
+| `name` | string | Nome do contato |
+| `last_message_at` | timestamp | Data da última mensagem |
+| `created_at` | timestamp | Data de criação |
+| `updated_at` | timestamp | Data de atualização |
+
+---
+
 ### `messages`
 
 | Campo | Tipo | Descrição |
 | --- | --- | --- |
-| `id` | UUID | Identificador |
-| `client_id` | UUID | Cliente relacionado |
-| `conversation_id` | UUID | Conversa associada |
-| `sender` | string | `user`, `client` |
-| `type` | string | `text`, `image`, `file`, `audio` |
+| `id` | UUID | Identificador único |
+| `chat_id` | UUID | Referência ao chat |
 | `content` | text | Conteúdo da mensagem |
-| `status` | string | `enviada`, `lida`, `erro` |
-| `sent_at` | timestamp | Data/hora de envio |
+| `is_from_me` | boolean | Se a mensagem foi enviada pelo usuário |
+| `timestamp` | timestamp | Data/hora da mensagem |
+| `created_at` | timestamp | Data de criação |
+| `updated_at` | timestamp | Data de atualização |
 
 ---
 
@@ -158,6 +183,19 @@
 | `name` | string | Nome da tag |
 | `type` | string | `client`, `product`, `campaign` |
 | `color` | string | Cor para exibição |
+| `created_at` | timestamp | Data de criação |
+| `updated_at` | timestamp | Data de atualização |
+
+---
+
+### `campaign_tags`
+
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| `id` | UUID | Identificador único |
+| `campaign_id` | UUID | Referência à campanha |
+| `tag_id` | UUID | Referência à tag |
+| `created_at` | timestamp | Data de criação |
 
 ---
 
@@ -169,6 +207,13 @@
 | `users` | `forms` | 1:N | Um usuário pode criar vários formulários |
 | `users` | `clients` | 1:N | Um usuário pode cadastrar vários clientes |
 | `users` | `conversations` | 1:N | Um usuário pode ser responsável por várias conversas |
+
+---
+
+| Tabela Fonte | → Tabela Alvo | Tipo de Relação | Descrição |
+| --- | --- | --- | --- |
+| `campaigns` | `campaign_tags` | 1:N | Uma campanha pode ter várias tags |
+| `tags` | `campaign_tags` | 1:N | Uma tag pode estar em várias campanhas |
 
 ---
 
@@ -202,10 +247,13 @@
 
 | Tabela Fonte | Campo de Chave Estrangeira |
 | --- | --- |
+| `messages.chat_id` | → `chats.id` |
 | `messages.client_id` | → `clients.id` |
 | `messages.conversation_id` | → `conversations.id` |
 | `messages.sender` | referenciado via lógica (não FK) |
 | `campaigns.created_by` | → `users.id` |
+| `campaign_tags.campaign_id` | → `campaigns.id` |
+| `campaign_tags.tag_id` | → `tags.id` |
 | `forms.created_by` | → `users.id` |
 | `clients.created_by` | → `users.id` |
 | `form_responses.client_id` | → `clients.id` |
@@ -249,3 +297,7 @@ View para gráficos de conversas mensais (últimos 6 meses).
 **Funcionalidade:** Agrega conversas por mês dos últimos 6 meses, incluindo meses sem conversas (contagem = 0).
 
 ---
+
+| Tabela Fonte | → Tabela Alvo | Tipo de Relação | Descrição |
+| --- | --- | --- | --- |
+| `chats` | `messages` | 1:N | Um chat pode ter várias mensagens |

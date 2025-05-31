@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -9,10 +8,17 @@ import { ptBR } from 'date-fns/locale';
 import CampaignTypeSelector from './campaign-form/CampaignTypeSelector';
 import CampaignNameField from './campaign-form/CampaignNameField';
 import AudienceSelector from './campaign-form/AudienceSelector';
+import CampaignTagsSelector from './campaign-form/CampaignTagsSelector';
 import ScheduleSelector from './campaign-form/ScheduleSelector';
 import MessageTemplateField from './campaign-form/MessageTemplateField';
 import CampaignActivationToggle from './campaign-form/CampaignActivationToggle';
 import { campaignTypes } from './campaign-form/campaignTypes';
+
+interface TagOption {
+  value: string;
+  label: string;
+  color: string;
+}
 
 interface NewCampaignModalProps {
   open: boolean;
@@ -24,6 +30,7 @@ interface NewCampaignModalProps {
     schedule: string;
     status: 'active' | 'paused' | 'scheduled';
     lastRun: string;
+    tags: TagOption[];
   }) => void;
 }
 
@@ -31,6 +38,7 @@ const NewCampaignModal: React.FC<NewCampaignModalProps> = ({ open, onOpenChange,
   const [campaignName, setCampaignName] = useState('');
   const [campaignType, setCampaignType] = useState('');
   const [audienceCount, setAudienceCount] = useState('15');
+  const [selectedTags, setSelectedTags] = useState<TagOption[]>([]);
   const [scheduleType, setScheduleType] = useState('daily');
   const [scheduleTime, setScheduleTime] = useState('09:00');
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>(new Date());
@@ -76,13 +84,15 @@ const NewCampaignModal: React.FC<NewCampaignModalProps> = ({ open, onOpenChange,
       audience: `${audienceCount} clientes`,
       schedule,
       status,
-      lastRun: status === 'scheduled' ? 'Nunca executado' : 'Agora'
+      lastRun: status === 'scheduled' ? 'Nunca executado' : 'Agora',
+      tags: selectedTags
     });
 
     // Reset form
     setCampaignName('');
     setCampaignType('');
     setAudienceCount('15');
+    setSelectedTags([]);
     setScheduleType('daily');
     setScheduleTime('09:00');
     setScheduleDate(new Date());
@@ -130,6 +140,11 @@ const NewCampaignModal: React.FC<NewCampaignModalProps> = ({ open, onOpenChange,
               />
             </div>
           </div>
+
+          <CampaignTagsSelector
+            selectedTags={selectedTags}
+            onTagsChange={setSelectedTags}
+          />
 
           <MessageTemplateField 
             messageTemplate={messageTemplate} 

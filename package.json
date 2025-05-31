@@ -5,10 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc && vite build",
     "build:dev": "vite build --mode development",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview",
+    "migration:show": "node scripts/show-migration.js",
+    "migration:tags": "node scripts/show-migration.js 20240320000003_enable_uuid_extension.sql"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -55,6 +57,7 @@
     "react-hook-form": "^7.53.0",
     "react-resizable-panels": "^2.1.3",
     "react-router-dom": "^6.26.2",
+    "react-select": "^5.10.1",
     "recharts": "^2.12.7",
     "socket.io-client": "^4.8.1",
     "sonner": "^1.5.0",
@@ -77,6 +80,7 @@
     "globals": "^15.9.0",
     "lovable-tagger": "^1.1.7",
     "postcss": "^8.4.47",
+    "supabase": "^2.23.4",
     "tailwindcss": "^3.4.11",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.0.1",

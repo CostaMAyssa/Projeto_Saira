@@ -1,65 +1,96 @@
-
 import React, { useState, useEffect } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import SearchFilters from './conversation-list/SearchFilters';
 import ConversationItem from './conversation-list/ConversationItem';
 import EmptyState from './conversation-list/EmptyState';
-// import { mockConversations } from './mockConversations'; // Will be removed
 import { Conversation } from './types';
-import { supabase } from '@/lib/supabase'; // Import Supabase client
-import { useState as reactUseState } from 'react'; // Renamed useState to avoid conflict if any, removed duplicate useEffect
+import { supabase } from '@/lib/supabase';
 
 interface ConversationListProps {
   activeConversation: string | null;
   setActiveConversation: (id: string) => void;
 }
 
+interface UnifiedConversationData {
+  id: string;
+  phone_number: string;
+  name: string;
+  last_message_at: string;
+  status: string;
+  started_at: string;
+  created_at: string;
+}
+
+interface LastMessageData {
+  content: string;
+  sent_at: string;
+  sender: string;
+}
+
 const ConversationList: React.FC<ConversationListProps> = ({ 
   activeConversation, 
   setActiveConversation 
 }) => {
-  const [searchTerm, setSearchTerm] = reactUseState('');
-  const [filterType, setFilterType] = reactUseState<'all' | 'unread'>('all');
-  // Initialize with empty array, will be populated from Supabase
-  const [conversations, setConversations] = reactUseState<Conversation[]>([]);
-  const [filteredConversations, setFilteredConversations] = reactUseState<Conversation[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState<'all' | 'unread'>('all');
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [filteredConversations, setFilteredConversations] = useState<Conversation[]>([]);
 
   useEffect(() => {
     const fetchConversations = async () => {
-      const { data, error } = await supabase
-        .from('conversations')
-        .select(`
-          id,
-          status, 
-          started_at,
-          clients (
-            id,
-            name,
-            phone
-          )
-        `)
-        // TODO: Add ordering, e.g., by last message time eventually
-        // .order('started_at', { ascending: false });
+      try {
+        // Buscar conversas da view unificada
+        const { data: conversationsData, error: conversationsError } = await supabase
+          .from('unified_conversations')
+          .select('*')
+          .order('last_message_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching conversations:', error);
-        // Handle error appropriately
-        return;
-      }
+        if (conversationsError) {
+          console.error('Erro ao buscar conversas:', conversationsError);
+          return;
+        }
 
-      if (data) {
-        const fetchedConversations = data.map((conv: any) => ({
-          id: conv.id,
-          name: conv.clients?.name || 'Unknown Client', // Client name from joined table
-          phone: conv.clients?.phone || 'N/A', // Client phone
-          lastMessage: 'Last message placeholder...', // Placeholder
-          time: new Date(conv.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), // Use started_at for now
-          unread: 0, // Placeholder
-          status: 'read', // Placeholder, or map from conv.status if applicable to message status
-          tags: [], // Placeholder, or fetch if necessary
-        }));
-        setConversations(fetchedConversations);
-        setFilteredConversations(fetchedConversations); // Initialize filtered list
+        if (conversationsData) {
+          // Buscar última mensagem para cada conversa
+          const conversationsWithMessages = await Promise.all(
+            (conversationsData as UnifiedConversationData[]).map(async (conv) => {
+              const { data: lastMessage } = await supabase
+                .from('messages')
+                .select('content, sent_at, sender')
+                .eq('conversation_id', conv.id)
+                .order('sent_at', { ascending: false })
+                .limit(1)
+                .single();
+
+              // Buscar contagem de mensagens não lidas (assumindo que mensagens do client são não lidas até serem marcadas)
+              const { count: unreadCount } = await supabase
+                .from('messages')
+                .select('*', { count: 'exact', head: true })
+                .eq('conversation_id', conv.id)
+                .eq('sender', 'client');
+
+              const lastMsg = lastMessage as LastMessageData | null;
+
+              return {
+                id: conv.id,
+                name: conv.name || 'Cliente sem nome',
+                phone: conv.phone_number || 'N/A',
+                lastMessage: lastMsg?.content || 'Nenhuma mensagem',
+                time: lastMsg 
+                  ? new Date(lastMsg.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                  : new Date(conv.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                unread: unreadCount || 0,
+                status: 'read' as const, // Por enquanto, sempre como lida
+                tags: [], // Implementar tags futuramente se necessário
+              };
+            })
+          );
+
+          setConversations(conversationsWithMessages);
+          setFilteredConversations(conversationsWithMessages);
+        }
+      } catch (error) {
+        console.error('Erro ao buscar conversas:', error);
       }
     };
 
@@ -68,7 +99,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
 
   // Apply filters when search term or filter type changes
   useEffect(() => {
-    let filtered = conversations; // Start with all fetched conversations
+    let filtered = conversations;
     
     // Apply search filter
     if (searchTerm.trim() !== '') {
@@ -86,7 +117,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
     }
     
     setFilteredConversations(filtered);
-  }, [searchTerm, filterType, conversations]); // Add conversations to dependency array
+  }, [searchTerm, filterType, conversations]);
   
   return (
     <div className="h-full bg-white border-r border-gray-200 flex flex-col font-sans">

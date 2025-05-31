@@ -1,8 +1,8 @@
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Phone, Info, MoreVertical, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatPhoneNumber } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
 
 interface ChatHeaderProps {
   activeConversation: string;
@@ -10,34 +10,47 @@ interface ChatHeaderProps {
   isMobile: boolean;
 }
 
+interface ConversationData {
+  name: string;
+  phone_number: string;
+}
+
 const ChatHeader: React.FC<ChatHeaderProps> = ({ 
   activeConversation, 
   onBackClick,
   isMobile 
 }) => {
-  // Get name and phone based on conversation ID
-  const getName = (id: string): string => {
-    switch (id) {
-      case '1': return 'João Silva';
-      case '2': return 'Maria Oliveira';
-      case '3': return 'Carlos Mendes';
-      case '4': return 'Ana Beatriz';
-      default: return 'Pedro Santos';
-    }
-  };
-  
-  const getPhone = (id: string): string => {
-    switch (id) {
-      case '1': return '+55 11 98765-4321';
-      case '2': return '+55 11 91234-5678';
-      case '3': return '+55 11 99876-5432';
-      case '4': return '+55 11 97654-3210';
-      default: return '+55 11 98877-6655';
-    }
-  };
-  
-  const name = getName(activeConversation);
-  const phone = getPhone(activeConversation);
+  const [conversationData, setConversationData] = useState<ConversationData | null>(null);
+
+  useEffect(() => {
+    const fetchConversationData = async () => {
+      if (!activeConversation) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('unified_conversations')
+          .select('name, phone_number')
+          .eq('id', activeConversation)
+          .single();
+
+        if (error) {
+          console.error('Erro ao buscar dados da conversa:', error);
+          return;
+        }
+
+        if (data) {
+          setConversationData(data);
+        }
+      } catch (error) {
+        console.error('Erro ao buscar dados da conversa:', error);
+      }
+    };
+
+    fetchConversationData();
+  }, [activeConversation]);
+
+  const name = conversationData?.name || 'Carregando...';
+  const phone = conversationData?.phone_number || '';
   const initial = name.charAt(0).toUpperCase();
   
   return (
@@ -58,7 +71,7 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
         </div>
         <div>
           <h3 className="font-medium text-gray-900">{name}</h3>
-          <span className="text-xs text-gray-600">{phone}</span>
+          {phone && <span className="text-xs text-gray-600">{formatPhoneNumber(phone)}</span>}
         </div>
       </div>
       

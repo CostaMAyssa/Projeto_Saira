@@ -8,6 +8,13 @@ import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { dashboardService, CampaignUIData } from '../../services/dashboardService'; // Import service and type
 import { useEffect } from 'react'; // Import useEffect
+import { supabase } from '@/lib/supabase';
+
+interface TagOption {
+  value: string;
+  label: string;
+  color: string;
+}
 
 // Local Campaign interface removed, using CampaignUIData from service
 
@@ -39,6 +46,29 @@ const CampaignsModule = () => {
       setLoadingCampaigns(false);
     }
   };
+
+  // Função para associar tags à campanha
+  const associateCampaignTags = async (campaignId: string, tags: TagOption[]) => {
+    if (tags.length === 0) return;
+
+    try {
+      const tagAssociations = tags.map(tag => ({
+        campaign_id: campaignId,
+        tag_id: tag.value
+      }));
+
+      const { error } = await supabase
+        .from('campaign_tags')
+        .insert(tagAssociations);
+
+      if (error) throw error;
+
+      console.log(`${tags.length} tags associadas à campanha ${campaignId}`);
+    } catch (error) {
+      console.error('Erro ao associar tags à campanha:', error);
+      toast.error('Campanha criada, mas houve erro ao associar tags');
+    }
+  };
   
   // Updated handleAddCampaign to use dashboardService.createCampaign
   // Transforma dados do modal (UI format) para o formato do banco (NewCampaignData)
@@ -49,6 +79,7 @@ const CampaignsModule = () => {
     schedule: string;
     status: 'active' | 'paused' | 'scheduled';
     lastRun: string;
+    tags: TagOption[];
   }) => {
     try {
       console.log('CampaignsModule: Received data from modal:', modalData);
@@ -65,7 +96,13 @@ const CampaignsModule = () => {
 
       console.log('CampaignsModule: Transformed data for database:', campaignData);
       
-      await dashboardService.createCampaign(campaignData);
+      const newCampaign = await dashboardService.createCampaign(campaignData);
+      
+      // Associar tags à campanha criada
+      if (modalData.tags.length > 0 && newCampaign.id) {
+        await associateCampaignTags(newCampaign.id, modalData.tags);
+      }
+      
       toast.success('Campanha criada com sucesso!');
       fetchCampaignsData(); // Refresh list
       setIsNewCampaignModalOpen(false); // Close modal on success
@@ -128,18 +165,31 @@ const CampaignsModule = () => {
     }
   };
   
-  // Função para deletar campanha
+  // Function to handle campaign deletion
   const handleDeleteCampaign = async (campaignId: string, campaignName: string) => {
-    if (!confirm(`Tem certeza que deseja excluir a campanha "${campaignName}"? Esta ação não pode ser desfeita.`)) {
-      return;
-    }
+    const confirmed = window.confirm(`Tem certeza que deseja excluir a campanha "${campaignName}"? Esta ação não pode ser desfeita.`);
+    
+    if (!confirmed) return;
 
     try {
-      await dashboardService.deleteCampaign(campaignId);
+      // Delete campaign tags first (cascade should handle this, but being explicit)
+      await supabase
+        .from('campaign_tags')
+        .delete()
+        .eq('campaign_id', campaignId);
+
+      // Delete the campaign
+      const { error } = await supabase
+        .from('campaigns')
+        .delete()
+        .eq('id', campaignId);
+
+      if (error) throw error;
+
       toast.success('Campanha excluída com sucesso!');
       fetchCampaignsData(); // Refresh list
     } catch (error) {
-      console.error(`Error deleting campaign ${campaignId}:`, error);
+      console.error('Error deleting campaign:', error);
       toast.error('Erro ao excluir campanha.');
     }
   };
