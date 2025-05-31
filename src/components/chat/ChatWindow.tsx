@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import ChatHeader from './chat-window/ChatHeader';
 import MessageList from './chat-window/MessageList';
 import MessageInput from './chat-window/MessageInput';
@@ -7,11 +6,19 @@ import EmptyState from './chat-window/EmptyState';
 import { Message } from './types';
 // import { mockMessages } from './mockMessages'; // Will be removed
 import { supabase } from '@/lib/supabase'; // Import Supabase client
+import { createEvolutionSocket } from '@/lib/websocket';
 
 interface ChatWindowProps {
   activeConversation: string | null;
   onBackClick?: () => void;
   isMobile: boolean;
+}
+
+interface DbMessage {
+  id: string;
+  content: string;
+  sender: 'user' | 'client';
+  sent_at: string;
 }
 
 const ChatWindow: React.FC<ChatWindowProps> = ({ 
@@ -20,8 +27,45 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   isMobile
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [ws, setWs] = useState<ReturnType<typeof createEvolutionSocket> | null>(null);
   
-  // Load messages when active conversation changes
+  // Buscar configurações da Evolution API
+  useEffect(() => {
+    const fetchEvolutionSettings = async () => {
+      const { data, error } = await supabase
+        .from('settings')
+        .select('*')
+        .eq('id', 'whatsapp')
+        .single();
+
+      if (error) {
+        console.error('Erro ao buscar configurações da Evolution API:', error);
+        return;
+      }
+
+      if (data && activeConversation) {
+        const websocket = createEvolutionSocket(
+          data.evolution_api_url,
+          data.evolution_api_key
+        );
+        
+        websocket.addMessageHandler((message) => {
+          setMessages(prev => [...prev, message]);
+        });
+        
+        websocket.connect();
+        setWs(websocket);
+        
+        return () => {
+          websocket.disconnect();
+        };
+      }
+    };
+
+    fetchEvolutionSettings();
+  }, [activeConversation]);
+  
+  // Carregar mensagens do Supabase
   useEffect(() => {
     const fetchMessages = async () => {
       if (!activeConversation) {
@@ -36,15 +80,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         .order('sent_at', { ascending: true });
 
       if (error) {
-        console.error('Error fetching messages:', error);
+        console.error('Erro ao buscar mensagens:', error);
         setMessages([]);
-        // Handle error appropriately
       } else if (data) {
-        const fetchedMessages = data.map((msg: any) => ({
+        const fetchedMessages: Message[] = (data as DbMessage[]).map(msg => ({
           id: msg.id,
           content: msg.content,
-          // Assuming 'user' sender in DB maps to 'pharmacy' in UI
-          sender: msg.sender === 'user' ? 'pharmacy' : 'client', 
+          sender: msg.sender === 'user' ? 'pharmacy' : 'client',
           timestamp: new Date(msg.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         }));
         setMessages(fetchedMessages);
@@ -54,8 +96,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     fetchMessages();
   }, [activeConversation]);
   
-  const handleSendMessage = (content: string) => {
-    if (!activeConversation) return;
+  const handleSendMessage = useCallback(async (content: string) => {
+    if (!activeConversation || !ws) return;
     
     const currentTime = new Date();
     const timeString = currentTime.getHours() + ':' + 
@@ -69,8 +111,29 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       timestamp: timeString,
     };
     
+    // Enviar mensagem via WebSocket
+    ws.sendMessage(newMessage);
+    
+    // Salvar mensagem no Supabase
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: activeConversation,
+          content: content,
+          sender: 'user',
+          sent_at: new Date().toISOString()
+        });
+        
+      if (error) {
+        console.error('Erro ao salvar mensagem:', error);
+      }
+    } catch (error) {
+      console.error('Erro ao salvar mensagem:', error);
+    }
+    
     setMessages(prev => [...prev, newMessage]);
-  };
+  }, [activeConversation, ws]);
   
   if (!activeConversation) {
     return <EmptyState />;
