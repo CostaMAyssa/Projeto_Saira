@@ -92,8 +92,9 @@ const ProfileTab = () => {
             <Input 
               id="email" 
               value={formData.email}
-              onChange={handleInputChange}
-              className="bg-white border-gray-300 text-pharmacy-text1" 
+              disabled // Add this
+              // onChange prop removed
+              className="bg-pharmacy-light2 border-gray-300 text-pharmacy-text2" // Apply new styles
             />
           </div>
           <div className="flex flex-col space-y-1.5">

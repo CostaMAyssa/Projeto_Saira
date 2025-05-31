@@ -1,10 +1,11 @@
 
-import React, { useState, useEffect } from 'react'; // Added useEffect
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Filter, FileText, Plus, Copy, Eye, Edit, Trash, AlertTriangle } from 'lucide-react'; // Added AlertTriangle
+import { Search, Filter, FileText, Plus, Copy, Eye, Edit, Trash, AlertTriangle } from 'lucide-react';
 import NewFormModal from './modals/NewFormModal';
+import ViewFormModal from './modals/ViewFormModal'; // Import ViewFormModal
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 // Removed initial getForms import, will use the consolidated one.
@@ -27,8 +28,10 @@ interface FormData {
 // Single, consolidated FormsModule component definition
 const FormsModule = () => {
   const [isNewFormModalOpen, setIsNewFormModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false); 
-  const [selectedFormToEdit, setSelectedFormToEdit] = useState<FormData | null>(null); 
+  // const [isEditModalOpen, setIsEditModalOpen] = useState(false); // Ensure this is removed or not used for NewFormModal's visibility
+  const [selectedFormToEdit, setSelectedFormToEdit] = useState<FormData | null>(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [selectedFormToView, setSelectedFormToView] = useState<FormData | null>(null);
   const isMobile = useIsMobile();
   const [forms, setForms] = useState<FormData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,11 +118,9 @@ const FormsModule = () => {
 
   const handleEditForm = (form: FormData) => {
     setSelectedFormToEdit(form);
-    setIsEditModalOpen(true); 
-    // Assuming NewFormModal is reused for editing. If not, a different modal state would be set.
-    // setIsNewFormModalOpen(true); // If reusing NewFormModal for edit
+    setIsNewFormModalOpen(true); // Open NewFormModal for editing
   };
-  
+
   // Type for data coming from an Edit Modal (UI representation)
   type EditFormModalData = {
     name: string;
@@ -142,11 +143,27 @@ const FormsModule = () => {
       await updateForm(formId, updatesForDb);
       toast.success('Formulário atualizado com sucesso!');
       fetchFormsData(); // Refresh list
-      setIsEditModalOpen(false);
+      setIsNewFormModalOpen(false); // Close NewFormModal after update
       setSelectedFormToEdit(null);
     } catch (err) {
       console.error(`Error updating form ${formId}:`, err);
       toast.error('Erro ao atualizar formulário.');
+    }
+  };
+
+  const handleViewForm = (form: FormData) => {
+    setSelectedFormToView(form);
+    setIsViewModalOpen(true);
+  };
+
+  const handleLinkFormClick = async (form: FormData) => {
+    const formUrl = `${window.location.origin}/public/forms/${form.id}`;
+    try {
+      await navigator.clipboard.writeText(formUrl);
+      toast.success('Link do formulário copiado!');
+    } catch (err) {
+      console.error('Failed to copy link: ', err);
+      toast.error('Falha ao copiar o link.');
     }
   };
 
@@ -198,7 +215,7 @@ const FormsModule = () => {
       </div>
       
       <div className="flex flex-wrap gap-2">
-        <Button variant="ghost" size="sm" className="text-pharmacy-accent hover:bg-gray-100 text-xs px-2 py-1 h-8">
+        <Button variant="ghost" size="sm" className="text-pharmacy-accent hover:bg-gray-100 text-xs px-2 py-1 h-8" onClick={() => handleViewForm(form)}>
           <Eye className="h-3 w-3 mr-1" />
           Ver
         </Button>
@@ -206,7 +223,7 @@ const FormsModule = () => {
           <Edit className="h-3 w-3 mr-1" />
           Editar
         </Button>
-        <Button variant="ghost" size="sm" className="text-pharmacy-accent hover:bg-gray-100 text-xs px-2 py-1 h-8" onClick={() => toast.info("Funcionalidade de link em breve.")}>
+        <Button variant="ghost" size="sm" className="text-pharmacy-accent hover:bg-gray-100 text-xs px-2 py-1 h-8" onClick={() => handleLinkFormClick(form)}>
           <Copy className="h-3 w-3 mr-1" />
           Link
         </Button>
@@ -254,11 +271,11 @@ const FormsModule = () => {
             </Badge>
           </div>
           <div className="col-span-3 flex items-center space-x-2">
-            <Button variant="ghost" size="sm" className="text-pharmacy-accent hover:bg-gray-100">
+          <Button variant="ghost" size="sm" className="text-pharmacy-accent hover:bg-gray-100" onClick={() => handleLinkFormClick(form)}>
               <Copy className="h-4 w-4 mr-1" />
               Link
             </Button>
-            <Button variant="ghost" size="sm" className="text-pharmacy-accent hover:bg-gray-100">
+            <Button variant="ghost" size="sm" className="text-pharmacy-accent hover:bg-gray-100" onClick={() => handleViewForm(form)}>
               <Eye className="h-4 w-4 mr-1" />
               Ver
             </Button>
@@ -285,9 +302,12 @@ const FormsModule = () => {
     <div className="flex-1 p-4 md:p-6 overflow-y-auto bg-white no-scrollbar">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 md:mb-6 gap-3 md:gap-0">
         <h1 className="text-xl md:text-2xl font-bold text-gray-900">Formulários</h1>
-        <Button 
+        <Button
           className="bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white w-full md:w-auto"
-          onClick={() => setIsNewFormModalOpen(true)}
+          onClick={() => {
+            setSelectedFormToEdit(null); // Ensure modal opens in "create" mode
+            setIsNewFormModalOpen(true);
+          }}
         >
           <Plus className="mr-2 h-4 w-4" />
           Novo Formulário
@@ -304,10 +324,7 @@ const FormsModule = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Button variant="outline" className="text-pharmacy-accent border-gray-300 w-full md:w-auto">
-          <Filter className="mr-2 h-4 w-4" />
-          Filtros
-        </Button>
+        {/* The Filter button that was here has been removed */}
       </div>
 
       {/* Display error message here if it exists, instead of blocking the whole page */}
@@ -354,21 +371,19 @@ const FormsModule = () => {
         open={isNewFormModalOpen} 
         onOpenChange={setIsNewFormModalOpen}
         onSubmit={selectedFormToEdit ? (data => handleSaveFormUpdate(selectedFormToEdit.id, data as EditFormModalData)) : handleAddForm}
-        initialData={selectedFormToEdit} 
-        key={selectedFormToEdit ? selectedFormToEdit.id : 'new-form-modal'} 
+        initialData={selectedFormToEdit}
+        key={selectedFormToEdit ? selectedFormToEdit.id : 'new-form-modal'}
       />
-      {/* If using a separate Edit Modal:
-      {selectedFormToEdit && isEditModalOpen && (
-        <EditFormModal // Assuming an EditFormModal component exists or NewFormModal is adapted
-          open={isEditModalOpen}
-          onOpenChange={(isOpen) => {
-            setIsEditModalOpen(isOpen);
-            if (!isOpen) setSelectedFormToEdit(null);
-          }}
-          initialData={selectedFormToEdit}
-          onSubmit={(updatedData) => handleSaveFormUpdate(selectedFormToEdit.id, updatedData)}
+
+      {selectedFormToView && (
+        <ViewFormModal
+          open={isViewModalOpen}
+          onOpenChange={setIsViewModalOpen}
+          form={selectedFormToView}
         />
       )}
+      {/* Comment regarding separate Edit Modal is still relevant if that path was ever considered.
+          The current implementation reuses NewFormModal.
       */}
     </div>
   );
