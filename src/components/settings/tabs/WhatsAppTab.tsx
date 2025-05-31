@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase';
 const WhatsAppTab = () => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [settingsId, setSettingsId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     evolutionApiUrl: '',
     evolutionApiKey: '',
@@ -22,15 +23,19 @@ const WhatsAppTab = () => {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
+        // Buscar a primeira configuração existente ou criar uma nova
         const { data, error } = await supabase
           .from('settings')
           .select('*')
-          .eq('id', 'whatsapp')
+          .limit(1)
           .single();
 
-        if (error) throw error;
+        if (error && error.code !== 'PGRST116') {
+          throw error;
+        }
 
         if (data) {
+          setSettingsId(data.id);
           setFormData({
             evolutionApiUrl: data.evolution_api_url || '',
             evolutionApiKey: data.evolution_api_key || '',
@@ -56,18 +61,35 @@ const WhatsAppTab = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase
-        .from('settings')
-        .upsert({
-          id: 'whatsapp',
-          evolution_api_url: formData.evolutionApiUrl,
-          evolution_api_key: formData.evolutionApiKey,
-          instance_name: formData.instanceName,
-          global_mode: formData.globalMode,
-          updated_at: new Date().toISOString()
-        });
+      const settingsData = {
+        evolution_api_url: formData.evolutionApiUrl,
+        evolution_api_key: formData.evolutionApiKey,
+        instance_name: formData.instanceName,
+        global_mode: formData.globalMode,
+        updated_at: new Date().toISOString()
+      };
 
-      if (error) throw error;
+      let result;
+      if (settingsId) {
+        // Atualizar configuração existente
+        result = await supabase
+          .from('settings')
+          .update(settingsData)
+          .eq('id', settingsId);
+      } else {
+        // Criar nova configuração (UUID será gerado automaticamente)
+        result = await supabase
+          .from('settings')
+          .insert([settingsData])
+          .select()
+          .single();
+          
+        if (result.data) {
+          setSettingsId(result.data.id);
+        }
+      }
+
+      if (result.error) throw result.error;
 
       toast({
         title: "Sucesso!",

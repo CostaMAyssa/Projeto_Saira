@@ -21,7 +21,7 @@ class WhatsAppService {
       const { data, error } = await supabase
         .from('settings')
         .select('*')
-        .eq('id', 'whatsapp')
+        .limit(1)
         .single();
 
       if (error) throw error;
