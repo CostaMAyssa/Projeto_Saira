@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
-import CreatableSelect from 'react-select/creatable';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { X, Plus } from 'lucide-react';
 import { toast } from 'sonner';
-import { StylesConfig, OptionProps, MultiValueProps } from 'react-select';
-import '../../../../styles/react-select.css';
 
 interface Tag {
   id: string;
@@ -30,6 +31,8 @@ const CampaignTagsSelector: React.FC<CampaignTagsSelectorProps> = ({
 }) => {
   const [availableTags, setAvailableTags] = useState<TagOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [newTagName, setNewTagName] = useState('');
+  const [showInput, setShowInput] = useState(false);
 
   useEffect(() => {
     fetchCampaignTags();
@@ -99,79 +102,139 @@ const CampaignTagsSelector: React.FC<CampaignTagsSelectorProps> = ({
     }
   };
 
-  const handleCreate = async (inputValue: string) => {
+  const handleCreateNewTag = async () => {
+    if (!newTagName.trim()) return;
+    
     try {
-      const newTag = await createNewTag(inputValue);
+      const newTag = await createNewTag(newTagName);
       const updatedTags = [...selectedTags, newTag];
       onTagsChange(updatedTags);
+      setNewTagName('');
+      setShowInput(false);
     } catch (error) {
       // Error already handled in createNewTag
     }
   };
 
-  const handleChange = (newValue: TagOption[] | null) => {
-    onTagsChange(newValue || []);
+  const toggleTag = (tag: TagOption) => {
+    const isSelected = selectedTags.some(selected => selected.value === tag.value);
+    
+    if (isSelected) {
+      const updatedTags = selectedTags.filter(selected => selected.value !== tag.value);
+      onTagsChange(updatedTags);
+    } else {
+      const updatedTags = [...selectedTags, tag];
+      onTagsChange(updatedTags);
+    }
   };
 
-  const customStyles: StylesConfig<TagOption, true> = {
-    control: (provided) => ({
-      ...provided,
-      backgroundColor: 'white',
-      borderColor: '#e2e8f0',
-      minHeight: '40px',
-      '&:hover': {
-        borderColor: '#e2e8f0'
-      }
-    }),
-    multiValue: (provided, state) => ({
-      ...provided,
-      backgroundColor: state.data.color + '20',
-      borderRadius: '6px'
-    }),
-    multiValueLabel: (provided, state) => ({
-      ...provided,
-      color: state.data.color === '#FFD700' ? '#000' : '#333',
-      fontWeight: '500'
-    }),
-    multiValueRemove: (provided, state) => ({
-      ...provided,
-      color: state.data.color === '#FFD700' ? '#000' : '#666',
-      ':hover': {
-        backgroundColor: state.data.color + '40',
-        color: state.data.color === '#FFD700' ? '#000' : '#333'
-      }
-    }),
-    option: (provided, state) => ({
-      ...provided,
-      backgroundColor: state.isSelected 
-        ? state.data.color + '40'
-        : state.isFocused 
-          ? state.data.color + '20'
-          : 'white',
-      color: '#333'
-    })
+  const removeTag = (tagToRemove: TagOption) => {
+    const updatedTags = selectedTags.filter(tag => tag.value !== tagToRemove.value);
+    onTagsChange(updatedTags);
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <Label className="text-pharmacy-text1">Segmentar por Tags</Label>
-      <CreatableSelect
-        isMulti
-        value={selectedTags}
-        onChange={handleChange}
-        onCreateOption={handleCreate}
-        options={availableTags}
-        styles={customStyles}
-        placeholder="Selecione ou crie tags para segmentação..."
-        noOptionsMessage={() => "Nenhuma tag encontrada"}
-        formatCreateLabel={(inputValue) => `Criar tag "${inputValue}"`}
-        isDisabled={isLoading}
-        isLoading={isLoading}
-        className="react-select-container"
-        classNamePrefix="react-select"
-      />
+      
+      {/* Tags selecionadas */}
+      {selectedTags.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {selectedTags.map((tag) => (
+            <Badge
+              key={tag.value}
+              variant="secondary"
+              className="px-2 py-1 text-sm"
+              style={{ backgroundColor: tag.color + '20', color: tag.color === '#FFD700' ? '#000' : '#333' }}
+            >
+              {tag.label}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-4 w-4 p-0 ml-1"
+                onClick={() => removeTag(tag)}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </Badge>
+          ))}
+        </div>
+      )}
+
+      {/* Tags disponíveis */}
+      <div className="space-y-2">
+        <div className="text-sm text-pharmacy-text2">Tags disponíveis:</div>
+        <div className="flex flex-wrap gap-2">
+          {availableTags
+            .filter(tag => !selectedTags.some(selected => selected.value === tag.value))
+            .map((tag) => (
+              <Button
+                key={tag.value}
+                variant="outline"
+                size="sm"
+                className="h-8 px-3 text-xs"
+                onClick={() => toggleTag(tag)}
+              >
+                <div 
+                  className="w-2 h-2 rounded-full mr-2"
+                  style={{ backgroundColor: tag.color }}
+                />
+                {tag.label}
+              </Button>
+            ))}
+        </div>
+      </div>
+
+      {/* Criar nova tag */}
+      <div className="space-y-2">
+        {!showInput ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowInput(true)}
+            className="h-8"
+          >
+            <Plus className="h-3 w-3 mr-1" />
+            Criar nova tag
+          </Button>
+        ) : (
+          <div className="flex gap-2">
+            <Input
+              value={newTagName}
+              onChange={(e) => setNewTagName(e.target.value)}
+              placeholder="Nome da nova tag"
+              className="h-8"
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleCreateNewTag();
+                }
+              }}
+            />
+            <Button
+              size="sm"
+              onClick={handleCreateNewTag}
+              disabled={!newTagName.trim() || isLoading}
+              className="h-8"
+            >
+              {isLoading ? 'Criando...' : 'Criar'}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setShowInput(false);
+                setNewTagName('');
+              }}
+              className="h-8"
+            >
+              Cancelar
+            </Button>
+          </div>
+        )}
+      </div>
+
       <p className="text-xs text-pharmacy-text2">
-        Selecione tags existentes ou digite para criar novas. As tags ajudam a segmentar e organizar suas campanhas.
+        Selecione tags existentes ou crie novas. As tags ajudam a segmentar e organizar suas campanhas.
       </p>
     </div>
   );

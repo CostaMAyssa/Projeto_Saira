@@ -307,4 +307,4 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 
 # Configure one of the supported poolers. The pooler is used to connect to the database.
 # Supported poolers are `supavisor` and `pgbouncer`.
-pooler = "supavisor"
+# pooler = "supavisor"

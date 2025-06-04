@@ -150,27 +150,40 @@ class DashboardService {
   // Buscar estatísticas principais do dashboard
   async getDashboardStats(): Promise<DashboardStats> {
     try {
+      // 🔒 CRÍTICO: Verificar autenticação antes de qualquer consulta
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error('User not authenticated');
+      const userId = user.id;
+
+      console.log('DashboardService.getDashboardStats: Buscando estatísticas para usuário:', userId);
+
       // Buscar conversas iniciadas nas últimas 24 horas
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      console.log('Consultando conversas desde:', twentyFourHoursAgo);
+      
       const { count: totalConversations, error: convError } = await supabase
         .from('conversations')
-        .select('id', { count: 'exact', head: true }) // Count rows
+        .select('id', { count: 'exact', head: true })
+        .eq('created_by', userId) // 🔒 FILTRO POR USUÁRIO RESTAURADO
         .gte('started_at', twentyFourHoursAgo);
 
       if (convError) {
         console.error('Error fetching conversation count:', convError);
-        throw convError;
+        console.error('Detalhes do erro de conversas:', JSON.stringify(convError, null, 2));
+        // Não fazer throw aqui, continuar com valor padrão
       }
 
       // Buscar clientes com status 'ativo'
       const { count: totalActiveClients, error: clientError } = await supabase
         .from('clients')
-        .select('id', { count: 'exact', head: true }) // Count rows
-        .eq('status', 'ativo'); // Use 'ativo' as per schema
+        .select('id', { count: 'exact', head: true })
+        .eq('created_by', userId) // 🔒 FILTRO POR USUÁRIO RESTAURADO
+        .eq('status', 'ativo');
 
       if (clientError) {
         console.error('Error fetching active client count:', clientError);
-        throw clientError;
+        console.error('Detalhes do erro de clientes:', JSON.stringify(clientError, null, 2));
+        // Não fazer throw aqui, continuar com valor padrão
       }
 
       // ProductsSold: No 'sales' table in schema. Returning 0 for now.
@@ -179,23 +192,24 @@ class DashboardService {
       return {
         conversations: {
           total: totalConversations || 0,
-          change: "N/A", // Updated as per task
+          change: "N/A",
           period: 'Últimas 24 horas'
         },
         activeClients: {
-          total: totalActiveClients || 0, // Corrected from activeClients?.length
-          change: "N/A", // Updated as per task
+          total: totalActiveClients || 0,
+          change: "N/A",
           period: 'Este mês'
         },
         productsSold: {
           total: totalProductsSold,
-          change: "N/A", // Updated as per task
+          change: "N/A",
           period: 'Este mês'
         }
       };
     } catch (error) {
       console.error('Erro ao buscar estatísticas do dashboard:', error);
-      // Retornar dados padrão em caso de erro, with "N/A" for change
+      console.error('Detalhes completos do erro:', JSON.stringify(error, null, 2));
+      // Retornar dados padrão em caso de erro
       return {
         conversations: { total: 0, change: "N/A", period: 'Últimas 24 horas' },
         activeClients: { total: 0, change: "N/A", period: 'Este mês' },
@@ -254,31 +268,44 @@ class DashboardService {
   // Buscar próximos lembretes/automações
   async getUpcomingReminders(): Promise<Reminder[]> {
     try {
+      // 🔒 CRÍTICO: Verificar autenticação antes de qualquer consulta
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error('User not authenticated');
+      const userId = user.id;
+
+      console.log('DashboardService.getUpcomingReminders: Buscando campanhas para usuário:', userId);
+
       const { data, error } = await supabase
-        .from('campaigns') // Query 'campaigns' table
+        .from('campaigns')
         .select('id, name, scheduled_for, trigger, target_audience')
-        .gte('scheduled_for', new Date().toISOString()) // Campaigns scheduled for future
+        .eq('created_by', userId) // 🔒 FILTRO POR USUÁRIO RESTAURADO
+        .gte('scheduled_for', new Date().toISOString())
         .order('scheduled_for', { ascending: true })
         .limit(6);
 
       if (error) {
         console.error('Error fetching upcoming campaigns:', error);
-        throw error;
+        console.error('Detalhes do erro de campanhas:', JSON.stringify(error, null, 2));
+        // Verificar se é um erro de RLS ou tabela não existente
+        if (error.code === 'RLS_POLICY_VIOLATION' || error.message?.includes('permission')) {
+          console.error('Possível problema de RLS/permissões na tabela campaigns');
+        } else if (error.code === '42P01' || error.message?.includes('does not exist')) {
+          console.error('Tabela campaigns não existe ou não está acessível');
+        }
+        // Retornar array vazio ao invés de fazer throw
+        return [];
       }
 
+      console.log('Campanhas encontradas:', data?.length || 0);
+
       return data?.map((campaign: any) => {
-        let type: Reminder['type'] = 'recompra'; // Default type
+        let type: Reminder['type'] = 'recompra';
         if (campaign.trigger === 'aniversario') {
           type = 'aniversario';
         } else if (campaign.trigger === 'posvenda' || campaign.name.toLowerCase().includes('pós-venda') || campaign.name.toLowerCase().includes('pos venda')) {
-          // Basic logic to map trigger/name to type, can be more sophisticated
           type = 'posvenda';
         }
-        // clientCount is complex to calculate from target_audience here. Using 0 as placeholder.
-        // In a real scenario, this might involve parsing JSON in target_audience or a separate query if possible.
-        // Or, if campaign_executions table stores sent counts for scheduled campaigns, that could be used.
-        // For now, we'll use a placeholder.
-        const clientCount = 0; // Placeholder for client count
+        const clientCount = 0;
 
         return {
           id: campaign.id,
@@ -290,6 +317,7 @@ class DashboardService {
       }) || [];
     } catch (error) {
       console.error('Erro ao buscar lembretes de campanhas:', error);
+      console.error('Detalhes completos do erro de campanhas:', JSON.stringify(error, null, 2));
       return [];
     }
   }
@@ -319,13 +347,34 @@ class DashboardService {
 
   async getMessagesByType(): Promise<ChartData[]> {
     try {
+      // 🔒 CRÍTICO: Verificar autenticação antes de qualquer consulta
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error('User not authenticated');
+      const userId = user.id;
+
+      console.log('DashboardService.getMessagesByType: Buscando mensagens para usuário:', userId);
+
       // Workaround: Fetch all message types and aggregate in JS (inefficient for large data)
       const { data: allMessages, error: messagesError } = await supabase
         .from('messages')
-        .select('type');
+        .select('type, created_by')
+        .eq('created_by', userId); // 🔒 FILTRO POR USUÁRIO RESTAURADO
 
-      if (messagesError) throw messagesError;
+      if (messagesError) {
+        console.error('Error fetching messages by type:', messagesError);
+        console.error('Detalhes do erro de mensagens:', JSON.stringify(messagesError, null, 2));
+        // Verificar se é um erro de RLS ou tabela não existente
+        if (messagesError.code === 'RLS_POLICY_VIOLATION' || messagesError.message?.includes('permission')) {
+          console.error('Possível problema de RLS/permissões na tabela messages');
+        } else if (messagesError.code === '42P01' || messagesError.message?.includes('does not exist')) {
+          console.error('Tabela messages não existe ou não está acessível');
+        }
+        return [];
+      }
+      
       if (!allMessages) return [];
+
+      console.log('Mensagens encontradas:', allMessages.length);
 
       const counts: { [key: string]: number } = {};
       for (const message of allMessages) {
@@ -337,6 +386,7 @@ class DashboardService {
 
     } catch (error) {
       console.error('Error fetching messages by type:', error);
+      console.error('Detalhes completos do erro de mensagens:', JSON.stringify(error, null, 2));
       return [];
     }
   }
@@ -345,19 +395,37 @@ class DashboardService {
     try {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      // 🔒 CRÍTICO: Verificar autenticação antes de qualquer consulta
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error('User not authenticated');
+      const userId = user.id;
+
+      console.log('DashboardService.getClientsServedLastWeek: Buscando conversas para usuário:', userId);
       
       const { data, error } = await supabase
         .from('conversations')
         .select('client_id, started_at')
+        .eq('created_by', userId) // 🔒 FILTRO POR USUÁRIO RESTAURADO
         .gte('started_at', sevenDaysAgo.toISOString());
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching clients served last week:', error);
+        console.error('Detalhes do erro de conversas da semana:', JSON.stringify(error, null, 2));
+        // Verificar se é um erro de RLS
+        if (error.code === 'RLS_POLICY_VIOLATION' || error.message?.includes('permission')) {
+          console.error('Possível problema de RLS/permissões na tabela conversations');
+        }
+        return [];
+      }
+      
       if (!data) return [];
+
+      console.log('Conversas da última semana encontradas:', data.length);
       
       const uniqueClientsPerDay: { [dayKey: string]: { name: string, clients: Set<string> } } = {};
       const dayFormatter = new Intl.DateTimeFormat('pt-BR', { weekday: 'short' });
       const dayOrder = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-
 
       for (let i = 6; i >= 0; i--) {
           const d = new Date();
@@ -384,6 +452,7 @@ class DashboardService {
 
     } catch (error) {
       console.error('Error fetching clients served last week:', error);
+      console.error('Detalhes completos do erro de clientes da semana:', JSON.stringify(error, null, 2));
       return [];
     }
   }
@@ -568,13 +637,18 @@ class DashboardService {
   // --- Client CRUD Methods ---
   async createClient(clientData: ClientData): Promise<any> {
     try {
+      // 🔒 CRÍTICO: Verificar autenticação antes de qualquer operação
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error('User not authenticated for creating client');
+      const userId = user.id;
+
       console.log('DashboardService.createClient: Starting client creation with data:', clientData);
       
-      // Usar o mesmo padrão do createProduct que está funcionando
+      // Usar o usuário logado atual, NÃO hardcoded
       const clientDataForSupabase = {
         ...clientData,
-        created_by: '58ce41aa-d63d-4655-b1a1-9ee705e05c3a', // João da Silva (usuário existente)
-        created_at: new Date().toISOString(), // Add created_at
+        created_by: userId, // 🔒 USAR USUÁRIO LOGADO, NÃO HARDCODED
+        created_at: new Date().toISOString(),
       };
 
       console.log("👤 Dados enviados para o Supabase (insert):", clientDataForSupabase);
@@ -587,6 +661,21 @@ class DashboardService {
 
       if (error) {
         console.error('Error creating client in Supabase:', error);
+        
+        // Tratar erro específico de telefone duplicado
+        if (error.code === '23505' && error.message?.includes('clients_phone_key')) {
+          const duplicatePhoneError = new Error(`O telefone ${clientData.phone} já está cadastrado para outro cliente.`);
+          duplicatePhoneError.name = 'DuplicatePhoneError';
+          throw duplicatePhoneError;
+        }
+        
+        // Tratar outros erros de constraint
+        if (error.code === '23505') {
+          const constraintError = new Error(`Já existe um cliente com esses dados. Verifique se o cliente não foi cadastrado anteriormente.`);
+          constraintError.name = 'DuplicateDataError';
+          throw constraintError;
+        }
+        
         throw error;
       }
       
@@ -600,10 +689,16 @@ class DashboardService {
 
   async updateClient(clientId: string, clientData: Partial<ClientData>): Promise<any> {
     try {
+      // 🔒 CRÍTICO: Verificar autenticação antes de qualquer operação
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error('User not authenticated for updating client');
+      const userId = user.id;
+
       const { data, error } = await supabase
         .from('clients')
         .update(clientData)
         .eq('id', clientId)
+        .eq('created_by', userId) // 🔒 GARANTIR QUE SÓ ATUALIZA CLIENTES DO PRÓPRIO USUÁRIO
         .select()
         .single();
       if (error) throw error;
@@ -616,10 +711,16 @@ class DashboardService {
 
   async deleteClient(clientId: string): Promise<void> {
     try {
+      // 🔒 CRÍTICO: Verificar autenticação antes de qualquer operação
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error('User not authenticated for deleting client');
+      const userId = user.id;
+
       const { error } = await supabase
         .from('clients')
         .delete()
-        .eq('id', clientId);
+        .eq('id', clientId)
+        .eq('created_by', userId); // 🔒 GARANTIR QUE SÓ DELETA CLIENTES DO PRÓPRIO USUÁRIO
       if (error) throw error;
     } catch (err) {
       console.error(`Error deleting client ${clientId}:`, err);
@@ -630,8 +731,14 @@ class DashboardService {
   // --- Product CRUD Methods ---
   async createProduct(productData: ProductData): Promise<any> { // productData now adheres to stricter interface
     try {
+      // 🔒 CRÍTICO: Verificar autenticação antes de qualquer operação
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error('User not authenticated for creating product');
+      const userId = user.id;
+
       const productDataForSupabase = {
         ...productData, // Spread all fields from the stricter ProductData
+        created_by: userId, // 🔒 USAR USUÁRIO LOGADO
         created_at: new Date().toISOString(), // Add created_at
       };
 
@@ -657,10 +764,16 @@ class DashboardService {
   // For update, Partial<ProductData> is still good, but ProductData itself is now stricter
   async updateProduct(productId: string, productData: Partial<ProductData>): Promise<any> {
     try {
+      // 🔒 CRÍTICO: Verificar autenticação antes de qualquer operação
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error('User not authenticated for updating product');
+      const userId = user.id;
+
       const { data, error } = await supabase
         .from('products')
         .update(productData)
         .eq('id', productId)
+        .eq('created_by', userId) // 🔒 GARANTIR QUE SÓ ATUALIZA PRODUTOS DO PRÓPRIO USUÁRIO
         .select()
         .single();
       if (error) throw error;
@@ -673,10 +786,16 @@ class DashboardService {
 
   async deleteProduct(productId: string): Promise<void> {
     try {
+      // 🔒 CRÍTICO: Verificar autenticação antes de qualquer operação
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error('User not authenticated for deleting product');
+      const userId = user.id;
+
       const { error } = await supabase
         .from('products')
         .delete()
-        .eq('id', productId);
+        .eq('id', productId)
+        .eq('created_by', userId); // 🔒 GARANTIR QUE SÓ DELETA PRODUTOS DO PRÓPRIO USUÁRIO
       if (error) throw error;
     } catch (err) {
       console.error(`Error deleting product ${productId}:`, err);
@@ -687,9 +806,14 @@ class DashboardService {
   // --- Campaign CRUD Methods ---
   async createCampaign(campaignData: NewCampaignData): Promise<any> {
     try {
+      // 🔒 CRÍTICO: Verificar autenticação antes de qualquer operação
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error('User not authenticated for creating campaign');
+      const userId = user.id;
+
       console.log('DashboardService.createCampaign: Starting campaign creation with data:', campaignData);
       
-      // Usar EXATAMENTE o mesmo padrão do createClient que está funcionando
+      // Usar o usuário logado atual, NÃO hardcoded
       const campaignDataForSupabase = {
         name: campaignData.name,
         trigger: campaignData.trigger,
@@ -697,7 +821,7 @@ class DashboardService {
         template: campaignData.template || 'Template padrão',
         target_audience: campaignData.target_audience || {}, // Manter como objeto JSON
         scheduled_for: campaignData.scheduled_for,
-        created_by: '58ce41aa-d63d-4655-b1a1-9ee705e05c3a' // João da Silva (usuário existente)
+        created_by: userId // 🔒 USAR USUÁRIO LOGADO, NÃO HARDCODED
       };
 
       console.log("📢 Dados enviados para o Supabase (insert):", campaignDataForSupabase);
@@ -723,10 +847,16 @@ class DashboardService {
 
   async updateCampaignStatus(campaignId: string, status: string): Promise<any> {
     try {
+      // 🔒 CRÍTICO: Verificar autenticação antes de qualquer operação
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error('User not authenticated for updating campaign status');
+      const userId = user.id;
+
       const { data, error } = await supabase
         .from('campaigns')
         .update({ status })
         .eq('id', campaignId)
+        .eq('created_by', userId) // 🔒 GARANTIR QUE SÓ ATUALIZA CAMPANHAS DO PRÓPRIO USUÁRIO
         .select()
         .single();
       if (error) throw error;
@@ -739,10 +869,16 @@ class DashboardService {
 
   async deleteCampaign(campaignId: string): Promise<void> {
     try {
+      // 🔒 CRÍTICO: Verificar autenticação antes de qualquer operação
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error('User not authenticated for deleting campaign');
+      const userId = user.id;
+
       const { error } = await supabase
         .from('campaigns')
         .delete()
-        .eq('id', campaignId);
+        .eq('id', campaignId)
+        .eq('created_by', userId); // 🔒 GARANTIR QUE SÓ DELETA CAMPANHAS DO PRÓPRIO USUÁRIO
       if (error) throw error;
     } catch (err) {
       console.error(`Error deleting campaign ${campaignId}:`, err);
@@ -754,6 +890,11 @@ class DashboardService {
 export const dashboardService = new DashboardService();
 
 export const getForms = async () => {
+  // 🔒 CRÍTICO: Verificar autenticação antes de qualquer consulta
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) throw new Error('User not authenticated');
+  const userId = user.id;
+
   const { data, error } = await supabase
     .from('forms')
     .select(`
@@ -762,6 +903,7 @@ export const getForms = async () => {
         count
       )
     `)
+    .eq('created_by', userId) // 🔒 FILTRO POR USUÁRIO RESTAURADO
     .order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -769,20 +911,36 @@ export const getForms = async () => {
 };
 
 export const getFormById = async (id: string) => {
+  // 🔒 CRÍTICO: Verificar autenticação antes de qualquer consulta
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) throw new Error('User not authenticated');
+  const userId = user.id;
+
   const { data, error } = await supabase
     .from('forms')
     .select('*')
     .eq('id', id)
+    .eq('created_by', userId) // 🔒 FILTRO POR USUÁRIO RESTAURADO
     .single();
 
   if (error) throw error;
   return data;
 };
 
-export const createForm = async (form: Omit<Form, 'id' | 'created_at'>) => {
+export const createForm = async (form: Omit<Form, 'id' | 'created_at' | 'created_by'>) => {
+  // 🔒 CRÍTICO: Verificar autenticação antes de qualquer operação
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) throw new Error('User not authenticated');
+  const userId = user.id;
+
+  const formData = {
+    ...form,
+    created_by: userId, // 🔒 USAR USUÁRIO LOGADO
+  };
+
   const { data, error } = await supabase
     .from('forms')
-    .insert([form])
+    .insert([formData])
     .select()
     .single();
 
@@ -791,10 +949,16 @@ export const createForm = async (form: Omit<Form, 'id' | 'created_at'>) => {
 };
 
 export const updateForm = async (id: string, updates: Partial<Form>) => {
+  // 🔒 CRÍTICO: Verificar autenticação antes de qualquer operação
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) throw new Error('User not authenticated');
+  const userId = user.id;
+
   const { data, error } = await supabase
     .from('forms')
     .update(updates)
     .eq('id', id)
+    .eq('created_by', userId) // 🔒 GARANTIR QUE SÓ ATUALIZA FORMS DO PRÓPRIO USUÁRIO
     .select()
     .single();
 
@@ -803,15 +967,30 @@ export const updateForm = async (id: string, updates: Partial<Form>) => {
 };
 
 export const deleteForm = async (id: string) => {
+  // 🔒 CRÍTICO: Verificar autenticação antes de qualquer operação
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) throw new Error('User not authenticated');
+  const userId = user.id;
+
   const { error } = await supabase
     .from('forms')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .eq('created_by', userId); // 🔒 GARANTIR QUE SÓ DELETA FORMS DO PRÓPRIO USUÁRIO
 
   if (error) throw error;
 };
 
 export const getFormResponses = async (formId: string) => {
+  // 🔒 CRÍTICO: Verificar autenticação antes de qualquer consulta
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) throw new Error('User not authenticated');
+  const userId = user.id;
+
+  // TODO: Filter form_responses based on user ownership.
+  // This might require joining with 'forms' table and filtering by forms.created_by
+  // or ensuring form_responses has a user_id if responses are user-specific beyond form ownership.
+  // For now, assuming direct query if form_id implies user access (e.g. user can only request their forms' responses).
   const { data, error } = await supabase
     .from('form_responses')
     .select('*')

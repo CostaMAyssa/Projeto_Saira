@@ -10,6 +10,7 @@ import { dashboardService, ClientData } from '../../services/dashboardService'; 
 import { toast } from 'sonner'; // MOVED
 import { Button } from '@/components/ui/button';
 import ClientFormModal from './ClientFormModal';
+import { diagnoseClientsData, fixOrphanClients } from '@/debug/client-diagnosis'; // 🔍 DEBUG
 
 // Define a type for the data expected from a client form (modal) - Moved to top level
 export type ClientModalFormData = {
@@ -49,13 +50,21 @@ const ClientsModule = () => {
     setLoading(true);
     setError(null);
     try {
-      // The direct Supabase call was here before, now we should ensure this logic is consistent
-      // with how dashboardService might fetch or if we keep direct fetching here.
-      // For consistency with the task (using dashboardService for CRUD), let's assume
-      // a getClients method could be in dashboardService, or use direct Supabase here for read.
-      // The previous code used direct supabase.from('clients').select('*').
-      // Let's keep that for fetching all clients for now.
-      const { data, error: fetchError } = await supabase.from('clients').select('*').order('created_at', { ascending: false });
+      // 🔒 CRÍTICO: Verificar autenticação antes de qualquer consulta
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('User not authenticated');
+      }
+      const userId = user.id;
+
+      console.log('ClientsModule: Buscando clientes para usuário:', userId);
+
+      // Consulta com filtro por usuário - CORRIGIDO VAZAMENTO DE DADOS
+      const { data, error: fetchError } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('created_by', userId) // 🔒 FILTRO POR USUÁRIO ADICIONADO
+        .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
 
@@ -90,6 +99,7 @@ const ClientsModule = () => {
           };
         });
         setClients(transformedClients);
+        console.log('ClientsModule: Clientes carregados:', transformedClients.length);
       }
     } catch (err: unknown) {
       console.error('Error fetching clients:', err);
@@ -173,7 +183,6 @@ const ClientsModule = () => {
     }
   };
 
-
   // Função de busca
   const handleSearch = (query: string) => {
     setSearchQuery(query);
@@ -201,6 +210,30 @@ const ClientsModule = () => {
   const totalActiveClients = useMemo(() => {
     return clients.filter(client => client.status === 'active').length;
   }, [clients]);
+
+  // 🔍 DEBUG: Função de diagnóstico temporária
+  const handleDiagnosis = async () => {
+    console.log('🔍 Iniciando diagnóstico...');
+    const result = await diagnoseClientsData();
+    console.log('📊 Resultado do diagnóstico:', result);
+    
+    if (result.orphanClients > 0) {
+      const shouldFix = window.confirm(
+        `Foram encontrados ${result.orphanClients} clientes órfãos (sem dono). ` +
+        `Deseja atribuí-los ao usuário atual?`
+      );
+      
+      if (shouldFix && result.currentUserId) {
+        const fixResult = await fixOrphanClients(result.currentUserId);
+        if (fixResult.fixed) {
+          toast.success(`${fixResult.fixed} clientes órfãos foram corrigidos!`);
+          fetchClientsData(); // Atualizar lista
+        }
+      }
+    } else {
+      toast.success('Diagnóstico concluído! Verifique o console para detalhes.');
+    }
+  };
 
   // Determinar o componente a ser renderizado (tabela ou cards)
   const handleOpenEditClientModal = (client: Client) => {
@@ -245,7 +278,6 @@ const ClientsModule = () => {
         return <div className="text-center py-10 text-gray-500">Nenhum cliente encontrado para "{searchQuery}".</div>;
     }
 
-
     if (isMobile) {
       // ClientsCardView might need props for edit/delete if those actions are available on cards
       return <ClientsCardView {...listProps} />;
@@ -265,6 +297,24 @@ const ClientsModule = () => {
         onSearch={handleSearch}
         isMobile={isMobile}
       />
+      
+      {/* 🔍 DEBUG: Botão de diagnóstico temporário */}
+      <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-medium text-yellow-800">Diagnóstico de Dados</h3>
+            <p className="text-xs text-yellow-600">Verificar problemas com dados de clientes</p>
+          </div>
+          <Button 
+            onClick={handleDiagnosis}
+            size="sm"
+            variant="outline"
+            className="text-yellow-800 border-yellow-300 hover:bg-yellow-100"
+          >
+            🔍 Diagnosticar
+          </Button>
+        </div>
+      </div>
       
       {renderClientList()}
       

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -14,6 +13,7 @@ import { supabase } from '@/lib/supabase'; // Import Supabase
 import { useEffect } from 'react'; // Import useEffect
 import { dashboardService, ProductData } from '../../services/dashboardService'; // MOVED
 import { AlertTriangle } from 'lucide-react'; // MOVED
+import { Button } from '@/components/ui/button'; // 🔧 ADICIONADO IMPORT DO BUTTON
 
 // Single, consolidated ProductsModule component definition
 const ProductsModule = () => {
@@ -35,9 +35,21 @@ const ProductsModule = () => {
     setLoading(true);
     setError(null);
     try {
-      // Direct Supabase call was here, ideally this could be a service method e.g. dashboardService.getAllProducts()
-      // For now, keeping direct fetch as per previous structure, but noting for consistency.
-      const { data, error: fetchError } = await supabase.from('products').select('*').order('created_at', { ascending: false });
+      // 🔒 CRÍTICO: Verificar autenticação antes de qualquer consulta
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('User not authenticated');
+      }
+      const userId = user.id;
+
+      console.log('ProductsModule: Buscando produtos para usuário:', userId);
+
+      // Consulta com filtro por usuário - CORRIGIDO VAZAMENTO DE DADOS
+      const { data, error: fetchError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('created_by', userId) // 🔒 FILTRO POR USUÁRIO ADICIONADO
+        .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
 
@@ -53,6 +65,7 @@ const ProductsModule = () => {
           controlled: dbProduct.controlled || false,
         }));
         setProducts(transformedProducts);
+        console.log('ProductsModule: Produtos carregados:', transformedProducts.length);
       }
     } catch (err: any) {
       console.error('Error fetching products:', err);
