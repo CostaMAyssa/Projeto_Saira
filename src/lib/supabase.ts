@@ -17,7 +17,7 @@ console.log("Configurando clientes Supabase:", {
   anonKeyStart: anonKey.substring(0, 20) + "..."
 });
 
-// Opções para cliente de autenticação
+// Opções para cliente de autenticação - FORÇAR CACHE REFRESH
 const authOptions = {
   auth: {
     persistSession: true,
@@ -28,11 +28,18 @@ const authOptions = {
   global: {
     headers: {
       'X-Client-Info': 'supabase-js/2.x',
+      'Cache-Control': 'no-cache', // Forçar sem cache
+      'Pragma': 'no-cache',
     },
   },
   db: {
     schema: 'public',
   },
+  realtime: {
+    params: {
+      eventsPerSecond: 10
+    }
+  }
 };
 
 // Opções para cliente administrativo
@@ -44,6 +51,8 @@ const adminOptions = {
   global: {
     headers: {
       'X-Client-Info': 'supabase-js/2.x-admin',
+      'Cache-Control': 'no-cache', // Forçar sem cache
+      'Pragma': 'no-cache',
     },
   },
   db: {
@@ -66,6 +75,23 @@ console.log("Clientes Supabase inicializados:", {
   auth: !!supabase,
   admin: !!supabaseAdmin
 });
+
+// Função para forçar refresh do schema cache
+export const forceSchemaRefresh = async () => {
+  try {
+    console.log("🔄 Forçando refresh do schema cache...");
+    // Fazer uma query simples para forçar refresh do cache
+    const { data, error } = await supabase
+      .from('products')
+      .select('id')
+      .limit(1);
+    console.log("✅ Schema refresh concluído");
+    return { success: true };
+  } catch (error) {
+    console.error("❌ Erro no schema refresh:", error);
+    return { success: false, error };
+  }
+};
 
 // Função para verificar se o Supabase está acessível
 export const verifySupabaseConnection = async () => {

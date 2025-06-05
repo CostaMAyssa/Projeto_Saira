@@ -736,13 +736,16 @@ class DashboardService {
       if (authError || !user) throw new Error('User not authenticated for creating product');
       const userId = user.id;
 
+      console.log('DashboardService.createProduct: Starting product creation with data:', productData);
+      
+      // 🔥 COPIAR EXATAMENTE A ESTRUTURA QUE FUNCIONA (clientes)
       const productDataForSupabase = {
-        ...productData, // Spread all fields from the stricter ProductData
-        created_by: userId, // 🔒 USAR USUÁRIO LOGADO
-        created_at: new Date().toISOString(), // Add created_at
+        ...productData,
+        created_by: userId, // 🔒 USAR USUÁRIO LOGADO, NÃO HARDCODED
+        created_at: new Date().toISOString(),
       };
 
-      console.log("📦 Dados enviados para o Supabase (insert):", productDataForSupabase); // Updated log message
+      console.log("📦 Dados enviados para o Supabase (insert):", productDataForSupabase);
       
       const { data, error } = await supabase
         .from('products')
@@ -752,11 +755,28 @@ class DashboardService {
 
       if (error) {
         console.error('Error creating product in Supabase:', error);
+        
+        // Tratar erro específico de produto duplicado
+        if (error.code === '23505' && error.message?.includes('products_name_key')) {
+          const duplicateProductError = new Error(`O produto ${productData.name} já está cadastrado.`);
+          duplicateProductError.name = 'DuplicateProductError';
+          throw duplicateProductError;
+        }
+        
+        // Tratar outros erros de constraint
+        if (error.code === '23505') {
+          const constraintError = new Error(`Já existe um produto com esses dados. Verifique se o produto não foi cadastrado anteriormente.`);
+          constraintError.name = 'DuplicateDataError';
+          throw constraintError;
+        }
+        
         throw error;
       }
+      
+      console.log('DashboardService.createProduct: Successfully created product:', data);
       return data;
     } catch (err) {
-      console.error('Exception in createProduct service method:', err);
+      console.error('DashboardService.createProduct: Error creating product:', err);
       throw err;
     }
   }
