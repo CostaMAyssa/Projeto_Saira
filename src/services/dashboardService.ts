@@ -339,9 +339,9 @@ class DashboardService {
   async getReportStats(): Promise<ReportStats> {
     // Returning placeholder values as specified
     return {
-      responseRate: "N/A (placeholder)",
-      avgResponseTime: "N/A (placeholder)",
-      conversionRate: "N/A (placeholder)",
+      responseRate: "N/A",
+      avgResponseTime: "N/A",
+      conversionRate: "N/A",
     };
   }
 
@@ -660,7 +660,10 @@ class DashboardService {
         .single();
 
       if (error) {
-        console.error('Error creating client in Supabase:', error);
+        // Apenas logar erros quando necessário para debug
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Error creating client in Supabase:', error);
+        }
         
         // Tratar erro específico de telefone duplicado
         if (error.code === '23505' && error.message?.includes('clients_phone_key')) {
@@ -679,7 +682,6 @@ class DashboardService {
         throw error;
       }
       
-      console.log('DashboardService.createClient: Successfully created client:', data);
       return data;
     } catch (err) {
       console.error('DashboardService.createClient: Error creating client:', err);

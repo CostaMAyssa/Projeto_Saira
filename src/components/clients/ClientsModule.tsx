@@ -10,7 +10,6 @@ import { dashboardService, ClientData } from '../../services/dashboardService'; 
 import { toast } from 'sonner'; // MOVED
 import { Button } from '@/components/ui/button';
 import ClientFormModal from './ClientFormModal';
-import { diagnoseClientsData, fixOrphanClients } from '@/debug/client-diagnosis'; // 🔍 DEBUG
 
 // Define a type for the data expected from a client form (modal) - Moved to top level
 export type ClientModalFormData = {
@@ -130,9 +129,25 @@ const ClientsModule = () => {
       fetchClientsData(); // Refresh list
       return true; // Indicate success
     } catch (err: unknown) {
+      // Tratar erros específicos de forma mais elegante
+      if (err instanceof Error) {
+        if (err.name === 'DuplicatePhoneError') {
+          toast.error(err.message);
+          return false;
+        }
+        if (err.name === 'DuplicateDataError') {
+          toast.error(err.message);
+          return false;
+        }
+        if (err.message.includes('not authenticated')) {
+          toast.error('Sessão expirada. Faça login novamente.');
+          return false;
+        }
+      }
+      
       console.error("Error creating client:", err);
-      toast.error('Erro ao adicionar cliente.');
-      return false; // Indicate failure
+      toast.error('Erro inesperado ao adicionar cliente. Tente novamente.');
+      return false;
     }
   };
   
@@ -152,9 +167,25 @@ const ClientsModule = () => {
       fetchClientsData();
       return true; // Indicate success for modal closing
     } catch (err: unknown) {
+      // Tratar erros específicos de forma mais elegante
+      if (err instanceof Error) {
+        if (err.name === 'DuplicatePhoneError') {
+          toast.error(err.message);
+          return false;
+        }
+        if (err.name === 'DuplicateDataError') {
+          toast.error(err.message);
+          return false;
+        }
+        if (err.message.includes('not authenticated')) {
+          toast.error('Sessão expirada. Faça login novamente.');
+          return false;
+        }
+      }
+      
       console.error("Error updating client:", err);
-      toast.error('Erro ao atualizar cliente.');
-      return false; // Indicate failure
+      toast.error('Erro inesperado ao atualizar cliente. Tente novamente.');
+      return false;
     }
   };
 
@@ -165,8 +196,13 @@ const ClientsModule = () => {
         toast.success('Cliente excluído com sucesso!');
         fetchClientsData();
       } catch (err: unknown) {
+        if (err instanceof Error && err.message.includes('not authenticated')) {
+          toast.error('Sessão expirada. Faça login novamente.');
+          return;
+        }
+        
         console.error("Error deleting client:", err);
-        toast.error('Erro ao excluir cliente.');
+        toast.error('Erro inesperado ao excluir cliente. Tente novamente.');
       }
     }
   };
@@ -178,8 +214,13 @@ const ClientsModule = () => {
       toast.success(`Status do cliente alterado para ${newDbStatus === 'ativo' ? 'ativo' : 'inativo'}.`);
       fetchClientsData();
     } catch (err: unknown) {
+      if (err instanceof Error && err.message.includes('not authenticated')) {
+        toast.error('Sessão expirada. Faça login novamente.');
+        return;
+      }
+      
       console.error("Error updating client status:", err);
-      toast.error('Erro ao alterar status do cliente.');
+      toast.error('Erro inesperado ao alterar status. Tente novamente.');
     }
   };
 
@@ -210,30 +251,6 @@ const ClientsModule = () => {
   const totalActiveClients = useMemo(() => {
     return clients.filter(client => client.status === 'active').length;
   }, [clients]);
-
-  // 🔍 DEBUG: Função de diagnóstico temporária
-  const handleDiagnosis = async () => {
-    console.log('🔍 Iniciando diagnóstico...');
-    const result = await diagnoseClientsData();
-    console.log('📊 Resultado do diagnóstico:', result);
-    
-    if (result.orphanClients > 0) {
-      const shouldFix = window.confirm(
-        `Foram encontrados ${result.orphanClients} clientes órfãos (sem dono). ` +
-        `Deseja atribuí-los ao usuário atual?`
-      );
-      
-      if (shouldFix && result.currentUserId) {
-        const fixResult = await fixOrphanClients(result.currentUserId);
-        if (fixResult.fixed) {
-          toast.success(`${fixResult.fixed} clientes órfãos foram corrigidos!`);
-          fetchClientsData(); // Atualizar lista
-        }
-      }
-    } else {
-      toast.success('Diagnóstico concluído! Verifique o console para detalhes.');
-    }
-  };
 
   // Determinar o componente a ser renderizado (tabela ou cards)
   const handleOpenEditClientModal = (client: Client) => {
@@ -297,24 +314,6 @@ const ClientsModule = () => {
         onSearch={handleSearch}
         isMobile={isMobile}
       />
-      
-      {/* 🔍 DEBUG: Botão de diagnóstico temporário */}
-      <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-medium text-yellow-800">Diagnóstico de Dados</h3>
-            <p className="text-xs text-yellow-600">Verificar problemas com dados de clientes</p>
-          </div>
-          <Button 
-            onClick={handleDiagnosis}
-            size="sm"
-            variant="outline"
-            className="text-yellow-800 border-yellow-300 hover:bg-yellow-100"
-          >
-            🔍 Diagnosticar
-          </Button>
-        </div>
-      </div>
       
       {renderClientList()}
       

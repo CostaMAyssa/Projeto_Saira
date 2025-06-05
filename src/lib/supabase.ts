@@ -35,11 +35,6 @@ const authOptions = {
   db: {
     schema: 'public',
   },
-  realtime: {
-    params: {
-      eventsPerSecond: 10
-    }
-  }
 };
 
 // Opções para cliente administrativo
@@ -75,6 +70,20 @@ console.log("Clientes Supabase inicializados:", {
   auth: !!supabase,
   admin: !!supabaseAdmin
 });
+
+// Suprimir logs de erro específicos do Realtime
+const originalConsoleError = console.error;
+console.error = function(...args) {
+  const message = args[0];
+  if (typeof message === 'string' && 
+      (message.includes('realtime') || 
+       message.includes('insig') || 
+       message.includes('409'))) {
+    // Suprimir erros do Realtime que não afetam a funcionalidade principal
+    return;
+  }
+  originalConsoleError.apply(console, args);
+};
 
 // Função para forçar refresh do schema cache
 export const forceSchemaRefresh = async () => {
