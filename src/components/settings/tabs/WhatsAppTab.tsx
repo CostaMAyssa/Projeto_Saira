@@ -13,10 +13,10 @@ const WhatsAppTab = () => {
   const [loading, setLoading] = useState(false);
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    evolutionApiUrl: '',
-    evolutionApiKey: '',
+    evolutionApiUrl: 'https://evoapi.insignemarketing.com.br', // URL atualizada conforme docker-compose
+    evolutionApiKey: '33cf7bf9876391ff485115742bdb149a', // API Key atualizada conforme docker-compose
     instanceName: '',
-    globalMode: false
+    globalMode: true // Padrão para modo global conforme configuração
   });
 
   // Carregar configurações existentes
@@ -37,10 +37,10 @@ const WhatsAppTab = () => {
         if (data) {
           setSettingsId(data.id);
           setFormData({
-            evolutionApiUrl: data.evolution_api_url || '',
-            evolutionApiKey: data.evolution_api_key || '',
+            evolutionApiUrl: data.api_url || 'https://evoapi.insignemarketing.com.br',
+            evolutionApiKey: data.api_key || '33cf7bf9876391ff485115742bdb149a',
             instanceName: data.instance_name || '',
-            globalMode: data.global_mode || false
+            globalMode: data.global_mode !== undefined ? data.global_mode : true
           });
         }
       } catch (error) {
@@ -62,8 +62,8 @@ const WhatsAppTab = () => {
 
     try {
       const settingsData = {
-        evolution_api_url: formData.evolutionApiUrl,
-        evolution_api_key: formData.evolutionApiKey,
+        api_url: formData.evolutionApiUrl,
+        api_key: formData.evolutionApiKey,
         instance_name: formData.instanceName,
         global_mode: formData.globalMode,
         updated_at: new Date().toISOString()
@@ -131,6 +131,9 @@ const WhatsAppTab = () => {
                 onChange={(e) => setFormData(prev => ({ ...prev, evolutionApiUrl: e.target.value }))}
                 className="bg-pharmacy-light2 border-gray-300"
               />
+              <p className="text-xs text-pharmacy-text2">
+                URL base da sua Evolution API (atual: https://evoapi.insignemarketing.com.br)
+              </p>
             </div>
 
             <div className="flex flex-col space-y-1.5">
@@ -145,6 +148,9 @@ const WhatsAppTab = () => {
                 onChange={(e) => setFormData(prev => ({ ...prev, evolutionApiKey: e.target.value }))}
                 className="bg-pharmacy-light2 border-gray-300"
               />
+              <p className="text-xs text-pharmacy-text2">
+                Chave de autenticação da Evolution API (AUTHENTICATION_API_KEY)
+              </p>
             </div>
 
             <div className="flex flex-col space-y-1.5">
@@ -161,7 +167,10 @@ const WhatsAppTab = () => {
                 disabled={formData.globalMode}
               />
               <p className="text-xs text-pharmacy-text2">
-                Deixe em branco se estiver usando o modo global
+                {formData.globalMode 
+                  ? 'No modo global, não é necessário especificar instância' 
+                  : 'Nome da instância específica para usar no modo tradicional'
+                }
               </p>
             </div>
 
@@ -172,13 +181,35 @@ const WhatsAppTab = () => {
                 onCheckedChange={(checked) => setFormData(prev => ({ ...prev, globalMode: checked }))}
               />
               <Label htmlFor="globalMode" className="text-pharmacy-text1">
-                Modo Global
+                Modo Global (Recomendado)
               </Label>
             </div>
             <p className="text-xs text-pharmacy-text2">
-              No modo global, você receberá eventos de todas as instâncias. 
-              Desative para receber eventos apenas da instância especificada.
+              No modo global (WEBSOCKET_GLOBAL_EVENTS=true), você receberá eventos de todas as instâncias. 
+              Este modo precisa ser habilitado no servidor Evolution API.
             </p>
+
+            {/* Informações de configuração atual */}
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <h4 className="text-sm font-medium text-red-800 mb-2">
+                ⚠️ Configuração Atual do Servidor Evolution API:
+              </h4>
+              <ul className="text-xs text-red-700 space-y-1">
+                <li>• ❌ WebSocket está DESABILITADO (WEBSOCKET_ENABLED=false)</li>
+                <li>• ❌ Eventos globais DESABILITADOS (WEBSOCKET_GLOBAL_EVENTS=false)</li>
+                <li>• ✅ URL: https://evoapi.insignemarketing.com.br</li>
+                <li>• ✅ API Key: 33cf7bf9876391ff485115742bdb149a</li>
+              </ul>
+              <div className="mt-2 p-2 bg-red-100 rounded">
+                <p className="text-xs text-red-800 font-medium">
+                  🔧 Para o chat funcionar, você precisa habilitar no docker-compose:
+                </p>
+                <code className="text-xs block mt-1">
+                  WEBSOCKET_ENABLED=true<br/>
+                  WEBSOCKET_GLOBAL_EVENTS=true
+                </code>
+              </div>
+            </div>
           </div>
 
           <Button 

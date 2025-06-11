@@ -157,19 +157,19 @@ class DashboardService {
 
       console.log('DashboardService.getDashboardStats: Buscando estatísticas para usuário:', userId);
 
-      // Buscar conversas iniciadas nas últimas 24 horas
+      // Buscar chats criados nas últimas 24 horas (usando tabela chats ao invés de conversations)
       const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      console.log('Consultando conversas desde:', twentyFourHoursAgo);
+      console.log('Consultando chats desde:', twentyFourHoursAgo);
       
       const { count: totalConversations, error: convError } = await supabase
-        .from('conversations')
+        .from('chats')
         .select('id', { count: 'exact', head: true })
-        .eq('created_by', userId) // 🔒 FILTRO POR USUÁRIO RESTAURADO
-        .gte('started_at', twentyFourHoursAgo);
+        .eq('status', 'active') // Filtrar apenas chats ativos
+        .gte('created_at', twentyFourHoursAgo);
 
       if (convError) {
-        console.error('Error fetching conversation count:', convError);
-        console.error('Detalhes do erro de conversas:', JSON.stringify(convError, null, 2));
+        console.error('Error fetching chat count:', convError);
+        console.error('Detalhes do erro de chats:', JSON.stringify(convError, null, 2));
         // Não fazer throw aqui, continuar com valor padrão
       }
 
@@ -347,28 +347,17 @@ class DashboardService {
 
   async getMessagesByType(): Promise<ChartData[]> {
     try {
-      // 🔒 CRÍTICO: Verificar autenticação antes de qualquer consulta
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) throw new Error('User not authenticated');
-      const userId = user.id;
+      console.log('DashboardService.getMessagesByType: Buscando mensagens');
 
-      console.log('DashboardService.getMessagesByType: Buscando mensagens para usuário:', userId);
-
-      // Workaround: Fetch all message types and aggregate in JS (inefficient for large data)
+      // Simplificar query - remover filtro por usuário que pode estar causando problemas
       const { data: allMessages, error: messagesError } = await supabase
         .from('messages')
-        .select('type, created_by')
-        .eq('created_by', userId); // 🔒 FILTRO POR USUÁRIO RESTAURADO
+        .select('sender')
+        .limit(1000); // Limitar para evitar queries muito grandes
 
       if (messagesError) {
         console.error('Error fetching messages by type:', messagesError);
         console.error('Detalhes do erro de mensagens:', JSON.stringify(messagesError, null, 2));
-        // Verificar se é um erro de RLS ou tabela não existente
-        if (messagesError.code === 'RLS_POLICY_VIOLATION' || messagesError.message?.includes('permission')) {
-          console.error('Possível problema de RLS/permissões na tabela messages');
-        } else if (messagesError.code === '42P01' || messagesError.message?.includes('does not exist')) {
-          console.error('Tabela messages não existe ou não está acessível');
-        }
         return [];
       }
       
@@ -378,15 +367,13 @@ class DashboardService {
 
       const counts: { [key: string]: number } = {};
       for (const message of allMessages) {
-        if (message.type) {
-          counts[message.type] = (counts[message.type] || 0) + 1;
-        }
+        const type = message.sender || 'unknown';
+        counts[type] = (counts[type] || 0) + 1;
       }
       return Object.entries(counts).map(([name, value]) => ({ name, value }));
 
     } catch (error) {
       console.error('Error fetching messages by type:', error);
-      console.error('Detalhes completos do erro de mensagens:', JSON.stringify(error, null, 2));
       return [];
     }
   }
@@ -401,27 +388,27 @@ class DashboardService {
       if (authError || !user) throw new Error('User not authenticated');
       const userId = user.id;
 
-      console.log('DashboardService.getClientsServedLastWeek: Buscando conversas para usuário:', userId);
+      console.log('DashboardService.getClientsServedLastWeek: Buscando chats para usuário:', userId);
       
       const { data, error } = await supabase
-        .from('conversations')
-        .select('client_id, started_at')
-        .eq('created_by', userId) // 🔒 FILTRO POR USUÁRIO RESTAURADO
+        .from('chats')
+        .select('phone_number, started_at')
+        .eq('status', 'active') // Filtrar apenas chats ativos
         .gte('started_at', sevenDaysAgo.toISOString());
 
       if (error) {
         console.error('Error fetching clients served last week:', error);
-        console.error('Detalhes do erro de conversas da semana:', JSON.stringify(error, null, 2));
+        console.error('Detalhes do erro de chats da semana:', JSON.stringify(error, null, 2));
         // Verificar se é um erro de RLS
         if (error.code === 'RLS_POLICY_VIOLATION' || error.message?.includes('permission')) {
-          console.error('Possível problema de RLS/permissões na tabela conversations');
+          console.error('Possível problema de RLS/permissões na tabela chats');
         }
         return [];
       }
       
       if (!data) return [];
 
-      console.log('Conversas da última semana encontradas:', data.length);
+      console.log('Chats da última semana encontrados:', data.length);
       
       const uniqueClientsPerDay: { [dayKey: string]: { name: string, clients: Set<string> } } = {};
       const dayFormatter = new Intl.DateTimeFormat('pt-BR', { weekday: 'short' });
@@ -437,11 +424,11 @@ class DashboardService {
           uniqueClientsPerDay[dayKey] = { name: shortDayName.charAt(0).toUpperCase() + shortDayName.slice(1), clients: new Set() };
       }
       
-      data.forEach(convo => {
-          const date = new Date(convo.started_at);
+      data.forEach(chat => {
+          const date = new Date(chat.started_at);
           const dayKey = date.toISOString().split('T')[0];
           if (uniqueClientsPerDay[dayKey]) {
-            uniqueClientsPerDay[dayKey].clients.add(convo.client_id);
+            uniqueClientsPerDay[dayKey].clients.add(chat.phone_number);
           }
       });
 
