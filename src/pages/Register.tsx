@@ -207,14 +207,14 @@ const Register = () => {
     } else {
       toast({
         title: "Modo de contingência ativado",
-        description: "Problemas de conexão detectados. Usando modo de demonstração. Redirecionando para o dashboard...",
+        description: "Problemas de conexão detectados. Usando modo de demonstração. Redirecionando para o sistema...",
         variant: "default"
       });
     }
     
-    // No modo de demonstração, vamos direto para o dashboard
+    // No modo de demonstração, vamos direto para o sistema
     setTimeout(() => {
-      navigate('/dashboard');
+      navigate('/sistema');
     }, 2000);
   };
 

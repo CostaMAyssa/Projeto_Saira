@@ -7,8 +7,6 @@ import { SupabaseProvider } from "./contexts/SupabaseContext";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
-import Dashboard from "./pages/Dashboard";
-import Settings from "./components/settings/Settings";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
@@ -25,11 +23,9 @@ const App = () => (
           <Route path="/" element={<Login />} />
           <Route path="/registro" element={<Register />} />
 
-          {/* Rotas protegidas */}
+          {/* Rota protegida principal */}
           <Route element={<ProtectedRoute />}>
-            <Route path="/chat" element={<Index />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/configuracoes" element={<Settings />} />
+            <Route path="/sistema" element={<Index />} />
           </Route>
 
           {/* Rota 404 */}

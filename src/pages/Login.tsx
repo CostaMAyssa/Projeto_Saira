@@ -85,7 +85,7 @@ const Login = () => {
         }
       }
       
-      // Login bem-sucedido, redirecionar para o dashboard
+      // Login bem-sucedido, redirecionar para o sistema
       handleLoginSuccess();
     } catch (err) {
       console.error("Erro detalhado:", err);
@@ -117,11 +117,11 @@ const Login = () => {
   const handleLoginSuccess = () => {
     toast({
       title: "Login bem-sucedido",
-      description: "Redirecionando para o dashboard...",
+      description: "Redirecionando para o sistema...",
       variant: "default"
     });
     
-    navigate('/dashboard');
+    navigate('/sistema');
   };
 
   // Função para lidar com login no modo offline
@@ -140,7 +140,7 @@ const Login = () => {
       });
     }
     
-    navigate('/dashboard');
+    navigate('/sistema');
   };
 
   return (
