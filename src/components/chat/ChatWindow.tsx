@@ -19,6 +19,9 @@ interface DbMessage {
   content: string;
   sender: 'user' | 'client';
   sent_at: string;
+  message_id?: string;
+  from_me?: boolean;
+  timestamp?: string;
 }
 
 interface ConversationDetails {
@@ -36,7 +39,84 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const [ws, setWs] = useState<ReturnType<typeof createEvolutionSocket> | null>(null);
   const [conversationDetails, setConversationDetails] = useState<ConversationDetails | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
+  const [messageIds, setMessageIds] = useState<Set<string>>(new Set()); // Para evitar duplicatas
+  const [realtimeStatus, setRealtimeStatus] = useState<'connected' | 'disconnected'>('disconnected');
   
+  // 🔧 CORREÇÃO: Listener Supabase Realtime para 100% resiliência
+  useEffect(() => {
+    if (!activeConversation) return;
+
+    console.log('🔔 Configurando listener Supabase Realtime para mensagens');
+    setRealtimeStatus('connected');
+    
+    const channel = supabase
+      .channel('messages-realtime')
+      .on(
+        'postgres_changes',
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'messages',
+          filter: `conversation_id=eq.${activeConversation}`
+        },
+        (payload) => {
+          console.log('📨 Nova mensagem via Supabase Realtime:', payload);
+          const msg = payload.new as DbMessage;
+          
+          // Evitar duplicatas usando message_id ou id
+          const messageId = msg.message_id || msg.id;
+          if (messageIds.has(messageId)) {
+            console.log('⚠️ Mensagem duplicada ignorada:', messageId);
+            return;
+          }
+
+          const newMessage: Message = {
+            id: messageId,
+            content: msg.content,
+            sender: msg.from_me ? 'pharmacy' : 'client',
+            timestamp: msg.timestamp || new Date(msg.sent_at).toLocaleTimeString([], { 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            })
+          };
+
+          setMessages(prev => [...prev, newMessage]);
+          setMessageIds(prev => new Set([...prev, messageId]));
+          console.log('✅ Mensagem adicionada via Realtime:', newMessage.content.substring(0, 50));
+        }
+      )
+      .on(
+        'postgres_changes',
+        { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'messages',
+          filter: `conversation_id=eq.${activeConversation}`
+        },
+        (payload) => {
+          console.log('🔄 Mensagem atualizada via Supabase Realtime:', payload);
+          const msg = payload.new as DbMessage;
+          const messageId = msg.message_id || msg.id;
+          
+          setMessages(prev => prev.map(m => 
+            m.id === messageId 
+              ? { ...m, content: msg.content }
+              : m
+          ));
+        }
+      )
+      .subscribe((status) => {
+        console.log('🔔 Status do canal Realtime:', status);
+        setRealtimeStatus(status === 'SUBSCRIBED' ? 'connected' : 'disconnected');
+      });
+
+    return () => {
+      console.log('🔌 Desconectando listener Supabase Realtime');
+      setRealtimeStatus('disconnected');
+      channel.unsubscribe();
+    };
+  }, [activeConversation, messageIds]);
+
   // Buscar detalhes da conversa
   useEffect(() => {
     const fetchConversationDetails = async () => {
@@ -89,16 +169,47 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             }
           );
           
-          websocket.addMessageHandler((message) => {
+          // 🔧 CORREÇÃO: WebSocket agora também grava no Supabase
+          websocket.addMessageHandler(async (message) => {
             console.log('📨 Mensagem recebida via WebSocket:', message);
-            setMessages(prev => [...prev, message]);
+            
+            // Evitar duplicatas
+            if (messageIds.has(message.id)) {
+              console.log('⚠️ Mensagem WebSocket duplicada ignorada:', message.id);
+              return;
+            }
+
+            // Gravar no Supabase para histórico e sincronização
+            try {
+              const messageData = {
+                message_id: message.id,
+                conversation_id: activeConversation,
+                content: message.content,
+                from_me: message.sender === 'pharmacy',
+                sender: message.sender === 'pharmacy' ? 'user' : 'client',
+                sent_at: new Date().toISOString(),
+                timestamp: message.timestamp,
+                instance_name: settings.instance_name || 'default'
+              };
+
+              await supabase
+                .from('messages')
+                .upsert([messageData], { onConflict: 'message_id' });
+
+              console.log('💾 Mensagem WebSocket salva no Supabase:', message.content.substring(0, 50));
+            } catch (error) {
+              console.error('❌ Erro ao salvar mensagem WebSocket no Supabase:', error);
+              // Fallback: adicionar diretamente ao estado se falhar a gravação
+              setMessages(prev => [...prev, message]);
+              setMessageIds(prev => new Set([...prev, message.id]));
+            }
           });
 
           websocket.addConnectionHandler((status) => {
             console.log('🔗 Status de conexão:', status);
-            if (status === 'open') {
+            if (status.state === 'open') {
               setConnectionStatus('connected');
-            } else if (status === 'close') {
+            } else if (status.state === 'close') {
               setConnectionStatus('disconnected');
             }
           });
@@ -108,7 +219,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           
           setTimeout(() => {
             if (!websocket.isConnected()) {
-              console.error('❌ WebSocket não conectou - provavelmente está desabilitado no servidor');
+              console.error('❌ WebSocket não conectou - usando fallback webhook + Realtime');
               setConnectionStatus('error');
             }
           }, 5000);
@@ -124,15 +235,18 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     };
 
     fetchEvolutionSettings();
-  }, [activeConversation]);
+  }, [activeConversation, messageIds]);
   
-  // Carregar mensagens do Supabase
+  // Carregar mensagens históricas do Supabase
   useEffect(() => {
     const fetchMessages = async () => {
       if (!activeConversation) {
         setMessages([]);
+        setMessageIds(new Set());
         return;
       }
+
+      console.log('📚 Carregando histórico de mensagens do Supabase');
 
       const { data, error } = await supabase
         .from('messages')
@@ -143,14 +257,22 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       if (error) {
         console.error('Erro ao buscar mensagens:', error);
         setMessages([]);
+        setMessageIds(new Set());
       } else if (data) {
         const fetchedMessages: Message[] = (data as DbMessage[]).map(msg => ({
-          id: msg.id,
+          id: msg.message_id || msg.id,
           content: msg.content,
-          sender: msg.sender === 'user' ? 'pharmacy' : 'client',
-          timestamp: new Date(msg.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          sender: msg.from_me ? 'pharmacy' : 'client',
+          timestamp: msg.timestamp || new Date(msg.sent_at).toLocaleTimeString([], { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          }),
         }));
+        
+        const ids = new Set(fetchedMessages.map(m => m.id));
         setMessages(fetchedMessages);
+        setMessageIds(ids);
+        console.log(`📚 ${fetchedMessages.length} mensagens históricas carregadas`);
       }
     };
 
@@ -248,9 +370,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       
       <div className="absolute inset-0 opacity-5 pointer-events-none bg-cover bg-center bg-[url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAApgAAAKYB3X3/OAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAANCSURBVEiJtZZPbBtFFMZ/M7ubXdtdb1xSFyeilBapySVU8h8OoFaooFSqiihIVIpQBKci6KEg9Q6H9kovIHoCIVQJJCKE1ENFjnAgcaSGC6rEnxBwA04Tx43t2FnvDAfjkNibxgHxnWb2e/u992bee7tCa00YFsffekFY+nUzFtjW0LrvjRXrCDIAaPLlW0nHL0SsZtVoaF98mLrx3pdhOqLtYPHChahZcYYO7KvPFxvRl5XPp1sN3adWiD1ZAqD6XYK1b/dvE5IWryTt2udLFedwc1+9kLp+vbbpoDh+6TklxBeAi9TL0taeWpdmZzQDry0AcO+jQ12RyohqqoYoo8RDwJrU+qXkjWtfi8Xxt58BdQuwQs9qC/afLwCw8tnQbqYAPsgxE1S6F3EAIXux2oQFKm0ihMsOF71dHYx+f3NND68ghCu1YIoePPQN1pGRABkJ6Bus96CutRZMydTl+TvuiRW1m3n0eDl0vRPcEysqdXn+jsQPsrHMquGeXEaY4Yk4wxWcY5V/9scqOMOVUFthatyTy8QyqwZ+kDURKoMWxNKr2EeqVKcTNOajqKoBgOE28U4tdQl5p5bwCw7BWquaZSzAPlwjlithJtp3pTImSqQRrb2Z8PHGigD4RZuNX6JYj6wj7O4TFLbCO/Mn/m8R+h6rYSUb3ekokRY6f/YukArN979jcW+V/S8g0eT/N3VN3kTqWbQ428m9/8k0P/1aIhF36PccEl6EhOcAUCrXKZXXWS3XKd2vc/TRBG9O5ELC17MmWubD2nKhUKZa26Ba2+D3P+4/MNCFwg59oWVeYhkzgN/JDR8deKBoD7Y+ljEjGZ0sosXVTvbc6RHirr2reNy1OXd6pJsQ+gqjk8VWFYmHrwBzW/n+uMPFiRwHB2I7ih8ciHFxIkd/3Omk5tCDV1t+2nNu5sxxpDFNx+huNhVT3/zMDz8usXC3ddaHBj1GHj/As08fwTS7Kt1HBTmyN29vdwAw+/wbwLVOJ3uAD1wi/dUH7Qei66PfyuRj4Ik9is+hglfbkbfR3cnZm7chlUWLdwmprtCohX4HUtlOcQjLYCu+fzGJH2QRKvP3UNz8bWk1qMxjGTOMThZ3kvgLI5AzFfo379UAAAAASUVORK5CYII=')]"></div>
       <ChatHeader 
-        activeConversation={activeConversation} 
+        activeConversation={activeConversation}
         onBackClick={onBackClick}
         isMobile={isMobile}
+        websocketStatus={connectionStatus}
+        realtimeStatus={realtimeStatus}
       />
       <MessageList messages={messages} />
       <MessageInput onSendMessage={handleSendMessage} />

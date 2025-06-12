@@ -446,9 +446,19 @@ class DashboardService {
 
   async getProductCategoryDistribution(): Promise<ChartData[]> {
     try {
+      // 🔒 CRÍTICO: Verificar autenticação antes de qualquer operação
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        throw new Error('User not authenticated');
+      }
+      const userId = user.id;
+
+      console.log('DashboardService: Buscando distribuição de categorias para usuário:', userId);
+
       const { data: allProducts, error: productsError } = await supabase
         .from('products')
-        .select('category');
+        .select('category')
+        .eq('created_by', userId); // 🔒 FILTRO POR USUÁRIO ADICIONADO
 
       if (productsError) throw productsError;
       if (!allProducts) return [];
@@ -459,6 +469,8 @@ class DashboardService {
           counts[product.category] = (counts[product.category] || 0) + 1;
         }
       }
+      
+      console.log('DashboardService: Categorias encontradas:', counts);
       return Object.entries(counts).map(([name, value]) => ({ name, value }));
 
     } catch (error) {

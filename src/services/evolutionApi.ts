@@ -1,7 +1,9 @@
 interface EvolutionConfig {
-  apiUrl: string;
+  baseUrl?: string; // Para compatibilidade com websocket
+  apiUrl?: string;  // Manter retrocompatibilidade
   apiKey: string;
   instanceName?: string;
+  globalMode?: boolean;
 }
 
 interface SendMessageResponse {

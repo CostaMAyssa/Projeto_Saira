@@ -23,26 +23,22 @@ interface EvolutionMessage {
   messageType: string;
 }
 
+// Interfaces para eventos específicos
 interface ConnectionUpdate {
-  instance: string;
   state: 'open' | 'close' | 'connecting';
-  statusReason?: number;
+  lastDisconnect?: any;
+  qr?: string;
+  instance?: string;
 }
 
 interface QRCodeUpdate {
-  instance: string;
-  qrcode: string;
+  qr: string;
   base64?: string;
 }
 
 interface PresenceUpdate {
   id: string;
-  presences: {
-    [key: string]: {
-      lastKnownPresence: 'available' | 'unavailable' | 'composing' | 'recording' | 'paused';
-      lastSeen?: number;
-    };
-  };
+  presences: Record<string, any>;
 }
 
 interface ContactUpdate {
@@ -50,36 +46,22 @@ interface ContactUpdate {
   name?: string;
   notify?: string;
   verifiedName?: string;
-  imgUrl?: string;
-  status?: string;
 }
 
 interface ChatUpdate {
   id: string;
   name?: string;
   unreadCount?: number;
-  conversationTimestamp?: number;
-  archived?: boolean;
-  pinned?: number;
 }
 
 interface GroupUpdate {
   id: string;
-  subject?: string;
-  subjectOwner?: string;
-  subjectTime?: number;
-  size?: number;
-  creation?: number;
-  owner?: string;
-  desc?: string;
-  descId?: string;
-  restrict?: boolean;
-  announce?: boolean;
-  participants?: Array<{
-    id: string;
-    admin?: 'admin' | 'superadmin' | null;
-  }>;
+  action: string;
+  participants?: string[];
 }
+
+// Factory singleton para evitar múltiplas instâncias
+let globalEvolutionSocket: EvolutionSocket | null = null;
 
 export class EvolutionSocket {
   private socket: Socket | null = null;
@@ -98,7 +80,7 @@ export class EvolutionSocket {
   private apiUrl: string;
   private apiKey: string;
   private reconnectAttempts: number = 0;
-  private maxReconnectAttempts: number = 5;
+  private webhookFallbackTried: boolean = false;
 
   constructor(
     apiUrl: string,
@@ -126,16 +108,13 @@ export class EvolutionSocket {
 
     this.socket = io(url, {
       transports: ['websocket'],
-      // Autenticação conforme documentação Evolution API
+      // 🔧 CORREÇÃO 2: Autenticação apenas via query param (conforme documentação)
       query: {
         apikey: this.apiKey
       },
-      extraHeaders: {
-        'apikey': this.apiKey
-      },
-      // Configurações de reconexão
+      // 🔧 CORREÇÃO 3: Reconexão infinita conforme recomendação da doc
       reconnection: true,
-      reconnectionAttempts: this.maxReconnectAttempts,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
       timeout: 20000
@@ -144,6 +123,7 @@ export class EvolutionSocket {
     this.socket.on('connect', () => {
       console.log(`✅ WebSocket conectado - Modo: ${this.isGlobalMode ? 'Global' : 'Tradicional'}`);
       this.reconnectAttempts = 0;
+      this.webhookFallbackTried = false;
     });
 
     this.socket.on('disconnect', (reason) => {
@@ -152,6 +132,16 @@ export class EvolutionSocket {
       if (reason === 'io server disconnect') {
         // Reconectar se o servidor desconectou
         this.socket?.connect();
+      }
+    });
+
+    this.socket.on('connect_error', (error) => {
+      console.error(`❌ Erro de conexão WebSocket:`, error);
+      this.reconnectAttempts++;
+      
+      // 🔧 CORREÇÃO 4: Fallback inteligente para webhook após 3 tentativas falhas
+      if (this.reconnectAttempts >= 3 && !this.webhookFallbackTried) {
+        this.setupWebhookFallback();
       }
     });
 
@@ -235,6 +225,9 @@ export class EvolutionSocket {
     // 4. EVENTOS DE CONTATOS
     this.socket.on('CONTACTS_SET', (data: ContactUpdate[]) => {
       console.log('👥 CONTACTS_SET:', data);
+      data.forEach(contact => {
+        this.contactHandlers.forEach(handler => handler(contact));
+      });
     });
 
     this.socket.on('CONTACTS_UPSERT', (data: ContactUpdate[]) => {
@@ -245,7 +238,7 @@ export class EvolutionSocket {
     });
 
     this.socket.on('CONTACTS_UPDATE', (data: ContactUpdate[]) => {
-      console.log('🔄 CONTACTS_UPDATE:', data);
+      console.log('📞 CONTACTS_UPDATE:', data);
       data.forEach(contact => {
         this.contactHandlers.forEach(handler => handler(contact));
       });
@@ -254,17 +247,20 @@ export class EvolutionSocket {
     // 5. EVENTOS DE CHATS
     this.socket.on('CHATS_SET', (data: ChatUpdate[]) => {
       console.log('💬 CHATS_SET:', data);
-    });
-
-    this.socket.on('CHATS_UPDATE', (data: ChatUpdate[]) => {
-      console.log('🔄 CHATS_UPDATE:', data);
       data.forEach(chat => {
         this.chatHandlers.forEach(handler => handler(chat));
       });
     });
 
     this.socket.on('CHATS_UPSERT', (data: ChatUpdate[]) => {
-      console.log('💬 CHATS_UPSERT:', data);
+      console.log('💭 CHATS_UPSERT:', data);
+      data.forEach(chat => {
+        this.chatHandlers.forEach(handler => handler(chat));
+      });
+    });
+
+    this.socket.on('CHATS_UPDATE', (data: ChatUpdate[]) => {
+      console.log('🗨️ CHATS_UPDATE:', data);
       data.forEach(chat => {
         this.chatHandlers.forEach(handler => handler(chat));
       });
@@ -274,7 +270,13 @@ export class EvolutionSocket {
       console.log('🗑️ CHATS_DELETE:', data);
     });
 
-    // 6. EVENTOS DE GRUPOS
+    // 6. EVENTOS DE PRESENÇA
+    this.socket.on('PRESENCE_UPDATE', (data: PresenceUpdate) => {
+      console.log('👁️ PRESENCE_UPDATE:', data);
+      this.presenceHandlers.forEach(handler => handler(data));
+    });
+
+    // 7. EVENTOS DE GRUPOS
     this.socket.on('GROUPS_UPSERT', (data: GroupUpdate[]) => {
       console.log('👥 GROUPS_UPSERT:', data);
       data.forEach(group => {
@@ -282,21 +284,13 @@ export class EvolutionSocket {
       });
     });
 
-    this.socket.on('GROUPS_UPDATE', (data: GroupUpdate[]) => {
-      console.log('🔄 GROUPS_UPDATE:', data);
-      data.forEach(group => {
-        this.groupHandlers.forEach(handler => handler(group));
-      });
+    this.socket.on('GROUP_UPDATE', (data: GroupUpdate) => {
+      console.log('👥 GROUP_UPDATE:', data);
+      this.groupHandlers.forEach(handler => handler(data));
     });
 
     this.socket.on('GROUP_PARTICIPANTS_UPDATE', (data: any) => {
       console.log('👥 GROUP_PARTICIPANTS_UPDATE:', data);
-    });
-
-    // 7. EVENTOS DE PRESENÇA
-    this.socket.on('PRESENCE_UPDATE', (data: PresenceUpdate) => {
-      console.log('👀 PRESENCE_UPDATE:', data);
-      this.presenceHandlers.forEach(handler => handler(data));
     });
 
     // 8. EVENTOS DE CHAMADAS
@@ -305,15 +299,19 @@ export class EvolutionSocket {
       this.callHandlers.forEach(handler => handler(data));
     });
 
-    // 9. EVENTOS DE TYPEBOT
+    // 9. EVENTOS DE TYPEBOT/CHATWOOT
     this.socket.on('TYPEBOT_START', (data: any) => {
       console.log('🤖 TYPEBOT_START:', data);
       this.typebotHandlers.forEach(handler => handler(data));
     });
 
     this.socket.on('TYPEBOT_CHANGE_STATUS', (data: any) => {
-      console.log('🔄 TYPEBOT_CHANGE_STATUS:', data);
+      console.log('🤖 TYPEBOT_CHANGE_STATUS:', data);
       this.typebotHandlers.forEach(handler => handler(data));
+    });
+
+    this.socket.on('CHATWOOT_MESSAGE_CREATE', (data: any) => {
+      console.log('💬 CHATWOOT_MESSAGE_CREATE:', data);
     });
 
     // 10. EVENTOS DE LABELS
@@ -323,23 +321,53 @@ export class EvolutionSocket {
     });
 
     this.socket.on('LABELS_ASSOCIATION', (data: any) => {
-      console.log('🔗 LABELS_ASSOCIATION:', data);
+      console.log('🏷️ LABELS_ASSOCIATION:', data);
       this.labelHandlers.forEach(handler => handler(data));
     });
 
-    // Tratamento de erros melhorado
-    this.socket.on('connect_error', (error) => {
-      this.reconnectAttempts++;
-      console.error(`❌ Erro de conexão WebSocket (tentativa ${this.reconnectAttempts}):`, error);
-      
-      if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-        console.error('🚫 Máximo de tentativas de reconexão atingido');
+    // 🔧 CORREÇÃO 5: Timeout para verificar conexão e tentar fallback
+    setTimeout(() => {
+      if (!this.socket?.connected) {
+        console.error('❌ WebSocket não conectou em 10s - tentando fallback webhook');
+        this.setupWebhookFallback();
       }
-    });
+    }, 10000);
+  }
 
-    this.socket.on('error', (error) => {
-      console.error('❌ Erro WebSocket:', error);
-    });
+  // 🔧 CORREÇÃO 6: Implementar fallback inteligente para webhook
+  private async setupWebhookFallback() {
+    if (this.webhookFallbackTried) return;
+    
+    this.webhookFallbackTried = true;
+    console.log('🔧 Configurando fallback webhook...');
+    
+    try {
+      const { EvolutionApiService } = await import('@/services/evolutionApi');
+      
+      const evolutionApi = new EvolutionApiService({
+        apiUrl: this.apiUrl,
+        apiKey: this.apiKey,
+        instanceName: this.instanceName || '',
+        globalMode: this.isGlobalMode
+      });
+
+      const webhookUrl = `${window.location.origin}/api/evolution`;
+      const events = [
+        'QRCODE_UPDATED',
+        'MESSAGES_UPSERT',
+        'MESSAGES_UPDATE',
+        'MESSAGES_DELETE',
+        'CONNECTION_UPDATE'
+      ];
+
+      await evolutionApi.setWebhook(webhookUrl, events);
+      console.log('✅ Webhook fallback configurado com sucesso');
+      
+      // TODO: Implementar polling ou SSE para receber eventos via webhook
+      
+    } catch (error) {
+      console.error('❌ Erro ao configurar webhook fallback:', error);
+    }
   }
 
   private handleMessagesUpsert(messages: EvolutionMessage[]) {
@@ -383,63 +411,60 @@ export class EvolutionSocket {
     // Implementar exclusão de mensagens se necessário
   }
 
-  // === HANDLERS PARA DIFERENTES TIPOS DE EVENTOS ===
-
-  // Mensagens
+  // Métodos públicos para adicionar handlers
   addMessageHandler(handler: (message: Message) => void) {
     this.messageHandlers.push(handler);
   }
 
-  removeMessageHandler(handler: (message: Message) => void) {
-    this.messageHandlers = this.messageHandlers.filter(h => h !== handler);
-  }
-
-  // Conexão
   addConnectionHandler(handler: (status: ConnectionUpdate) => void) {
     this.connectionHandlers.push(handler);
   }
 
-  // QR Code
   addQRCodeHandler(handler: (qr: QRCodeUpdate) => void) {
     this.qrCodeHandlers.push(handler);
   }
 
-  // Presença
   addPresenceHandler(handler: (presence: PresenceUpdate) => void) {
     this.presenceHandlers.push(handler);
   }
 
-  // Contatos
   addContactHandler(handler: (contact: ContactUpdate) => void) {
     this.contactHandlers.push(handler);
   }
 
-  // Chats
   addChatHandler(handler: (chat: ChatUpdate) => void) {
     this.chatHandlers.push(handler);
   }
 
-  // Grupos
   addGroupHandler(handler: (group: GroupUpdate) => void) {
     this.groupHandlers.push(handler);
   }
 
-  // Chamadas
   addCallHandler(handler: (call: any) => void) {
     this.callHandlers.push(handler);
   }
 
-  // Typebot
   addTypebotHandler(handler: (typebot: any) => void) {
     this.typebotHandlers.push(handler);
   }
 
-  // Labels
   addLabelHandler(handler: (label: any) => void) {
     this.labelHandlers.push(handler);
   }
 
-  // Envio via API REST (separado do WebSocket)
+  // Métodos de controle
+  disconnect() {
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
+    }
+  }
+
+  isConnected(): boolean {
+    return this.socket?.connected || false;
+  }
+
+  // Envio via API REST (separado do WebSocket conforme documentação)
   async sendMessageViaAPI(content: string, number: string): Promise<boolean> {
     try {
       const endpoint = this.isGlobalMode 
@@ -472,28 +497,22 @@ export class EvolutionSocket {
     }
   }
 
-  // Status da conexão
-  isConnected(): boolean {
-    return this.socket?.connected || false;
-  }
-
-  // Reconectar manualmente
-  reconnect() {
-    if (this.socket) {
-      this.socket.disconnect();
-      this.socket.connect();
-    }
-  }
-
-  disconnect() {
-    if (this.socket) {
-      console.log('🔌 Desconectando WebSocket Evolution API');
-      this.socket.disconnect();
-      this.socket = null;
-    }
+  // Limpar handlers
+  clearHandlers() {
+    this.messageHandlers = [];
+    this.connectionHandlers = [];
+    this.qrCodeHandlers = [];
+    this.presenceHandlers = [];
+    this.contactHandlers = [];
+    this.chatHandlers = [];
+    this.groupHandlers = [];
+    this.callHandlers = [];
+    this.typebotHandlers = [];
+    this.labelHandlers = [];
   }
 }
 
+// 🔧 CORREÇÃO 7: Factory singleton para evitar múltiplas conexões
 export const createEvolutionSocket = (
   apiUrl: string,
   apiKey: string,
@@ -502,5 +521,12 @@ export const createEvolutionSocket = (
     globalMode?: boolean;
   }
 ) => {
-  return new EvolutionSocket(apiUrl, apiKey, options);
+  // Desconectar instância anterior se existir
+  if (globalEvolutionSocket) {
+    globalEvolutionSocket.disconnect();
+    globalEvolutionSocket.clearHandlers();
+  }
+  
+  globalEvolutionSocket = new EvolutionSocket(apiUrl, apiKey, options);
+  return globalEvolutionSocket;
 };

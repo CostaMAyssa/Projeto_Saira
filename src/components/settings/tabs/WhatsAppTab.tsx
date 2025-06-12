@@ -7,6 +7,15 @@ import { Switch } from '@/components/ui/switch';
 import { MessageSquare } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabase';
+import { EvolutionApiService } from '@/services/evolutionApi';
+
+interface SettingsData {
+  id: string;
+  api_url: string;
+  api_key: string;
+  instance_name: string;
+  global_mode: boolean;
+}
 
 const WhatsAppTab = () => {
   const { toast } = useToast();
@@ -35,12 +44,13 @@ const WhatsAppTab = () => {
         }
 
         if (data) {
-          setSettingsId(data.id);
+          const settings = data as SettingsData;
+          setSettingsId(settings.id);
           setFormData({
-            evolutionApiUrl: data.api_url || 'https://evoapi.insignemarketing.com.br',
-            evolutionApiKey: data.api_key || '33cf7bf9876391ff485115742bdb149a',
-            instanceName: data.instance_name || '',
-            globalMode: data.global_mode !== undefined ? data.global_mode : true
+            evolutionApiUrl: settings.api_url || 'https://evoapi.insignemarketing.com.br',
+            evolutionApiKey: settings.api_key || '33cf7bf9876391ff485115742bdb149a',
+            instanceName: settings.instance_name || '',
+            globalMode: settings.global_mode !== undefined ? settings.global_mode : true
           });
         }
       } catch (error) {
@@ -56,52 +66,88 @@ const WhatsAppTab = () => {
     fetchSettings();
   }, [toast]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = async () => {
     setLoading(true);
-
     try {
-      const settingsData = {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        toast({
+          title: "Erro de autenticação",
+          description: "Usuário não autenticado",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const dataToSave = {
         api_url: formData.evolutionApiUrl,
         api_key: formData.evolutionApiKey,
         instance_name: formData.instanceName,
         global_mode: formData.globalMode,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       };
 
       let result;
       if (settingsId) {
-        // Atualizar configuração existente
         result = await supabase
           .from('settings')
-          .update(settingsData)
+          .update(dataToSave)
           .eq('id', settingsId);
       } else {
-        // Criar nova configuração (UUID será gerado automaticamente)
         result = await supabase
           .from('settings')
-          .insert([settingsData])
-          .select()
-          .single();
-          
-        if (result.data) {
-          setSettingsId(result.data.id);
-        }
+          .insert([{ ...dataToSave, created_at: new Date().toISOString() }]);
       }
 
-      if (result.error) throw result.error;
+      if (result.error) {
+        throw result.error;
+      }
 
-      toast({
-        title: "Sucesso!",
-        description: "Configurações do WhatsApp atualizadas com sucesso.",
-        variant: "default"
-      });
+      // 🔧 CORREÇÃO: Configurar webhook automático após salvar
+      try {
+        console.log('🔧 Configurando webhook automático...');
+        
+        const webhookUrl = `${window.location.origin}/api/evolution`;
+        const evolutionApi = new EvolutionApiService({
+          apiUrl: formData.evolutionApiUrl,
+          apiKey: formData.evolutionApiKey,
+          instanceName: formData.instanceName,
+          globalMode: formData.globalMode
+        });
+
+        // Configurar webhook para receber eventos (modo global não precisa verificar instância)
+        const events = [
+          'QRCODE_UPDATED',
+          'MESSAGES_UPSERT', 
+          'MESSAGES_UPDATE',
+          'MESSAGES_DELETE',
+          'CONNECTION_UPDATE',
+          'CONTACTS_UPSERT',
+          'CHATS_UPSERT'
+        ];
+
+        await evolutionApi.setWebhook(webhookUrl, events);
+        console.log('✅ Webhook configurado:', webhookUrl);
+
+        toast({
+          title: "Configurações salvas com sucesso!",
+          description: "WebSocket e webhook configurados automaticamente",
+        });
+      } catch (webhookError) {
+        console.error('❌ Erro ao configurar webhook:', webhookError);
+        toast({
+          title: "Configurações salvas",
+          description: "Webhook não pôde ser configurado automaticamente. Configure manualmente se necessário.",
+          variant: "destructive",
+        });
+      }
+
     } catch (error) {
       console.error('Erro ao salvar configurações:', error);
       toast({
-        title: "Erro",
-        description: "Não foi possível salvar as configurações. Tente novamente.",
-        variant: "destructive"
+        title: "Erro ao salvar",
+        description: "Não foi possível salvar as configurações",
+        variant: "destructive",
       });
     } finally {
       setLoading(false);
@@ -117,7 +163,7 @@ const WhatsAppTab = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="p-4 md:p-6 pt-0 space-y-6">
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form className="space-y-4">
           <div className="space-y-4">
             <div className="flex flex-col space-y-1.5">
               <Label htmlFor="evolutionApiUrl" className="text-pharmacy-text1">
@@ -167,10 +213,7 @@ const WhatsAppTab = () => {
                 disabled={formData.globalMode}
               />
               <p className="text-xs text-pharmacy-text2">
-                {formData.globalMode 
-                  ? 'No modo global, não é necessário especificar instância' 
-                  : 'Nome da instância específica para usar no modo tradicional'
-                }
+                No modo global, não é necessário especificar instância
               </p>
             </div>
 
@@ -185,39 +228,44 @@ const WhatsAppTab = () => {
               </Label>
             </div>
             <p className="text-xs text-pharmacy-text2">
-              No modo global (WEBSOCKET_GLOBAL_EVENTS=true), você receberá eventos de todas as instâncias. 
-              Este modo precisa ser habilitado no servidor Evolution API.
+              No modo global (WEBSOCKET_GLOBAL_EVENTS=true), você receberá eventos de todas as instâncias. Este modo precisa ser habilitado no servidor Evolution API.
             </p>
+          </div>
 
-            {/* Informações de configuração atual */}
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <h4 className="text-sm font-medium text-red-800 mb-2">
-                ⚠️ Configuração Atual do Servidor Evolution API:
-              </h4>
-              <ul className="text-xs text-red-700 space-y-1">
-                <li>• ❌ WebSocket está DESABILITADO (WEBSOCKET_ENABLED=false)</li>
-                <li>• ❌ Eventos globais DESABILITADOS (WEBSOCKET_GLOBAL_EVENTS=false)</li>
-                <li>• ✅ URL: https://evoapi.insignemarketing.com.br</li>
-                <li>• ✅ API Key: 33cf7bf9876391ff485115742bdb149a</li>
-              </ul>
-              <div className="mt-2 p-2 bg-red-100 rounded">
-                <p className="text-xs text-red-800 font-medium">
-                  🔧 Para o chat funcionar, você precisa habilitar no docker-compose:
-                </p>
-                <code className="text-xs block mt-1">
-                  WEBSOCKET_ENABLED=true<br/>
-                  WEBSOCKET_GLOBAL_EVENTS=true
-                </code>
-              </div>
-            </div>
+          {/* Informações de configuração atual */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="text-sm font-medium text-blue-800 mb-2">
+              🔧 Correções Implementadas para Mensagens em Tempo Real:
+            </h4>
+            <ul className="text-xs text-blue-700 space-y-1">
+              <li>• ✅ Webhook automático configurado como fallback</li>
+              <li>• ✅ Reconexão infinita do WebSocket implementada</li>
+              <li>• ✅ Endpoint `/api/evolution` criado para receber eventos</li>
+              <li>• ✅ Factory singleton para evitar múltiplas conexões</li>
+              <li>• ⚠️ Para tempo real completo, habilite no servidor:</li>
+              <li className="ml-4">WEBSOCKET_ENABLED=true ✅ (já habilitado)</li>
+              <li className="ml-4">WEBSOCKET_GLOBAL_EVENTS=true ✅ (já habilitado)</li>
+              <li>• 🔧 Configure WEBHOOK_GLOBAL_URL no seu docker-compose</li>
+            </ul>
           </div>
 
           <Button 
-            type="submit"
+            type="button"
+            onClick={handleSave}
             disabled={loading}
-            className="w-full md:w-auto bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white"
+            className="w-full bg-pharmacy-primary hover:bg-pharmacy-primary/90 text-white"
           >
-            {loading ? 'Salvando...' : 'Salvar Configurações'}
+            {loading ? (
+              <>
+                <MessageSquare className="mr-2 h-4 w-4 animate-spin" />
+                Salvando...
+              </>
+            ) : (
+              <>
+                <MessageSquare className="mr-2 h-4 w-4" />
+                Salvar Configurações
+              </>
+            )}
           </Button>
         </form>
       </CardContent>

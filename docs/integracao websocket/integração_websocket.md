@@ -1,163 +1,84 @@
 
-Vou analisar a implementação atual do WebSocket e compará-la com a documentação oficial da Evolution API para verificar se está configurada corretamente para recebimento de mensagens.
+Análise profunda da integração atual × documentação oficial Evolution API v2
+==========================================================================
 
-Read file: src/lib/websocket.ts
-Agora vou verificar a documentação oficial dos eventos da Evolution API para comparar com a implementação:
+1. Configuração inicial (chaves, instância, modo global)  
+• De acordo com a doc, basta **URL base + apikey**; instância só é exigida fora do modo global.  
+• Seu `WhatsAppTab.tsx` grava corretamente `api_url`, `api_key`, `instance_name`, `global_mode`.  
+✅-OK (seguindo o padrão da doc)
 
-Ran tool
-Agora vou verificar como o chat está sendo configurado no dashboard:
+2. WebSocket
+-----------
+Requisitos segundo a doc:
+a) Servidor com `WEBSOCKET_ENABLED=true` e, opcionalmente, `WEBSOCKET_GLOBAL_EVENTS=true`.  
+b) Conexão via **Socket-IO** em `<API_URL>` (global) ou `<API_URL>/<instance>` (tradicional).  
+c) Autenticação por **query param** `?apikey=…` (ou header).  
+d) Eventos base: `MESSAGES_UPSERT`, `MESSAGES_UPDATE`, `MESSAGES_DELETE`, `CONNECTION_UPDATE`, `QRCODE_UPDATED`, etc.
 
-Ran tool
+Estado do seu código (`src/lib/websocket.ts`):
+• 👍 Segue exatamente a regra b) (monta URL global/tradicional).  
+• 👍 Passa `apikey` em `query` **e** em `extraHeaders` (redundante, mas aceitável).  
+• 🔴 No **banner de UI** você indica que o servidor está com `WEBSOCKET_ENABLED=false`.  Enquanto não habilitar no back-end, _nenhum evento em tempo real chegará_, mesmo que o código esteja correto.  
+• 🔴 Reconexão limitada a 5 tentativas com atraso de até 5 s – ok, mas depois disso o socket morre. A doc sugere reconectar indefinidamente.
 
-Read file: src/components/settings/tabs/WhatsAppTab.tsx
-Agora vou analisar comparativamente a implementação atual com a documentação da Evolution API. Com base na minha análise, posso fornecer um relatório completo:
+3. Webhook
+----------
+A Evolution API exige que você **registre um webhook** se quiser receber eventos via HTTP em vez de WebSocket ou para instâncias sem modo global.  
+• Você implementou `EvolutionApiService.setWebhook()` mas **nunca é chamado** após salvar as configurações.  
+🟡 Resultado: caso o servidor esteja com WebSocket desabilitado, nenhum fallback HTTP é configurado.
 
-## **Verificação da Conformidade com a Documentação da Evolution API**
+4. Envio de mensagens
+---------------------
+• Você usa `/message/sendText/<instance>` (ou global) com método **POST** + JSON `{number, text}` e header `apikey`: idêntico ao exemplo oficial.  
+✅-OK
 
-Após analisar a implementação atual do chat e comparar com a [documentação oficial da Evolution API para WebSocket](https://doc.evolution-api.com/v2/pt/integrations/websocket), identifiquei vários pontos que estão corretos e algumas áreas que precisam de ajustes.
+5. Recebimento de mensagens
+---------------------------
+Fluxo esperado pela doc: `MESSAGES_UPSERT` → objeto `messages[].messages[].conversation`.  
+Seu parser (`handleMessagesUpsert`) cobre `conversation` e `extendedTextMessage.text`.  
+✅ Estrutura compatível.  
+🔴 Mas, como o WebSocket não conecta, nada chega.
 
-### **✅ Aspectos Corretos da Implementação**
+6. Sincronização & histórico
+----------------------------
+`fetchMessages(remoteJid)` chama `/chat/fetchMessages/<instance>` – exatamente o endpoint da doc.  
+✅ Compatível.
 
-1. **Uso do Socket.io**: A implementação utiliza corretamente o `socket.io-client` conforme especificado na documentação
-2. **Configuração de Transporte**: Usa `transports: ['websocket']` como recomendado
-3. **Suporte aos Dois Modos**: Implementa tanto o modo global quanto o tradicional corretamente
-4. **Construção de URL**: A lógica de construção da URL está correta:
-   - Modo Global: `apiUrl` 
-   - Modo Tradicional: `apiUrl/instanceName`
-5. **Eventos Principais**: Escuta os eventos corretos como `MESSAGES_UPSERT`, `MESSAGES_UPDATE`, `MESSAGES_DELETE`
+O que **não** está em conformidade
+----------------------------------
+1. Servidor Evolution API com **WebSocket desabilitado** ➞ tempo real nunca funcionará.  
+2. Webhook não é configurado automaticamente ➞ sem fallback.  
+3. Reconexão limitada (opcional melhorar).  
+4. Falta de verificação se o socket realmente abriu; você já adicionou um `setTimeout` de 5 s, mas deveria tentar configuração de webhook se falhar.
 
-### **⚠️ Problemas Identificados que Precisam de Correção**
+Recomendações objetivas
+-----------------------
+1. Back-end  
+   • Definir `WEBSOCKET_ENABLED=true` e, se quiser modo global, `WEBSOCKET_GLOBAL_EVENTS=true`.  
+   • Reiniciar a Evolution API.
 
-#### **1. Autenticação Incorreta**
-```typescript
-// ❌ Atual (INCORRETO)
-this.socket = io(url, {
-  transports: ['websocket'],
-  auth: {
-    apiKey: this.apiKey  // Este método não está na documentação
-  }
-});
-```
+2. Front-end  
+   a) Após salvar/atualizar configurações no `WhatsAppTab`, chamar  
+   ```ts
+   await evolutionApi.setWebhook(`${window.location.origin}/api/evolution`, enabledEvents);
+   ```  
+   b) No `EvolutionSocket.connect`, remova `extraHeaders` (não são necessários) e aumente `reconnectionAttempts` para `Infinity`.
 
-**Problema**: A documentação da Evolution API não menciona autenticação via `auth` no WebSocket. A autenticação normalmente é feita via headers ou query parameters.
+3. Fallback inteligente  
+   • Se WebSocket não conectar em 5 s ➞ realizar `setWebhook()` para garantir eventos HTTP.  
+   • Criar endpoint Next/Express `/api/evolution` que grave/repasse eventos para o frontend via Supabase Realtime ou SSE.
 
-#### **2. Estrutura dos Eventos Pode Estar Incorreta**
-```typescript
-// ❌ Possível problema na estrutura
-interface EvolutionMessage {
-  key: {
-    id: string;
-    remoteJid: string;
-  };
-  message: {
-    conversation?: string;
-    extendedTextMessage?: {
-      text: string;
-    };
-  };
-  messageTimestamp: number;
-  status: number;
-}
-```
+4. Logs & métricas  
+   • Persistir falhas de conexão num cadastro interno para facilitar suporte.  
+   • Exibir toast quando WebSocket cair definitivamente.
 
-**Problema**: Esta estrutura não está documentada oficialmente. Pode ser que a Evolution API envie eventos em formato diferente.
+Próximos passos sugeridos
+-------------------------
+1. Habilitar WebSocket no servidor Evolution API e validar que `CONNECTION_UPDATE` chega.  
+2. Implementar chamada automática de `setWebhook()` ao salvar configurações (caso use instância tradicional).  
+3. Adicionar testes de integração (Jest + nock) simulando eventos `MESSAGES_UPSERT`.  
+4. Considerar separar responsabilidades:  
+   - `EvolutionSocket` apenas recebe eventos.  
+   - `EvolutionApiService` apenas envia/gera side-effects REST.
 
-#### **3. Envio de Mensagens via WebSocket**
-```typescript
-// ❌ Método de envio pode estar incorreto
-this.socket.emit('SEND_MESSAGE', {
-  instance: this.instanceName,
-  message: {
-    key: {
-      remoteJid: message.sender === 'pharmacy' ? 'client' : 'pharmacy',
-    },
-    message: {
-      conversation: message.content
-    },
-    messageTimestamp: Date.now()
-  }
-});
-```
-
-**Problema**: A documentação não especifica como enviar mensagens via WebSocket. Normalmente, o envio é feito via API REST.
-
-### **🔧 Correções Necessárias**
-
-#### **1. Corrigir a Autenticação**
-```typescript
-connect() {
-  const url = this.isGlobalMode
-    ? this.apiUrl
-    : `${this.apiUrl.replace(/\/$/, '')}/${this.instanceName}`;
-
-  this.socket = io(url, {
-    transports: ['websocket'],
-    // Remover auth, ou usar headers se necessário
-    extraHeaders: {
-      'Authorization': `Bearer ${this.apiKey}` // Ou o formato correto
-    }
-  });
-}
-```
-
-#### **2. Implementar Configuração de Webhook Correta**
-Antes de usar WebSocket, é necessário configurar o webhook da instância via API REST:
-
-```typescript
-// Adicionar método para configurar webhook
-async configureWebhook() {
-  const webhookConfig = {
-    "url": this.webhookUrl, // URL do seu endpoint
-    "webhook_by_events": false,
-    "webhook_base64": false,
-    "events": [
-      "QRCODE_UPDATED",
-      "MESSAGES_UPSERT",
-      "MESSAGES_UPDATE", 
-      "MESSAGES_DELETE",
-      "CONNECTION_UPDATE"
-    ]
-  };
-  
-  // Fazer POST para /webhook/instance
-}
-```
-
-#### **3. Usar API REST para Envio de Mensagens**
-```typescript
-async sendMessage(message: Message) {
-  // Usar API REST em vez de WebSocket para envio
-  const response = await fetch(`${this.apiUrl}/message/sendText/${this.instanceName}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': this.apiKey
-    },
-    body: JSON.stringify({
-      number: message.recipientNumber,
-      text: message.content
-    })
-  });
-}
-```
-
-### **📋 Recomendações de Implementação**
-
-1. **Separar WebSocket de API REST**: Use WebSocket apenas para receber eventos, não para enviar mensagens
-2. **Implementar Configuração de Webhook**: Adicionar endpoint para configurar webhooks via API REST
-3. **Validar Estrutura dos Eventos**: Testar com dados reais da Evolution API para confirmar a estrutura
-4. **Adicionar Tratamento de Erros**: Implementar reconexão automática e tratamento de falhas
-5. **Implementar Logs Detalhados**: Para debugar problemas de conexão
-
----
-
-## **Análise de Escalabilidade e Manutenibilidade**
-
-A implementação atual está bem estruturada em termos de arquitetura, mas precisa de ajustes técnicos para funcionar corretamente com a Evolution API. O código está modular e fácil de manter, mas a correção dos problemas de integração é essencial para o funcionamento adequado.
-
-**Principais melhorias necessárias:**
-- Corrigir a autenticação do WebSocket
-- Implementar configuração adequada de webhooks
-- Separar responsabilidades entre recebimento (WebSocket) e envio (API REST) de mensagens
-- Adicionar validação da estrutura dos eventos recebidos
-- Implementar testes de integração com a Evolution API real
+Isso garantirá aderência completa à documentação e mensagens em tempo real funcionando.
