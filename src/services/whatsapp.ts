@@ -27,15 +27,15 @@ class WhatsAppService {
       if (error) throw error;
       if (!data) throw new Error('Configurações do WhatsApp não encontradas');
 
-      const { evolution_api_url, evolution_api_key, instance_name, global_mode } = data;
+      const { api_url, api_key, instance_name, global_mode } = data;
 
-      if (!evolution_api_url || !evolution_api_key) {
+      if (!api_url || !api_key) {
         throw new Error('URL e chave da API são obrigatórias');
       }
 
       this.webSocket = createEvolutionSocket(
-        evolution_api_url,
-        evolution_api_key,
+        api_url,
+        api_key,
         {
           instanceName: instance_name,
           globalMode: global_mode
@@ -58,26 +58,16 @@ class WhatsAppService {
     }
   }
 
-  public async sendMessage(to: string, content: string): Promise<void> {
-    if (!this.webSocket || !this.isConnected) {
-      throw new Error('WebSocket não está conectado');
+  public async sendMessage(content: string, number: string): Promise<boolean> {
+    if (!this.webSocket) {
+      await this.connect();
     }
 
-    try {
-      const message: Message = {
-        id: Date.now().toString(),
-        content,
-        sender: 'pharmacy',
-        timestamp: new Date().toLocaleTimeString([], { 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        })
-      };
-      await this.webSocket.sendMessage(message);
-    } catch (error) {
-      console.error('Erro ao enviar mensagem:', error);
-      throw error;
+    if (this.webSocket) {
+      return await this.webSocket.sendMessageViaAPI(content, number);
     }
+
+    return false;
   }
 
   public isWebSocketConnected(): boolean {
@@ -85,4 +75,27 @@ class WhatsAppService {
   }
 }
 
-export const whatsAppService = WhatsAppService.getInstance(); 
+export const whatsAppService = WhatsAppService.getInstance();
+
+export const getEvolutionConfig = async () => {
+  const { data, error } = await supabase
+    .from('settings')
+    .select('api_url, api_key, instance_name, global_mode')
+    .limit(1)
+    .single();
+
+  if (error) throw new Error(`Erro ao buscar configurações: ${error.message}`);
+  
+  const { api_url, api_key, instance_name, global_mode } = data;
+
+  if (!api_url || !api_key) {
+    throw new Error('Configurações da Evolution API não encontradas');
+  }
+
+  return {
+    evolution_api_url: api_url,
+    evolution_api_key: api_key,
+    instance_name,
+    global_mode
+  };
+}; 

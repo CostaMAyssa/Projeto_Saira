@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import ModuleManager from '@/components/modules/ModuleManager';
 import Sidebar from '@/components/layout/Sidebar';

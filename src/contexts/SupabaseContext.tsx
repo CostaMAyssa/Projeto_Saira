@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { User, Session, AuthError, AuthResponse } from '@supabase/supabase-js';
 import { supabase, verifySupabaseConnection } from '../lib/supabase';
 
@@ -28,47 +28,83 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
+  
+  // Refs para controle de estado
+  const connectionCheckRef = useRef<Promise<boolean> | null>(null);
+  const lastConnectionCheckRef = useRef<number>(0);
+  const mountedRef = useRef(true);
 
-  // Verificar a conexão com o Supabase
-  const checkConnection = async () => {
+  // Verificar a conexão com o Supabase com throttling
+  const checkConnection = async (force = false) => {
+    if (!mountedRef.current) return false;
+    
+    const now = Date.now();
+    const timeSinceLastCheck = now - lastConnectionCheckRef.current;
+    
+    // Se já há uma verificação em andamento, aguardar o resultado
+    if (connectionCheckRef.current && !force) {
+      return await connectionCheckRef.current;
+    }
+    
+    // Throttling: só verificar se passou mais de 30 segundos da última verificação
+    if (timeSinceLastCheck < 30000 && !force) {
+      return !isOffline; // Retornar estado atual se verificação recente
+    }
+
     try {
       console.log("Verificando conexão com o Supabase...");
-      const isConnected = await verifySupabaseConnection();
-      setIsOffline(!isConnected);
-      console.log("Status de conexão com Supabase:", isConnected ? "Conectado" : "Desconectado");
+      lastConnectionCheckRef.current = now;
+      
+      const connectionPromise = verifySupabaseConnection();
+      connectionCheckRef.current = connectionPromise;
+      
+      const isConnected = await connectionPromise;
+      
+      if (mountedRef.current) {
+        setIsOffline(!isConnected);
+        console.log("Status de conexão com Supabase:", isConnected ? "Conectado" : "Desconectado");
+      }
+      
       return isConnected;
     } catch (error) {
       console.error("Erro ao verificar conexão:", error);
-      setIsOffline(true);
+      if (mountedRef.current) {
+        setIsOffline(true);
+      }
       return false;
+    } finally {
+      connectionCheckRef.current = null;
     }
   };
 
   // Função pública para forçar verificação de conexão
   const forceConnectionCheck = async () => {
     console.log("Forçando verificação de conexão...");
-    await checkConnection();
+    await checkConnection(true);
   };
 
   useEffect(() => {
+    mountedRef.current = true;
+    
     const handleOnlineStatusChange = () => {
       const isOnline = window.navigator.onLine;
       if (isOnline) {
         // Se voltar a ficar online, verificar se o Supabase está acessível
-        checkConnection();
+        checkConnection(true);
       } else {
         setIsOffline(true);
       }
     };
 
-    // Verificar status inicial
-    checkConnection();
+    // Verificar status inicial apenas uma vez
+    checkConnection(true);
 
     // Adicionar listeners para eventos de online/offline
     window.addEventListener('online', handleOnlineStatusChange);
     window.addEventListener('offline', handleOnlineStatusChange);
 
     return () => {
+      mountedRef.current = false;
       window.removeEventListener('online', handleOnlineStatusChange);
       window.removeEventListener('offline', handleOnlineStatusChange);
     };
@@ -78,6 +114,8 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // Configurar o listener para mudanças de autenticação
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!mountedRef.current) return;
+        
         console.log("Evento de autenticação:", event, session ? "Com sessão" : "Sem sessão");
         setSession(session);
         setUser(session?.user ?? null);
@@ -87,14 +125,20 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     // Verificar sessão atual ao carregar
     const checkSession = async () => {
+      if (!mountedRef.current) return;
+      
       try {
         const { data } = await supabase.auth.getSession();
-        setSession(data.session);
-        setUser(data.session?.user ?? null);
+        if (mountedRef.current) {
+          setSession(data.session);
+          setUser(data.session?.user ?? null);
+        }
       } catch (error) {
         console.error("Erro ao verificar sessão:", error);
       } finally {
-        setLoading(false);
+        if (mountedRef.current) {
+          setLoading(false);
+        }
       }
     };
 
@@ -108,7 +152,7 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const signIn = async (email: string, password: string) => {
     // Verificar conexão antes de tentar autenticação
-    const isConnected = await checkConnection();
+    const isConnected = await checkConnection(true);
     
     // Se estiver offline, simular login bem-sucedido com dados mockados
     if (!isConnected) {
@@ -170,7 +214,7 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     console.log("Dados de registro:", { email, hasPassword: !!password, userData });
     
     // Verificar conexão antes de tentar registro
-    const isConnected = await checkConnection();
+    const isConnected = await checkConnection(true);
     
     // Se estiver offline, simular registro bem-sucedido
     if (!isConnected) {
@@ -203,34 +247,35 @@ export const SupabaseProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return mockResponse;
     }
     
+    // Caso contrário, tentar registro normal
     try {
-      // Preparar dados do usuário
-      const userMetadata: UserMetadata = {};
-      
-      if (userData) {
-        if (userData.name) userMetadata.name = userData.name;
-        if (userData.role) userMetadata.role = userData.role;
-        if (userData.status) userMetadata.status = userData.status;
-      }
-      
-      console.log("Metadados a serem enviados:", userMetadata);
-      
-      // Registrar usuário com metadados
-      const response = await supabase.auth.signUp({
+      console.log("Tentando registro com o Supabase...");
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: userMetadata
+          data: userData || {}
         }
       });
       
-      console.log("Resposta do servidor:", response);
-      return response;
-    } catch (err) {
-      console.error("Erro no contexto durante signUp:", err);
-      // Se ocorrer erro de conexão, ativar modo offline
-      setIsOffline(true);
-      throw err;
+      if (error) {
+        console.error("Erro no registro:", error);
+        throw error;
+      }
+      
+      console.log("Registro realizado com sucesso:", data);
+      return { data, error };
+    } catch (error) {
+      console.error("Erro ao registrar:", error);
+      
+      // Retornar erro
+      return {
+        data: { 
+          user: null, 
+          session: null 
+        },
+        error: error as AuthError
+      };
     }
   };
 
