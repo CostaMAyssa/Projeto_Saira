@@ -11,20 +11,22 @@ interface ConversationListProps {
   setActiveConversation: (id: string) => void;
 }
 
-interface UnifiedConversationData {
+// Interfaces para tipar os dados vindos do Supabase
+interface DbConversation {
   id: string;
-  phone_number: string;
-  name: string;
+  client_id: string;
+  status: 'active' | 'closed' | 'waiting';
   last_message_at: string;
-  status: string;
-  started_at: string;
-  created_at: string;
+  // Assumindo que podemos fazer um JOIN para pegar o nome do cliente
+  clients: {
+    name: string;
+    phone: string;
+  } | null;
 }
 
 interface LastMessageData {
   content: string;
   sent_at: string;
-  sender: string;
 }
 
 const ConversationList: React.FC<ConversationListProps> = ({ 
@@ -39,10 +41,17 @@ const ConversationList: React.FC<ConversationListProps> = ({
   useEffect(() => {
     const fetchConversations = async () => {
       try {
-        // Buscar conversas da view unificada
+        // 1. Buscar conversas da tabela 'conversations' com um JOIN em 'clients'
         const { data: conversationsData, error: conversationsError } = await supabase
-          .from('unified_conversations')
-          .select('*')
+          .from('conversations')
+          .select(`
+            id,
+            last_message_at,
+            clients (
+              name,
+              phone
+            )
+          `)
           .order('last_message_at', { ascending: false });
 
         if (conversationsError) {
@@ -51,46 +60,40 @@ const ConversationList: React.FC<ConversationListProps> = ({
         }
 
         if (conversationsData) {
-          // Buscar última mensagem para cada conversa
-          const conversationsWithMessages = await Promise.all(
-            (conversationsData as UnifiedConversationData[]).map(async (conv) => {
+          // 2. Mapear os dados para o formato do frontend
+          const conversationsWithDetails = await Promise.all(
+            (conversationsData as unknown as DbConversation[]).map(async (conv) => {
+              // 3. Buscar a última mensagem para cada conversa
               const { data: lastMessage } = await supabase
                 .from('messages')
-                .select('content, sent_at, sender')
+                .select('content, sent_at')
                 .eq('conversation_id', conv.id)
                 .order('sent_at', { ascending: false })
                 .limit(1)
                 .single();
 
-              // Buscar contagem de mensagens não lidas (assumindo que mensagens do client são não lidas até serem marcadas)
-              const { count: unreadCount } = await supabase
-                .from('messages')
-                .select('*', { count: 'exact', head: true })
-                .eq('conversation_id', conv.id)
-                .eq('sender', 'client');
-
               const lastMsg = lastMessage as LastMessageData | null;
 
               return {
                 id: conv.id,
-                name: conv.name || 'Cliente sem nome',
-                phone: conv.phone_number || 'N/A',
-                lastMessage: lastMsg?.content || 'Nenhuma mensagem',
-                time: lastMsg 
+                name: conv.clients?.name || 'Cliente sem nome',
+                phone: conv.clients?.phone || 'N/A',
+                lastMessage: lastMsg?.content || 'Nenhuma mensagem ainda',
+                time: lastMsg
                   ? new Date(lastMsg.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                  : new Date(conv.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                unread: unreadCount || 0,
-                status: 'read' as const, // Por enquanto, sempre como lida
-                tags: [], // Implementar tags futuramente se necessário
+                  : new Date(conv.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                unread: 0, // Lógica de não lidas pode ser implementada depois
+                status: 'read' as const,
+                tags: [],
               };
             })
           );
 
-          setConversations(conversationsWithMessages);
-          setFilteredConversations(conversationsWithMessages);
+          setConversations(conversationsWithDetails);
+          setFilteredConversations(conversationsWithDetails);
         }
       } catch (error) {
-        console.error('Erro ao buscar conversas:', error);
+        console.error('Erro ao processar conversas:', error);
       }
     };
 

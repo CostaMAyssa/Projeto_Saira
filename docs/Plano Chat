@@ -1,0 +1,115 @@
+# Estrutura da áre de chat (MVP com n8n)
+
+---
+
+## 1. Arquitetura Geral
+
+O sistema de chat está estruturado em **3 camadas principais** que se comunicam para garantir o fluxo de envio e recebimento de mensagens. A lógica de negócio é centralizada no n8n para desacoplar o frontend da complexidade da API de WhatsApp.
+
+```mermaid
+graph TD
+    A[Frontend - React] -->|1. Envia msg (HTTP POST)| B(n8n - Webhook de Envio);
+    B -->|2. Envia para WhatsApp| C[Evolution API];
+    A -->|3. Salva msg enviada| D[Supabase DB];
+
+    C -->|4. Nova msg recebida| E(n8n - Webhook de Recebimento);
+    E -->|5. Salva msg recebida| D;
+    D -->|6. Atualiza UI| A;
+```
+
+---
+
+## 2. Componentes e Fluxo de Dados
+
+### **Fluxo de Envio (Farmácia → Cliente)**
+
+1.  **`Frontend (MessageInput.tsx)`**: O usuário digita e envia a mensagem.
+2.  **`Frontend (ChatWindow.tsx)`**: A função `handleSendMessage` é acionada.
+    -   **Passo 1: Persistência Imediata (Otimista)**: A mensagem é imediatamente inserida na tabela `messages` do Supabase com `sender: 'user'`.
+    -   **Passo 2: Delegação para o n8n**: Um HTTP POST é enviado para o webhook de envio do n8n, contendo **apenas o `conversationId` e o `text`**. O frontend não conhece as chaves de API.
+3.  **`n8n (Workflow de Envio)` - Lógica Inteligente**:
+    -   **Recebe a requisição** do frontend.
+    -   **Nó 1: Busca o Dono da Conversa**: Usa o `conversationId` para consultar a tabela `conversations` e obter o `assigned_to` (o `user_id` do agente responsável).
+    -   **Nó 2: Busca as Credenciais do Usuário**: Usa o `user_id` do nó anterior para consultar a tabela `settings` e obter a `evolution_api_url` e `evolution_api_key` específicas daquele usuário.
+    -   **Nó 3: Envia a Mensagem**: Usa as credenciais obtidas para montar e enviar a requisição final para a **Evolution API**.
+    -   Retorna um status de sucesso ou erro para o frontend.
+
+### **Fluxo de Recebimento (Cliente → Farmácia)**
+
+1.  **`Evolution API`**: Recebe uma mensagem do cliente via WhatsApp.
+2.  **`Evolution API`**: Dispara um webhook pré-configurado para o endpoint de recebimento no **n8n**.
+3.  **`n8n (Workflow de Recebimento)`**:
+    -   Recebe os dados da mensagem (remetente, texto, timestamp).
+    -   Identifica a qual `conversation` a mensagem pertence (buscando pelo número do telefone do cliente ou criando uma nova conversa se não existir).
+    -   Insere a nova mensagem na tabela `messages` do Supabase com `sender: 'client'`.
+4.  **`Frontend (ChatWindow.tsx)`**:
+    -   O frontend, que já está buscando mensagens do Supabase, detecta a nova mensagem.
+    -   **Para Tempo Real (Pós-MVP)**: Implementar Supabase Realtime Subscriptions para que a nova mensagem apareça instantaneamente sem necessidade de recarregar a página.
+    -   **Para MVP**: A mensagem aparecerá na próxima vez que o componente buscar dados (ex: ao abrir a conversa ou com um polling simples).
+
+---
+
+## 3. Estrutura do Banco de Dados (Supabase)
+
+A estrutura é simplificada para ter uma fonte única de verdade para conversas e mensagens.
+
+#### **Tabela `conversations`**
+*Responsável por agrupar todas as mensagens de uma interação com um cliente.*
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| `id` | UUID | Chave primária. Identificador único da conversa. |
+| `client_id` | UUID | FK para `clients.id`. |
+| `assigned_to` | UUID | FK para `users.id` (agente responsável). |
+| `status` | TEXT | Status da conversa: `active`, `closed`, `waiting`. |
+| `last_message_at` | TIMESTAMPTZ | Data/hora da última mensagem para ordenação. |
+| `started_at` | TIMESTAMPTZ | Data de início da conversa. |
+
+#### **Tabela `messages`**
+*Armazena cada mensagem individual enviada ou recebida.*
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| `id` | UUID | Chave primária. |
+| `conversation_id` | UUID | **FK para `conversations.id`**. |
+| `content` | TEXT | O conteúdo da mensagem. |
+| `sender` | TEXT | **`'user'`** (farmácia) ou **`'client'`** (cliente). |
+| `sent_at` | TIMESTAMPTZ | Data e hora exatas do envio. |
+
+#### **Tabela `settings`**
+*Configurações globais para integrações.*
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| `id` | TEXT | Chave primária (ex: `'whatsapp_config'`). |
+| `evolution_api_url` | TEXT | URL da API da Evolution. |
+| `evolution_api_key` | TEXT | Chave de autenticação da API. |
+| `evolution_instance_name` | TEXT | Nome da instância da Evolution. |
+
+---
+
+## 4. Workflows Necessários no n8n
+
+Você precisará de dois workflows distintos:
+
+#### **Workflow 1: Envio de Mensagens (Multi-Tenant)**
+- **Trigger**: `Webhook` - Espera por um POST do frontend em `/webhook/send-message` com `{ conversationId, text }`.
+- **Nó 1 (Supabase)**: `SELECT assigned_to FROM conversations WHERE id = '{{$json.conversationId}}'`.
+- **Nó 2 (Supabase)**: `SELECT evolution_api_url, evolution_api_key FROM settings WHERE user_id = '{{$node["Node 1"].json.assigned_to}}'`.
+- **Nó 3 (HTTP Request)**: Faz um POST para a **Evolution API** usando a URL e a chave do Nó 2 e o texto do gatilho.
+- **Nó 4**: `Respond to Webhook` - Retorna uma resposta de sucesso (`200 OK`) ou erro para o frontend.
+
+#### **Workflow 2: Recebimento de Mensagens**
+- **Trigger**: `Webhook` - Espera por um POST da **Evolution API** em `/webhook/receive-message`.
+- **Nó 1**: `HTTP Request` (ou Nó do Supabase) - Insere a mensagem recebida na tabela `messages` do seu banco de dados Supabase.
+- **Nó 2**: `Respond to Webhook` - Retorna `200 OK` para a Evolution API para confirmar o recebimento.
+
+---
+
+## 5. Modificações e Próximos Passos
+
+1.  **Banco de Dados**: Executar os scripts SQL para **excluir a tabela `chats`**, unificar tudo em `conversations` e ajustar a tabela `messages` conforme o modelo acima.
+2.  **Frontend**:
+    -   Remover completamente a lógica de `WebSocket` (`/src/lib/websocket.ts` e seu uso em `ChatWindow.tsx`).
+    -   Modificar a função `handleSendMessage` em `ChatWindow.tsx` para seguir o novo fluxo (inserir no Supabase e chamar o webhook do n8n).
+3.  **n8n**: Construir e testar os dois workflows descritos.
+4.  **Testes**: Realizar testes de ponta-a-ponta, enviando uma mensagem pela UI e respondendo pelo WhatsApp para garantir que o ciclo completo está funcionando.
+
+Esta estrutura modular e desacoplada oferece uma base sólida para o MVP, permitindo que você entregue o projeto rapidamente enquanto mantém a flexibilidade para futuras melhorias, como a migração para WebSockets.

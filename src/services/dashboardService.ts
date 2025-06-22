@@ -567,35 +567,36 @@ class DashboardService {
 
   // --- Client CRUD Methods ---
   async createClient(clientData: ClientData): Promise<any> {
-    try {
-      console.log('DashboardService.createClient: Starting client creation with data:', clientData);
-      
-      // Usar o mesmo padrão do createProduct que está funcionando
-      const clientDataForSupabase = {
-        ...clientData,
-        created_by: '58ce41aa-d63d-4655-b1a1-9ee705e05c3a', // João da Silva (usuário existente)
-        created_at: new Date().toISOString(), // Add created_at
-      };
+    // Obter a sessão atual para pegar o ID do usuário logado
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
 
-      console.log("👤 Dados enviados para o Supabase (insert):", clientDataForSupabase);
-      
-      const { data, error } = await supabase
-        .from('clients')
-        .insert([clientDataForSupabase])
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error creating client in Supabase:', error);
-        throw error;
-      }
-      
-      console.log('DashboardService.createClient: Successfully created client:', data);
-      return data;
-    } catch (err) {
-      console.error('DashboardService.createClient: Error creating client:', err);
-      throw err;
+    if (sessionError) {
+      console.error('Error getting session:', sessionError);
+      throw new Error('Não foi possível obter a sessão do usuário.');
     }
+
+    if (!sessionData.session) {
+      throw new Error('Usuário não autenticado.');
+    }
+
+    // Adiciona o ID do usuário que está criando o cliente
+    const clientToInsert = {
+      ...clientData,
+      created_by: sessionData.session.user.id, 
+    };
+
+    const { data, error } = await supabase
+      .from('clients')
+      .insert(clientToInsert)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Supabase error creating client:", error);
+      // Lançar o erro para ser pego pelo bloco catch no componente
+      throw error; 
+    }
+    return data;
   }
 
   async updateClient(clientId: string, clientData: Partial<ClientData>): Promise<any> {

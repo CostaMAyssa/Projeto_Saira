@@ -6,7 +6,6 @@ import EmptyState from './chat-window/EmptyState';
 import { Message } from './types';
 // import { mockMessages } from './mockMessages'; // Will be removed
 import { supabase } from '@/lib/supabase'; // Import Supabase client
-import { createEvolutionSocket } from '@/lib/websocket';
 
 interface ChatWindowProps {
   activeConversation: string | null;
@@ -27,44 +26,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   isMobile
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [ws, setWs] = useState<ReturnType<typeof createEvolutionSocket> | null>(null);
-  
-  // Buscar configurações da Evolution API
-  useEffect(() => {
-    const fetchEvolutionSettings = async () => {
-      const { data, error } = await supabase
-        .from('settings')
-        .select('*')
-        .eq('id', 'whatsapp')
-        .single();
 
-      if (error) {
-        console.error('Erro ao buscar configurações da Evolution API:', error);
-        return;
-      }
-
-      if (data && activeConversation) {
-        const websocket = createEvolutionSocket(
-          data.evolution_api_url,
-          data.evolution_api_key
-        );
-        
-        websocket.addMessageHandler((message) => {
-          setMessages(prev => [...prev, message]);
-        });
-        
-        websocket.connect();
-        setWs(websocket);
-        
-        return () => {
-          websocket.disconnect();
-        };
-      }
-    };
-
-    fetchEvolutionSettings();
-  }, [activeConversation]);
-  
   // Carregar mensagens do Supabase
   useEffect(() => {
     const fetchMessages = async () => {
@@ -96,44 +58,69 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     fetchMessages();
   }, [activeConversation]);
   
+  // NOVA função de envio de mensagem com HTTP Request para o n8n
   const handleSendMessage = useCallback(async (content: string) => {
-    if (!activeConversation || !ws) return;
+    if (!activeConversation || !content.trim()) return;
+
+    const optimisticId = `${activeConversation}-${Date.now()}`;
+    const sentAt = new Date();
     
-    const currentTime = new Date();
-    const timeString = currentTime.getHours() + ':' + 
-                      (currentTime.getMinutes() < 10 ? '0' : '') + 
-                      currentTime.getMinutes();
-    
+    // 1. Atualização Otimista da UI
     const newMessage: Message = {
-      id: `${activeConversation}-${Date.now()}`,
+      id: optimisticId,
       content: content,
       sender: 'pharmacy',
-      timestamp: timeString,
+      timestamp: sentAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
-    
-    // Enviar mensagem via WebSocket
-    ws.sendMessage(newMessage);
-    
-    // Salvar mensagem no Supabase
+    setMessages(prev => [...prev, newMessage]);
+
     try {
-      const { error } = await supabase
+      // 2. Salvar mensagem no Supabase
+      const { error: supabaseError } = await supabase
         .from('messages')
         .insert({
           conversation_id: activeConversation,
           content: content,
-          sender: 'user',
-          sent_at: new Date().toISOString()
+          sender: 'user', // 'user' representa a farmácia/sistema
+          sent_at: sentAt.toISOString()
         });
         
-      if (error) {
-        console.error('Erro ao salvar mensagem:', error);
+      if (supabaseError) {
+        // Se a inserção no Supabase falhar, idealmente removeríamos a mensagem otimista
+        console.error('Erro ao salvar mensagem no Supabase:', supabaseError);
+        // Opcional: Lógica para remover a mensagem da UI ou marcar como "não enviada"
+        setMessages(prev => prev.filter(m => m.id !== optimisticId));
+        return; 
       }
+
+      // 3. Enviar para o webhook do n8n
+      // A URL agora é lida de uma variável de ambiente
+      const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL;
+
+      if (!webhookUrl) {
+        console.error('A URL do webhook do n8n (VITE_N8N_WEBHOOK_URL) não está configurada.');
+        // Opcional: Tratar o erro na UI
+        setMessages(prev => prev.filter(m => m.id !== optimisticId));
+        return;
+      }
+
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          conversationId: activeConversation,
+          text: content
+        })
+      });
+
     } catch (error) {
-      console.error('Erro ao salvar mensagem:', error);
+      console.error('Erro no processo de envio da mensagem:', error);
+      // Opcional: Lógica para tratar falha de rede ou no n8n
+      setMessages(prev => prev.filter(m => m.id !== optimisticId));
     }
-    
-    setMessages(prev => [...prev, newMessage]);
-  }, [activeConversation, ws]);
+  }, [activeConversation]);
   
   if (!activeConversation) {
     return <EmptyState />;

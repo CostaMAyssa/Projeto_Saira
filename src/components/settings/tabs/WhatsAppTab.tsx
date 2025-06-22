@@ -7,11 +7,12 @@ import { Switch } from '@/components/ui/switch';
 import { MessageSquare } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabase';
+import { useSupabase } from '@/contexts/SupabaseContext';
 
 const WhatsAppTab = () => {
   const { toast } = useToast();
+  const { user } = useSupabase();
   const [loading, setLoading] = useState(false);
-  const [settingsId, setSettingsId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     evolutionApiUrl: '',
     evolutionApiKey: '',
@@ -19,15 +20,17 @@ const WhatsAppTab = () => {
     globalMode: false
   });
 
-  // Carregar configurações existentes
+  // Carregar configurações existentes DO USUÁRIO LOGADO
   useEffect(() => {
     const fetchSettings = async () => {
+      if (!user) return;
+
       try {
-        // Buscar a primeira configuração existente ou criar uma nova
+        // Buscar a configuração específica deste usuário
         const { data, error } = await supabase
           .from('settings')
           .select('*')
-          .limit(1)
+          .eq('user_id', user.id)
           .single();
 
         if (error && error.code !== 'PGRST116') {
@@ -35,11 +38,10 @@ const WhatsAppTab = () => {
         }
 
         if (data) {
-          setSettingsId(data.id);
           setFormData({
             evolutionApiUrl: data.evolution_api_url || '',
             evolutionApiKey: data.evolution_api_key || '',
-            instanceName: data.instance_name || '',
+            instanceName: data.evolution_instance_name || '',
             globalMode: data.global_mode || false
           });
         }
@@ -54,53 +56,43 @@ const WhatsAppTab = () => {
     };
 
     fetchSettings();
-  }, [toast]);
+  }, [toast, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     setLoading(true);
 
     try {
+      // Dados a serem salvos
       const settingsData = {
+        user_id: user.id, // Chave para o upsert
         evolution_api_url: formData.evolutionApiUrl,
         evolution_api_key: formData.evolutionApiKey,
-        instance_name: formData.instanceName,
+        evolution_instance_name: formData.instanceName,
         global_mode: formData.globalMode,
-        updated_at: new Date().toISOString()
+        // O campo 'updated_at' é gerenciado automaticamente pelo trigger do banco
       };
 
-      let result;
-      if (settingsId) {
-        // Atualizar configuração existente
-        result = await supabase
-          .from('settings')
-          .update(settingsData)
-          .eq('id', settingsId);
-      } else {
-        // Criar nova configuração (UUID será gerado automaticamente)
-        result = await supabase
-          .from('settings')
-          .insert([settingsData])
-          .select()
-          .single();
-          
-        if (result.data) {
-          setSettingsId(result.data.id);
-        }
-      }
-
-      if (result.error) throw result.error;
+      // Usar upsert para simplificar e garantir a operação correta
+      const { error } = await supabase
+        .from('settings')
+        .upsert(settingsData, {
+          onConflict: 'user_id',
+        });
+      
+      if (error) throw error;
 
       toast({
         title: "Sucesso!",
-        description: "Configurações do WhatsApp atualizadas com sucesso.",
+        description: "Configurações do WhatsApp salvas com sucesso.",
         variant: "default"
       });
     } catch (error) {
       console.error('Erro ao salvar configurações:', error);
       toast({
         title: "Erro",
-        description: "Não foi possível salvar as configurações. Tente novamente.",
+        description: "Não foi possível salvar as configurações. Verifique os dados e tente novamente.",
         variant: "destructive"
       });
     } finally {

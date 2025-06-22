@@ -1,0 +1,143 @@
+Excelente pergunta! Você chegou ao ponto central da automação: como transformar os dados brutos da Evolution API nos dados estruturados que nosso sistema precisa. Vamos detalhar isso passo a passo, usando o seu exemplo.
+
+O seu workflow do n8n (o do "print 1") fará exatamente a "tradução" dos dados da Evolution para a sua tabela `messages` ("print 2").
+
+### **1. Traduzindo os Dados da Evolution API para o Supabase**
+
+Analisando o seu JSON, aqui está o mapeamento exato do que você precisa pegar e o que precisa inserir na sua tabela `messages`:
+
+| Coluna da Tabela `messages` | Valor a ser inserido | De onde vem no JSON da Evolution API |
+| :--- | :--- | :--- |
+| `content` | "Oi" | `body.data.message.conversation` |
+| `sender` | 'client' | Fixo. Essa mensagem sempre vem do cliente. |
+| `sent_at` | `1750531456` | `body.data.messageTimestamp` (Unix Timestamp) |
+| `conversation_id` | *(ver próximo passo)* | Não vem direto. Precisamos descobrir. |
+
+O grande desafio é encontrar o `conversation_id` correto. É aqui que o n8n brilha.
+
+---
+
+### **2. Workflow Robusto no n8n (Com Tratamento de Exceções)**
+
+Este é o passo a passo lógico e detalhado para um workflow que lida com clientes e conversas novos ou existentes.
+
+**Gatilho: Webhook**
+*Recebe o `POST` da Evolution API.*
+
+---
+
+**Nó 1: Extrair e Preparar Dados Iniciais**
+*Pegue os dados essenciais do gatilho.*
+- `customer_phone`: `body.data.key.remoteJid` (Ex: "556481365341@s.whatsapp.net")
+- `message_content`: `body.data.message.conversation` (Ex: "Oi")
+- `message_timestamp`: `body.data.messageTimestamp` (Ex: 1750531456)
+- `instance_name`: `body.instance` (Ex: "caldasIA") **<-- Esta é a chave para diferenciar os usuários!**
+
+---
+
+**Nó 2: Encontrar o Usuário (Dono da Instância)**
+*Use o `instance_name` para descobrir qual dos seus usuários recebeu a mensagem.*
+- **Ação:** `Supabase > Select data`
+- **Tabela:** `settings`
+- **Colunas:** `user_id`
+- **Filtro:** `evolution_instance_name` = `{{ $node["Extrair e Preparar Dados Iniciais"].json.instance_name }}`
+
+---
+
+**Nó 3: Encontrar o Cliente**
+*Use o telefone do cliente e o ID do usuário para ver se já conhecemos esse cliente.*
+- **Ação:** `Supabase > Select data`
+- **Tabela:** `clients`
+- **Colunas:** `id`
+- **Filtros:**
+    - `phone` = `{{ $node["Extrair e Preparar Dados Iniciais"].json.customer_phone }}`
+    - `created_by` = `{{ $node["Encontrar o Usuário (Dono da Instância)"].json.user_id }}`
+
+---
+
+**Nó 4: IF - Cliente Existe?**
+*Verifique se o cliente já existe.*
+- **Ação:** `IF`
+- **Condição:** Verificar se o nó anterior retornou algum item.
+- **Valor 1:** `{{ $node["Encontrar o Cliente"].json }}`
+- **Operação:** `Is Not Empty`
+*Este nó cria duas saídas: `true` (cliente existe) e `false` (cliente não existe).*
+
+---
+
+**Nó 5 (Ramo Falso do Nó 4): Criar Novo Cliente**
+*Este nó só executa se o cliente NÃO foi encontrado.*
+- **Ação:** `Supabase > Insert data`
+- **Tabela:** `clients`
+- **Colunas para Inserir:**
+    - `name`: `{{ $node["Extrair e Preparar Dados Iniciais"].json.customer_phone.split('@')[0] }}` (Usa o número como nome provisório)
+    - `phone`: `{{ $node["Extrair e Preparar Dados Iniciais"].json.customer_phone }}`
+    - `status`: `ativo`
+    - `created_by`: `{{ $node["Encontrar o Usuário (Dono da Instância)"].json.user_id }}`
+
+---
+
+**Nó 6: Unir Ramos de Cliente (Merge)**
+*Juntar as saídas dos ramos `true` e `false`. Agora, temos um `client_id`, seja ele o que foi encontrado (Nó 3) ou o que foi recém-criado (Nó 5).*
+- **Ação:** `Merge`
+- **Modo:** `Merge By Index` ou `Pass-through`
+
+---
+
+**Nó 7: Encontrar a Conversa Ativa**
+*Use o `client_id` para encontrar a conversa existente.*
+- **Ação:** `Supabase > Select data`
+- **Tabela:** `conversations`
+- **Colunas:** `id`
+- **Filtros:**
+    - `client_id` = `{{ $node["Unir Ramos de Cliente"].json.id }}`
+    - `status` = `active`
+
+---
+
+**Nó 8: IF - Conversa Ativa Existe?**
+*Verifique se a conversa ativa existe.*
+- **Ação:** `IF`
+- **Condição:** Verificar se o nó anterior retornou algum item.
+- **Valor 1:** `{{ $node["Encontrar a Conversa Ativa"].json }}`
+- **Operação:** `Is Not Empty`
+
+---
+
+**Nó 9 (Ramo Falso do Nó 8): Criar Nova Conversa**
+*Este nó só executa se uma conversa ativa NÃO foi encontrada.*
+- **Ação:** `Supabase > Insert data`
+- **Tabela:** `conversations`
+- **Colunas para Inserir:**
+    - `client_id`: `{{ $node["Unir Ramos de Cliente"].json.id }}`
+    - `status`: `active`
+    - `started_at`: `{{ new Date($node["Extrair e Preparar Dados Iniciais"].json.message_timestamp * 1000).toISOString() }}`
+    - `last_message_at`: (mesmo valor do `started_at`)
+    - `assigned_to`: `{{ $node["Encontrar o Usuário (Dono da Instância)"].json.user_id }}`
+
+---
+
+**Nó 10: Unir Ramos de Conversa (Merge)**
+*Juntar os ramos da verificação de conversa. Agora, garantidamente temos o `conversation_id` de uma conversa ativa.*
+- **Ação:** `Merge`
+
+---
+
+**Nó 11: Inserir a Mensagem no Supabase**
+*Agora que temos o `conversation_id`, podemos inserir a mensagem.*
+- **Ação:** `Supabase > Insert data`
+- **Tabela:** `messages`
+- **Colunas para inserir:**
+    - `conversation_id`: `{{ $node["Unir Ramos de Conversa"].json.id }}`
+    - `content`: `{{ $node["Extrair e Preparar Dados Iniciais"].json.message_content }}`
+    - `sender`: `client`
+    - `sent_at`: `{{ new Date($node["Extrair e Preparar Dados Iniciais"].json.message_timestamp * 1000).toISOString() }}`
+
+### **3. Como o Sistema se Mantém Funcional e Diferencia os Usuários**
+
+- **O Ponto Chave é a Instância:** A Evolution API informa qual `instance` ("caldasIA") recebeu a mensagem.
+- **Rastreamento no N8N:** Seu n8n usa esse nome de instância para fazer uma busca na sua tabela `settings` e descobrir qual `user_id` está associado a ela.
+- **Dados Isolados:** A partir do momento que o n8n sabe o `user_id`, todas as outras operações (buscar cliente, buscar conversa, inserir mensagem) são feitas dentro do "universo" daquele usuário, garantindo que os dados de um cliente do "Usuário A" nunca se misturem com os do "Usuário B".
+- **Visão no Frontend:** Quando o "Usuário A" está logado, o frontend (especificamente o `ConversationList.tsx`) buscará e mostrará apenas as conversas que estão associadas a ele, completando o ciclo de isolamento de dados.
+
+O seu plano está correto e a arquitetura multi-tenant que montamos garante exatamente essa separação que você precisa.
