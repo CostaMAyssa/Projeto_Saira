@@ -635,57 +635,36 @@ class DashboardService {
 
   // --- Client CRUD Methods ---
   async createClient(clientData: ClientData): Promise<any> {
-    try {
-      // 🔒 CRÍTICO: Verificar autenticação antes de qualquer operação
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) throw new Error('User not authenticated for creating client');
-      const userId = user.id;
+    // Obter a sessão atual para pegar o ID do usuário logado
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
 
-      console.log('DashboardService.createClient: Starting client creation with data:', clientData);
-      
-      // Usar o usuário logado atual, NÃO hardcoded
-      const clientDataForSupabase = {
-        ...clientData,
-        created_by: userId, // 🔒 USAR USUÁRIO LOGADO, NÃO HARDCODED
-        created_at: new Date().toISOString(),
-      };
-
-      console.log("👤 Dados enviados para o Supabase (insert):", clientDataForSupabase);
-      
-      const { data, error } = await supabase
-        .from('clients')
-        .insert([clientDataForSupabase])
-        .select()
-        .single();
-
-      if (error) {
-        // Apenas logar erros quando necessário para debug
-        if (process.env.NODE_ENV === 'development') {
-          console.error('Error creating client in Supabase:', error);
-        }
-        
-        // Tratar erro específico de telefone duplicado
-        if (error.code === '23505' && error.message?.includes('clients_phone_key')) {
-          const duplicatePhoneError = new Error(`O telefone ${clientData.phone} já está cadastrado para outro cliente.`);
-          duplicatePhoneError.name = 'DuplicatePhoneError';
-          throw duplicatePhoneError;
-        }
-        
-        // Tratar outros erros de constraint
-        if (error.code === '23505') {
-          const constraintError = new Error(`Já existe um cliente com esses dados. Verifique se o cliente não foi cadastrado anteriormente.`);
-          constraintError.name = 'DuplicateDataError';
-          throw constraintError;
-        }
-        
-        throw error;
-      }
-      
-      return data;
-    } catch (err) {
-      console.error('DashboardService.createClient: Error creating client:', err);
-      throw err;
+    if (sessionError) {
+      console.error('Error getting session:', sessionError);
+      throw new Error('Não foi possível obter a sessão do usuário.');
     }
+
+    if (!sessionData.session) {
+      throw new Error('Usuário não autenticado.');
+    }
+
+    // Adiciona o ID do usuário que está criando o cliente
+    const clientToInsert = {
+      ...clientData,
+      created_by: sessionData.session.user.id, 
+    };
+
+    const { data, error } = await supabase
+      .from('clients')
+      .insert(clientToInsert)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Supabase error creating client:", error);
+      // Lançar o erro para ser pego pelo bloco catch no componente
+      throw error; 
+    }
+    return data;
   }
 
   async updateClient(clientId: string, clientData: Partial<ClientData>): Promise<any> {

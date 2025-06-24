@@ -4,21 +4,16 @@
 
 ![er_diagram.png](attachment:29fafcaa-892a-4420-9d80-e222452488d7:er_diagram.png)
 
+> **Atenção: Relações com a Tabela `auth.users`**
+>
+> É **crucial** que todas as colunas que referenciam um usuário (`user_id`, `created_by`, `assigned_to`) tenham sua chave estrangeira (Foreign Key) apontando para a tabela `auth.users`, que é a tabela de autenticação interna do Supabase.
+>
+> **NUNCA** relacione estas colunas com a tabela `public.users` (se ela existir). Um erro comum é o Supabase criar a relação com `public.users` por padrão se a tabela `auth` não for especificada explicitamente no schema.
+
+**Nota sobre Gerenciamento de Usuários:**
+Este sistema utiliza o sistema de autenticação integrado do Supabase. Todas as referências a IDs de usuário (como `user_id`, `created_by`, `assigned_to`, etc.) em todas as tabelas são chaves estrangeiras que apontam para a coluna `id` da tabela `auth.users`, gerenciada pelo Supabase.
+
 ## TABELAS PRINCIPAIS
-
-### `users`
-
-| Campo | Tipo | Descrição |
-| --- | --- | --- |
-| `id` | UUID | Identificador único |
-| `name` | string | Nome do usuário |
-| `email` | string | E-mail de login |
-| `password_hash` | string | Hash da senha |
-| `role` | string | `admin`, `agent` |
-| `status` | string | `ativo`, `inativo` |
-| `created_at` | timestamp | Data de criação |
-
----
 
 ### `clients`
 
@@ -30,7 +25,7 @@
 | `email` | string | Email (opcional) |
 | `status` | string | `ativo`, `inativo` |
 | `tags` | string[] | Lista de tags |
-| `created_by` | UUID | ID do user que cadastrou |
+| `created_by` | UUID | FK para `auth.users(id)`. ID do usuário que cadastrou. |
 | `is_vip` | boolean | Cliente VIP? |
 | `profile_type` | string | `regular`, `occasional`, `vip` |
 | `birth_date` | date | Data de nascimento |
@@ -43,25 +38,29 @@
 
 | Campo | Tipo | Descrição |
 | --- | --- | --- |
-| `id` | UUID | Identificador único |
-| `api_url` | string | URL da API do WhatsApp |
-| `api_key` | string | Chave de autenticação da API |
-| `instance_name` | string | Nome da instância do WhatsApp |
-| `created_at` | timestamp | Data de criação |
-| `updated_at` | timestamp | Data de atualização |
+| `id` | UUID | Identificador único (PK). Gerado automaticamente com `uuid_generate_v4()`. |
+| `user_id` | UUID | FK para `auth.users(id)`. **ÚNICO**. Associa a configuração a um usuário. |
+| `evolution_api_url` | TEXT | URL da API da Evolution. |
+| `evolution_api_key` | TEXT | Chave de autenticação da API. |
+| `evolution_instance_name` | TEXT | Nome da instância da Evolution. |
+| `global_mode` | BOOLEAN | Modo global ativado/desativado. |
+| `created_at` | TIMESTAMPTZ | Data de criação. |
+| `updated_at` | TIMESTAMPTZ | Data de atualização. |
+
+**Observação:** Esta tabela possui RLS (Row Level Security) ativada, garantindo que um usuário só pode acessar e gerenciar a sua própria linha de configuração.
 
 ---
 
-### `chats`
+### `conversations`
 
 | Campo | Tipo | Descrição |
 | --- | --- | --- |
-| `id` | UUID | Identificador único |
-| `phone_number` | string | Número do WhatsApp |
-| `name` | string | Nome do contato |
-| `last_message_at` | timestamp | Data da última mensagem |
-| `created_at` | timestamp | Data de criação |
-| `updated_at` | timestamp | Data de atualização |
+| `id` | UUID | Identificador único da conversa |
+| `client_id` | UUID | FK para `clients.id` |
+| `assigned_to` | UUID | FK para `auth.users(id)` (usuário responsável). |
+| `status` | string | `active`, `closed`, `waiting` |
+| `started_at` | timestamp | Início da conversa |
+| `last_message_at` | timestamp | Data da última mensagem (para ordenação) |
 
 ---
 
@@ -69,13 +68,11 @@
 
 | Campo | Tipo | Descrição |
 | --- | --- | --- |
-| `id` | UUID | Identificador único |
-| `chat_id` | UUID | Referência ao chat |
+| `id` | UUID | Identificador único da mensagem |
+| `conversation_id` | UUID | FK para `conversations.id` |
 | `content` | text | Conteúdo da mensagem |
-| `is_from_me` | boolean | Se a mensagem foi enviada pelo usuário |
-| `timestamp` | timestamp | Data/hora da mensagem |
-| `created_at` | timestamp | Data de criação |
-| `updated_at` | timestamp | Data de atualização |
+| `sender` | text | `'user'` (farmácia) ou `'client'` |
+| `sent_at` | timestamp | Data/hora do envio da mensagem |
 
 ---
 
@@ -89,7 +86,7 @@
 | `template` | text | Texto da campanha |
 | `target_audience` | JSON | Regras de segmentação |
 | `status` | string | `ativa`, `pausada`, `agendada` |
-| `created_by` | UUID | Usuário responsável |
+| `created_by` | UUID | FK para `auth.users(id)`. Usuário responsável. |
 | `scheduled_for` | timestamp | Data de execução |
 
 ---
@@ -145,7 +142,7 @@
 | `redirect_url` | string | Página de "obrigado" |
 | `status` | string | `ativo`, `inativo` |
 | `question_count` | int | Total de questões |
-| `created_by` | UUID | Usuário criador |
+| `created_by` | UUID | FK para `auth.users(id)`. Usuário criador. |
 
 ---
 
@@ -153,151 +150,7 @@
 
 | Campo | Tipo | Descrição |
 | --- | --- | --- |
-| `id` | UUID | Identificador |
-| `form_id` | UUID | Formulário respondido |
-| `client_id` | UUID | Cliente que respondeu |
-| `answers` | JSON | Respostas |
-| `submitted_at` | timestamp | Data de envio |
-| `is_valid` | boolean | Resposta válida? |
-
----
-
-### `conversations`
-
-| Campo | Tipo | Descrição |
-| --- | --- | --- |
-| `id` | UUID | Identificador |
-| `client_id` | UUID | Cliente envolvido |
-| `assigned_to` | UUID | Usuário responsável |
-| `status` | string | `active`, `closed`, `waiting` |
-| `started_at` | timestamp | Início da conversa |
-| `closed_at` | timestamp | Encerramento |
-
----
-
-### `tags`
-
-| Campo | Tipo | Descrição |
-| --- | --- | --- |
-| `id` | UUID | Identificador |
-| `name` | string | Nome da tag |
-| `type` | string | `client`, `product`, `campaign` |
-| `color` | string | Cor para exibição |
-| `created_at` | timestamp | Data de criação |
-| `updated_at` | timestamp | Data de atualização |
-
----
-
-### `campaign_tags`
-
-| Campo | Tipo | Descrição |
-| --- | --- | --- |
 | `id` | UUID | Identificador único |
-| `campaign_id` | UUID | Referência à campanha |
-| `tag_id` | UUID | Referência à tag |
-| `created_at` | timestamp | Data de criação |
-
----
-
-## RELACIONAMENTOS ENTRE TABELAS
-
-| Tabela Fonte | → Tabela Alvo | Tipo de Relação | Descrição |
-| --- | --- | --- | --- |
-| `users` | `campaigns` | 1:N | Um usuário pode criar várias campanhas |
-| `users` | `forms` | 1:N | Um usuário pode criar vários formulários |
-| `users` | `clients` | 1:N | Um usuário pode cadastrar vários clientes |
-| `users` | `conversations` | 1:N | Um usuário pode ser responsável por várias conversas |
-
----
-
-| Tabela Fonte | → Tabela Alvo | Tipo de Relação | Descrição |
-| --- | --- | --- | --- |
-| `campaigns` | `campaign_tags` | 1:N | Uma campanha pode ter várias tags |
-| `tags` | `campaign_tags` | 1:N | Uma tag pode estar em várias campanhas |
-
----
-
-| Tabela Fonte | → Tabela Alvo | Tipo de Relação | Descrição |
-| --- | --- | --- | --- |
-| `clients` | `messages` | 1:N | Um cliente pode ter várias mensagens |
-| `clients` | `form_responses` | 1:N | Um cliente pode responder vários formulários |
-| `clients` | `conversations` | 1:N | Um cliente pode ter várias conversas |
-| `clients` | `client_product_associations` | 1:N | Um cliente pode estar associado a vários produtos |
-
----
-
-| Tabela Fonte | → Tabela Alvo | Tipo de Relação | Descrição |
-| --- | --- | --- | --- |
-| `campaigns` | `campaign_executions` | 1:N | Uma campanha pode ser executada várias vezes |
-| `campaigns` | `messages` | 1:N | Uma campanha pode gerar várias mensagens (direto ou via execução) |
-
----
-
-| Tabela Fonte | → Tabela Alvo | Tipo de Relação | Descrição |
-| --- | --- | --- | --- |
-| `forms` | `form_responses` | 1:N | Um formulário pode ter várias respostas |
-
----
-
-| Tabela Fonte | → Tabela Alvo | Tipo de Relação | Descrição |
-| --- | --- | --- | --- |
-| `products` | `client_product_associations` | 1:N | Um produto pode estar vinculado a vários clientes (para lembretes de uso) |
-
----
-
-| Tabela Fonte | Campo de Chave Estrangeira |
-| --- | --- |
-| `messages.chat_id` | → `chats.id` |
-| `messages.client_id` | → `clients.id` |
-| `messages.conversation_id` | → `conversations.id` |
-| `messages.sender` | referenciado via lógica (não FK) |
-| `campaigns.created_by` | → `users.id` |
-| `campaign_tags.campaign_id` | → `campaigns.id` |
-| `campaign_tags.tag_id` | → `tags.id` |
-| `forms.created_by` | → `users.id` |
-| `clients.created_by` | → `users.id` |
-| `form_responses.client_id` | → `clients.id` |
-| `form_responses.form_id` | → `forms.id` |
-| `conversations.client_id` | → `clients.id` |
-| `conversations.assigned_to` | → `users.id` |
-| `campaign_executions.campaign_id` | → `campaigns.id` |
-| `client_product_associations.client_id` | → `clients.id` |
-| `client_product_associations.product_id` | → `products.id` |
-
----
-
-## VIEWS SQL
-
-### `daily_conversations_view`
-
-View para gráficos de conversas diárias (últimos 7 dias).
-
-| Campo | Tipo | Descrição |
-| --- | --- | --- |
-| `date` | date | Data do dia |
-| `day_name` | string | Nome do dia da semana (`Dom`, `Seg`, etc) |
-| `day_order` | int | Ordem do dia da semana (0=Dom, 1=Seg, etc) |
-| `conversation_count` | int | Número de conversas iniciadas neste dia |
-
-**Funcionalidade:** Agrega conversas por dia da semana dos últimos 7 dias, incluindo dias sem conversas (contagem = 0).
-
----
-
-### `monthly_conversations_view`
-
-View para gráficos de conversas mensais (últimos 6 meses).
-
-| Campo | Tipo | Descrição |
-| --- | --- | --- |
-| `month_start` | date | Primeiro dia do mês |
-| `month_name` | string | Nome do mês (`Jan`, `Fev`, etc) |
-| `month_order` | int | Número do mês (1-12) |
-| `conversation_count` | int | Número de conversas iniciadas neste mês |
-
-**Funcionalidade:** Agrega conversas por mês dos últimos 6 meses, incluindo meses sem conversas (contagem = 0).
-
----
-
-| Tabela Fonte | → Tabela Alvo | Tipo de Relação | Descrição |
-| --- | --- | --- | --- |
-| `chats` | `messages` | 1:N | Um chat pode ter várias mensagens |
+| `form_id` | UUID | FK para `forms.id` |
+| `response` | JSON | Resposta do formulário |
+| `submitted_at` | timestamp | Data/hora da submissão |

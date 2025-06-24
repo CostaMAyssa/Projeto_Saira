@@ -1,15 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Credenciais do Supabase
-// JWT para autenticação
+// Credenciais do Supabase - Agora vindas de variáveis de ambiente
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://supapainel.insignemarketing.com.br';
+const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzE1MDUwODAwLAogICJleHAiOiAxODcyODE3MjAwCn0.fT85MMmzeF1BtM3K8NDQm8aYQOVhSDfmjoVuXK_PgIc';
+
+// JWT para autenticação (mantido como fallback)
 const JWT_SECRET = '38fbeb0da9691dd519a94bc6d344bb0405d6a77a';
 
-// Configurações para o Supabase
-const supabaseUrl = 'https://supapainel.insignemarketing.com.br';
-
-// Chaves de acesso
+// Chave de serviço (mantida como fallback)
 const serviceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogInNlcnZpY2Vfcm9sZSIsCiAgImlzcyI6ICJzdXBhYmFzZSIsCiAgImlhdCI6IDE3MTUwNTA4MDAsCiAgImV4cCI6IDE4NzI4MTcyMDAKfQ.ek3IR6aUgUyvile2qJGvt3KcAwrtoX12MXOS5NUaA_c';
-const anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzE1MDUwODAwLAogICJleHAiOiAxODcyODE3MjAwCn0.fT85MMmzeF1BtM3K8NDQm8aYQOVhSDfmjoVuXK_PgIc';
 
 // Singleton para evitar múltiplas instâncias
 let supabaseInstance: ReturnType<typeof createClient> | null = null;
@@ -21,7 +20,14 @@ console.log("Configurando clientes Supabase:", {
   anonKeyStart: anonKey.substring(0, 20) + "..."
 });
 
-// Opções simplificadas para cliente de autenticação
+// Verificar se as variáveis de ambiente estão sendo carregadas
+console.log("Variáveis de ambiente carregadas:", {
+  supabaseUrl: import.meta.env.VITE_SUPABASE_URL ? "✅ Configurada" : "❌ Não configurada",
+  anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY ? "✅ Configurada" : "❌ Não configurada",
+  n8nWebhook: import.meta.env.VITE_N8N_WEBHOOK_URL ? "✅ Configurada" : "❌ Não configurada"
+});
+
+// Opções para cliente de autenticação
 const authOptions = {
   auth: {
     persistSession: true,
