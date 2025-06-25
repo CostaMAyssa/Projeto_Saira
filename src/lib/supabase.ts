@@ -84,10 +84,81 @@ export const testTables = async () => {
   return results;
 };
 
+// 🧪 Função para testar realtime
+export const testRealtime = async () => {
+  console.log('🧪 Testando Realtime...');
+  
+  const testResults = {
+    conversations: { status: 'testing', error: null },
+    messages: { status: 'testing', error: null }
+  };
+
+  try {
+    // Teste para conversations
+    const conversationsChannel = supabase
+      .channel('test-conversations')
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'conversations' 
+        },
+        (payload) => {
+          console.log('✅ Realtime conversations funcionando:', payload);
+          testResults.conversations.status = 'connected';
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Status conversations channel:', status);
+        if (status === 'SUBSCRIBED') {
+          testResults.conversations.status = 'subscribed';
+        }
+      });
+
+    // Teste para messages
+    const messagesChannel = supabase
+      .channel('test-messages')
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'messages' 
+        },
+        (payload) => {
+          console.log('✅ Realtime messages funcionando:', payload);
+          testResults.messages.status = 'connected';
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Status messages channel:', status);
+        if (status === 'SUBSCRIBED') {
+          testResults.messages.status = 'subscribed';
+        }
+      });
+
+    // Aguardar um pouco para ver se conecta
+    await new Promise(resolve => setTimeout(resolve, 3000));
+
+    // Cleanup
+    conversationsChannel.unsubscribe();
+    messagesChannel.unsubscribe();
+
+    console.log('🔔 Resultado do teste Realtime:', testResults);
+    return testResults;
+
+  } catch (error) {
+    console.error('❌ Erro no teste Realtime:', error);
+    return { error: error.message };
+  }
+};
+
 // 🌐 Expor funções no window para debug (apenas em desenvolvimento)
 if (import.meta.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
   window.testSupabaseConnection = testSupabaseConnection;
   window.testTables = testTables;
+  window.testRealtime = testRealtime;
   window.supabaseConfig = supabaseConfig;
   window.supabase = supabase;
 }

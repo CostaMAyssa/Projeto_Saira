@@ -5,6 +5,7 @@ declare global {
   interface Window {
     testSupabaseConnection?: () => Promise<{ success: boolean; error?: string; data?: unknown }>;
     testTables?: () => Promise<Record<string, { success: boolean; error?: string; count?: number }>>;
+    testRealtime: () => Promise<any>;
     supabaseConfig?: {
       status: string;
       url: string;
