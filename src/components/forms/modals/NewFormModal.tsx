@@ -12,9 +12,10 @@ import { useIsMobile } from '@/hooks/use-mobile';
 interface FormField {
   id: string;
   label: string;
-  type: 'text' | 'email' | 'phone' | 'textarea';
+  type: 'text' | 'email' | 'phone' | 'textarea' | 'select' | 'checkbox' | 'date' | 'radio';
   placeholder?: string;
   required: boolean;
+  options?: string[]; // Para select, radio e checkbox
 }
 
 interface NewFormModalProps {
@@ -45,6 +46,7 @@ interface FormFieldConfig {
   type: string;
   placeholder?: string;
   required: boolean;
+  options?: string[]; // Para select, radio e checkbox
 }
 
 const NewFormModal: React.FC<NewFormModalProps> = ({ open, onOpenChange, onSubmit, initialData }) => {
@@ -67,6 +69,7 @@ const NewFormModal: React.FC<NewFormModalProps> = ({ open, onOpenChange, onSubmi
         
         // Parse existing fields
         if (initialData.fields && typeof initialData.fields === 'object' && Object.keys(initialData.fields).length > 0) {
+          console.log('🔍 Parsing campos existentes:', initialData.fields);
           const parsedFields: FormField[] = Object.entries(initialData.fields).map(([key, value], index) => {
             if (typeof value === 'string') {
               return {
@@ -74,19 +77,22 @@ const NewFormModal: React.FC<NewFormModalProps> = ({ open, onOpenChange, onSubmi
                 label: value,
                 type: 'text' as const,
                 placeholder: '',
-                required: true
+                required: true,
+                options: []
               };
             } else if (typeof value === 'object' && value !== null) {
               const fieldConfig = value as FormFieldConfig;
-              const validType = ['text', 'email', 'phone', 'textarea'].includes(fieldConfig.type) 
+              const validType = ['text', 'email', 'phone', 'textarea', 'select', 'checkbox', 'date', 'radio'].includes(fieldConfig.type) 
                 ? fieldConfig.type as FormField['type']
                 : 'text' as const;
+              console.log(`📝 Campo ${key}: tipo=${fieldConfig.type} -> ${validType}, opções:`, fieldConfig.options);
               return {
                 id: key,
                 label: fieldConfig.label || key,
                 type: validType,
                 placeholder: fieldConfig.placeholder || '',
-                required: fieldConfig.required !== false
+                required: fieldConfig.required !== false,
+                options: fieldConfig.options || [] // Preservar as opções existentes
               };
             }
             return {
@@ -94,9 +100,11 @@ const NewFormModal: React.FC<NewFormModalProps> = ({ open, onOpenChange, onSubmi
               label: key,
               type: 'text' as const,
               placeholder: '',
-              required: true
+              required: true,
+              options: []
             };
           });
+          console.log('✅ Campos parseados:', parsedFields);
           setFields(parsedFields);
         } else {
           // Adicionar campos padrão se não houver campos
@@ -130,7 +138,8 @@ const NewFormModal: React.FC<NewFormModalProps> = ({ open, onOpenChange, onSubmi
         label: field.label,
         type: field.type,
         placeholder: field.placeholder,
-        required: field.required
+        required: field.required,
+        options: field.options
       };
     });
 
@@ -153,7 +162,8 @@ const NewFormModal: React.FC<NewFormModalProps> = ({ open, onOpenChange, onSubmi
       label: 'Novo campo',
       type: 'text',
       placeholder: '',
-      required: true
+      required: true,
+      options: [] // Inicializar com array vazio
     };
     setFields([...fields, newField]);
   };
@@ -161,6 +171,19 @@ const NewFormModal: React.FC<NewFormModalProps> = ({ open, onOpenChange, onSubmi
   const updateField = (index: number, updates: Partial<FormField>) => {
     const updatedFields = [...fields];
     updatedFields[index] = { ...updatedFields[index], ...updates };
+    
+    // Se o tipo foi alterado para um que precisa de opções, garantir que tenha pelo menos 2
+    if (updates.type && ['select', 'radio', 'checkbox'].includes(updates.type)) {
+      if (!updatedFields[index].options || updatedFields[index].options!.length < 2) {
+        updatedFields[index].options = ['Opção 1', 'Opção 2'];
+      }
+    }
+    
+    // Se o tipo foi alterado para um que não precisa de opções, limpar as opções
+    if (updates.type && !['select', 'radio', 'checkbox'].includes(updates.type)) {
+      updatedFields[index].options = [];
+    }
+    
     setFields(updatedFields);
   };
 
@@ -213,20 +236,77 @@ const NewFormModal: React.FC<NewFormModalProps> = ({ open, onOpenChange, onSubmi
                 <SelectItem value="email">E-mail</SelectItem>
                 <SelectItem value="phone">Telefone</SelectItem>
                 <SelectItem value="textarea">Texto longo</SelectItem>
+                <SelectItem value="select">Lista suspensa</SelectItem>
+                <SelectItem value="radio">Múltipla escolha</SelectItem>
+                <SelectItem value="checkbox">Caixas de seleção</SelectItem>
+                <SelectItem value="date">Data</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
         
-        <div>
-          <Label className="text-xs text-gray-600">Placeholder (texto de ajuda)</Label>
-          <Input
-            value={field.placeholder}
-            onChange={(e) => updateField(index, { placeholder: e.target.value })}
-            placeholder="Ex: Digite seu nome completo"
-            className="h-8 text-sm"
-          />
-        </div>
+        {!['select', 'radio', 'checkbox', 'date'].includes(field.type) && (
+          <div>
+            <Label className="text-xs text-gray-600">Placeholder (texto de ajuda)</Label>
+            <Input
+              value={field.placeholder || ''}
+              onChange={(e) => updateField(index, { placeholder: e.target.value })}
+              placeholder="Ex: Digite seu nome completo"
+              className="h-8 text-sm"
+            />
+          </div>
+        )}
+
+        {['select', 'radio', 'checkbox'].includes(field.type) && (
+          <div>
+            <Label className="text-xs text-gray-600 mb-2 block">Opções do campo</Label>
+            <div className="space-y-2 mb-3">
+              {(field.options || []).map((option, optionIndex) => (
+                <div key={optionIndex} className="flex items-center gap-2">
+                  <Input
+                    value={option}
+                    onChange={(e) => {
+                      const newOptions = [...(field.options || [])];
+                      newOptions[optionIndex] = e.target.value;
+                      updateField(index, { options: newOptions });
+                    }}
+                    placeholder={`Opção ${optionIndex + 1}`}
+                    className="flex-1 h-8 text-sm"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const newOptions = (field.options || []).filter((_, i) => i !== optionIndex);
+                      updateField(index, { options: newOptions });
+                    }}
+                    className="text-red-500 hover:text-red-700 h-8 w-8 p-0"
+                    disabled={(field.options || []).length <= 2}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const newOptions = [...(field.options || []), ''];
+                updateField(index, { options: newOptions });
+              }}
+              className="w-full h-8 text-xs"
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              Adicionar Opção
+            </Button>
+            <p className="text-xs text-gray-500 mt-2">
+              Mínimo 2 opções necessárias
+            </p>
+          </div>
+        )}
 
         <div className="flex items-center justify-between">
           <Label className="text-xs text-gray-600">Campo obrigatório</Label>

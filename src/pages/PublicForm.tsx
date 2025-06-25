@@ -4,6 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CheckCircle, AlertCircle, ArrowLeft } from 'lucide-react';
@@ -23,10 +26,11 @@ interface FormFieldConfig {
   type: string;
   placeholder?: string;
   required: boolean;
+  options?: string[]; // Para select, radio e checkbox
 }
 
 interface FormResponse {
-  [key: string]: string;
+  [key: string]: string | string[]; // Permitir arrays para checkbox
 }
 
 const PublicForm: React.FC = () => {
@@ -91,17 +95,61 @@ const PublicForm: React.FC = () => {
     fetchForm();
   }, [id]);
 
-  const handleInputChange = (fieldKey: string, value: string) => {
+  const handleInputChange = (fieldKey: string, value: string | string[]) => {
     setResponses(prev => ({
       ...prev,
       [fieldKey]: value
     }));
   };
 
+  const handleCheckboxChange = (fieldKey: string, option: string, checked: boolean) => {
+    setResponses(prev => {
+      const currentValues = Array.isArray(prev[fieldKey]) ? prev[fieldKey] as string[] : [];
+      
+      if (checked) {
+        return {
+          ...prev,
+          [fieldKey]: [...currentValues, option]
+        };
+      } else {
+        return {
+          ...prev,
+          [fieldKey]: currentValues.filter(val => val !== option)
+        };
+      }
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!form || !id) return;
+
+    // Validação personalizada para campos obrigatórios
+    const requiredFields = Object.entries(form.fields).filter(([_, fieldConfig]) => {
+      const config = typeof fieldConfig === 'string' 
+        ? { required: true } 
+        : fieldConfig;
+      return config.required !== false;
+    });
+
+    for (const [fieldKey, fieldConfig] of requiredFields) {
+      const config = typeof fieldConfig === 'string' 
+        ? { type: 'text', required: true, label: fieldConfig } 
+        : fieldConfig as FormFieldConfig;
+      
+      const value = responses[fieldKey];
+      
+      // Validar campos vazios
+      if (!value || 
+          (typeof value === 'string' && value.trim() === '') ||
+          (Array.isArray(value) && value.length === 0)) {
+        
+        const label = config.label || fieldKey;
+        toast.error(`O campo "${label}" é obrigatório.`);
+        return;
+      }
+    }
 
     setSubmitting(true);
     
@@ -202,14 +250,111 @@ const PublicForm: React.FC = () => {
     // Se fieldValue é uma string, usar como label
     // Se é um objeto, pode ter type, label, placeholder, etc.
     const fieldConfig = typeof fieldValue === 'string' 
-      ? { label: fieldValue, type: 'text' }
-      : fieldValue;
+      ? { label: fieldValue, type: 'text', placeholder: '', required: true }
+      : { ...fieldValue, placeholder: fieldValue.placeholder || '', required: fieldValue.required !== false };
 
     const label = fieldConfig.label || fieldKey;
     const type = fieldConfig.type || 'text';
     const placeholder = fieldConfig.placeholder || `Digite ${label.toLowerCase()}`;
     const required = fieldConfig.required !== false; // Default para true
+    const options = fieldConfig.options || [];
 
+    // Campo de data
+    if (type === 'date') {
+      return (
+        <div key={fieldKey} className="space-y-2">
+          <Label htmlFor={fieldKey} className="text-gray-700">
+            {label} {required && <span className="text-red-500">*</span>}
+          </Label>
+          <Input
+            id={fieldKey}
+            type="date"
+            value={value as string}
+            onChange={(e) => handleInputChange(fieldKey, e.target.value)}
+            required={required}
+            className="bg-white border-gray-300"
+          />
+        </div>
+      );
+    }
+
+    // Campo de seleção (dropdown)
+    if (type === 'select') {
+      return (
+        <div key={fieldKey} className="space-y-2">
+          <Label htmlFor={fieldKey} className="text-gray-700">
+            {label} {required && <span className="text-red-500">*</span>}
+          </Label>
+          <Select value={value as string} onValueChange={(val) => handleInputChange(fieldKey, val)} required={required}>
+            <SelectTrigger className="bg-white border-gray-300">
+              <SelectValue placeholder={`Selecione ${label.toLowerCase()}`} />
+            </SelectTrigger>
+            <SelectContent>
+              {options.map((option, index) => (
+                <SelectItem key={index} value={option}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      );
+    }
+
+    // Campo de múltipla escolha (radio)
+    if (type === 'radio') {
+      return (
+        <div key={fieldKey} className="space-y-2">
+          <Label className="text-gray-700">
+            {label} {required && <span className="text-red-500">*</span>}
+          </Label>
+          <RadioGroup 
+            value={value as string} 
+            onValueChange={(val) => handleInputChange(fieldKey, val)}
+            className="space-y-2"
+            required={required}
+          >
+            {options.map((option, index) => (
+              <div key={index} className="flex items-center space-x-2">
+                <RadioGroupItem value={option} id={`${fieldKey}-${index}`} />
+                <Label htmlFor={`${fieldKey}-${index}`} className="text-gray-700 cursor-pointer">
+                  {option}
+                </Label>
+              </div>
+            ))}
+          </RadioGroup>
+        </div>
+      );
+    }
+
+    // Campo de checkbox (múltiplas seleções)
+    if (type === 'checkbox') {
+      const selectedValues = Array.isArray(value) ? value : [];
+      
+      return (
+        <div key={fieldKey} className="space-y-2">
+          <Label className="text-gray-700">
+            {label} {required && <span className="text-red-500">*</span>}
+          </Label>
+          <div className="space-y-2">
+            {options.map((option, index) => (
+              <div key={index} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`${fieldKey}-${index}`}
+                  checked={selectedValues.includes(option)}
+                  onCheckedChange={(checked) => handleCheckboxChange(fieldKey, option, !!checked)}
+                />
+                <Label htmlFor={`${fieldKey}-${index}`} className="text-gray-700 cursor-pointer">
+                  {option}
+                </Label>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // Campo de texto longo
     if (type === 'textarea') {
       return (
         <div key={fieldKey} className="space-y-2">
@@ -218,7 +363,7 @@ const PublicForm: React.FC = () => {
           </Label>
           <Textarea
             id={fieldKey}
-            value={value}
+            value={value as string}
             onChange={(e) => handleInputChange(fieldKey, e.target.value)}
             placeholder={placeholder}
             required={required}
@@ -229,6 +374,7 @@ const PublicForm: React.FC = () => {
       );
     }
 
+    // Campos de texto padrão (text, email, phone)
     return (
       <div key={fieldKey} className="space-y-2">
         <Label htmlFor={fieldKey} className="text-gray-700">
@@ -236,8 +382,8 @@ const PublicForm: React.FC = () => {
         </Label>
         <Input
           id={fieldKey}
-          type={type}
-          value={value}
+          type={type === 'email' ? 'email' : type === 'phone' ? 'tel' : 'text'}
+          value={value as string}
           onChange={(e) => handleInputChange(fieldKey, e.target.value)}
           placeholder={placeholder}
           required={required}
