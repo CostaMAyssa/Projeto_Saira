@@ -1,67 +1,96 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Credenciais do Supabase - Agora vindas de variáveis de ambiente
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://supapainel.insignemarketing.com.br';
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogImFub24iLAogICJpc3MiOiAic3VwYWJhc2UiLAogICJpYXQiOiAxNzE1MDUwODAwLAogICJleHAiOiAxODcyODE3MjAwCn0.fT85MMmzeF1BtM3K8NDQm8aYQOVhSDfmjoVuXK_PgIc';
+// 🔧 NOVA CONFIGURAÇÃO - SUPABASE SaaS
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://svkgfvfhmngcvfsjpero.supabase.co';
+const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN2a2dmdmZobW5nY3Zmc2pwZXJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4NTcxNDAsImV4cCI6MjA2NjQzMzE0MH0.sX6QdL0qJkCEfolVuNHuiPD9dZHAujfQXOhZENAEAfc';
 
-// JWT para autenticação (mantido como fallback)
-const JWT_SECRET = '38fbeb0da9691dd519a94bc6d344bb0405d6a77a';
+// ⚠️ REMOVIDO: Configurações da instância local antiga
+// const JWT_SECRET = '38fbeb0da9691dd519a94bc6d344bb0405d6a77a'; 
+// const serviceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // Chave antiga removida
 
-// Chave de serviço (mantida como fallback)
-const serviceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ewogICJyb2xlIjogInNlcnZpY2Vfcm9sZSIsCiAgImlzcyI6ICJzdXBhYmFzZSIsCiAgImlhdCI6IDE3MTUwNTA4MDAsCiAgImV4cCI6IDE4NzI4MTcyMDAKfQ.ek3IR6aUgUyvile2qJGvt3KcAwrtoX12MXOS5NUaA_c';
-
-// Singleton para evitar múltiplas instâncias
-let supabaseInstance: ReturnType<typeof createClient> | null = null;
-let supabaseAdminInstance: ReturnType<typeof createClient> | null = null;
-
-console.log("Configurando clientes Supabase:", {
-  url: supabaseUrl,
-  serviceKeyStart: serviceKey.substring(0, 20) + "...",
-  anonKeyStart: anonKey.substring(0, 20) + "..."
-});
-
-// Verificar se as variáveis de ambiente estão sendo carregadas
-console.log("Variáveis de ambiente carregadas:", {
-  supabaseUrl: import.meta.env.VITE_SUPABASE_URL ? "✅ Configurada" : "❌ Não configurada",
-  anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY ? "✅ Configurada" : "❌ Não configurada",
-  n8nWebhook: import.meta.env.VITE_N8N_WEBHOOK_URL ? "✅ Configurada" : "❌ Não configurada"
-});
-
-// Opções para cliente de autenticação
-const authOptions = {
+// 🚀 Cliente Supabase principal
+export const supabase = createClient(supabaseUrl, anonKey, {
   auth: {
-    persistSession: true,
     autoRefreshToken: true,
-    debug: false,
-    storageKey: 'sb-green-pharmacy-auth',
-  },
-};
-
-// Opções para cliente administrativo
-const adminOptions = {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-  },
-};
-
-// Função para criar ou retornar instância singleton do cliente principal
-const getSupabaseClient = () => {
-  if (!supabaseInstance) {
-    supabaseInstance = createClient(supabaseUrl, anonKey, authOptions);
-    console.log("Cliente Supabase principal criado");
+    persistSession: true,
+    detectSessionInUrl: true
   }
-  return supabaseInstance;
+});
+
+// 📊 Status da configuração
+export const supabaseConfig = {
+  status: "✅ Conectado ao Supabase SaaS",
+  url: supabaseUrl,
+  project: "svkgfvfhmngcvfsjpero",
+  environment: import.meta.env.NODE_ENV || 'development',
+  supabaseUrl: import.meta.env.VITE_SUPABASE_URL ? "✅ Configurada via .env" : "⚠️ Usando fallback hardcoded",
+  anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY ? "✅ Configurada via .env" : "⚠️ Usando fallback hardcoded",
 };
 
-// Função para criar ou retornar instância singleton do cliente admin
-const getSupabaseAdminClient = () => {
-  if (!supabaseAdminInstance) {
-    supabaseAdminInstance = createClient(supabaseUrl, serviceKey, adminOptions);
-    console.log("Cliente Supabase admin criado");
+// 🔍 Debug: Log da configuração (apenas em desenvolvimento)
+if (import.meta.env.NODE_ENV === 'development') {
+  console.log('🔧 Supabase Config:', supabaseConfig);
+}
+
+// 🧪 Função para testar conexão
+export const testSupabaseConnection = async () => {
+  try {
+    console.log('🧪 Testando conexão com Supabase...');
+    const { data, error } = await supabase
+      .from('clients')
+      .select('id')
+      .limit(1);
+    
+    if (error) {
+      console.error('❌ Erro na conexão Supabase:', error);
+      return { success: false, error: error.message };
+    }
+    
+    console.log('✅ Conexão Supabase funcionando!');
+    return { success: true, data };
+  } catch (err) {
+    console.error('❌ Erro crítico na conexão:', err);
+    return { success: false, error: 'Erro crítico na conexão' };
   }
-  return supabaseAdminInstance;
 };
+
+// 🧪 Função para testar tabelas específicas
+export const testTables = async () => {
+  const tables = ['clients', 'products', 'forms', 'campaigns'];
+  const results = {};
+  
+  console.log('🧪 Testando tabelas...');
+  
+  for (const table of tables) {
+    try {
+      const { data, error } = await supabase
+        .from(table)
+        .select('id')
+        .limit(1);
+      
+      if (error) {
+        console.error(`❌ Erro na tabela ${table}:`, error);
+        results[table] = { success: false, error: error.message };
+      } else {
+        console.log(`✅ Tabela ${table} OK`);
+        results[table] = { success: true, count: data?.length || 0 };
+      }
+    } catch (err) {
+      console.error(`❌ Erro crítico na tabela ${table}:`, err);
+      results[table] = { success: false, error: 'Erro crítico' };
+    }
+  }
+  
+  return results;
+};
+
+// 🌐 Expor funções no window para debug (apenas em desenvolvimento)
+if (import.meta.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+  window.testSupabaseConnection = testSupabaseConnection;
+  window.testTables = testTables;
+  window.supabaseConfig = supabaseConfig;
+  window.supabase = supabase;
+}
 
 // Verificar se estamos online
 const isOnline = window.navigator.onLine;
@@ -69,8 +98,12 @@ console.log("Status de conexão:", isOnline ? "Online" : "Offline");
 console.log("Inicializando Supabase com URL:", supabaseUrl);
 
 // Exportar clientes singleton
-export const supabase = getSupabaseClient();
-export const supabaseAdmin = getSupabaseAdminClient();
+export const supabaseAdmin = createClient(supabaseUrl, anonKey, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+  }
+});
 
 console.log("Clientes Supabase inicializados:", {
   auth: !!supabase,
