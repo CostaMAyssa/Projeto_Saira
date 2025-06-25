@@ -1,13 +1,13 @@
-
 import React from 'react';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { useIsMobile } from '@/hooks/use-mobile';
 import SettingsTabs from './components/SettingsTabs';
 import ProfileTab from './tabs/ProfileTab';
 import WhatsAppTab from './tabs/WhatsAppTab';
-import NotificationsTab from './tabs/NotificationsTab';
+// TODO: Implementar funcionalidades antes de descomentar
+// import NotificationsTab from './tabs/NotificationsTab';
 import SecurityTab from './tabs/SecurityTab';
-import UsersTab from './tabs/UsersTab';
+// import UsersTab from './tabs/UsersTab';
 
 const SettingsModule = () => {
   const isMobile = useIsMobile();
@@ -27,17 +27,21 @@ const SettingsModule = () => {
           <WhatsAppTab />
         </TabsContent>
         
+        {/* TODO: Implementar funcionalidade de notificações
         <TabsContent value="notifications">
           <NotificationsTab />
         </TabsContent>
+        */}
         
         <TabsContent value="security">
           <SecurityTab />
         </TabsContent>
         
+        {/* TODO: Implementar funcionalidade de usuários e permissões
         <TabsContent value="users">
           <UsersTab />
         </TabsContent>
+        */}
       </Tabs>
     </div>
   );

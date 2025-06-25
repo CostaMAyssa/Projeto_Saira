@@ -7,7 +7,7 @@ import { useSupabase } from '@/contexts/SupabaseContext';
 import { toast } from '@/components/ui/use-toast';
 
 const ProfileTab = () => {
-  const { user, session } = useSupabase();
+  const { user, session, supabase } = useSupabase();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.user_metadata?.name || '',

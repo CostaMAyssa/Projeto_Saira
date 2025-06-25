@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { User, Phone, Bell, Lock, Shield } from 'lucide-react';
@@ -21,18 +20,22 @@ const SettingsTabs: React.FC<SettingsTabsProps> = ({ defaultValue }) => {
         <Phone className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
         {!isMobile && "WhatsApp"}
       </TabsTrigger>
+      {/* TODO: Implementar funcionalidade de notificações
       <TabsTrigger value="notifications" className="data-[state=active]:bg-pharmacy-accent data-[state=active]:text-white text-pharmacy-text1 text-xs md:text-sm">
         <Bell className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
         {!isMobile && "Notificações"}
       </TabsTrigger>
+      */}
       <TabsTrigger value="security" className="data-[state=active]:bg-pharmacy-accent data-[state=active]:text-white text-pharmacy-text1 text-xs md:text-sm">
         <Lock className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
         {!isMobile && "Segurança"}
       </TabsTrigger>
+      {/* TODO: Implementar funcionalidade de usuários e permissões
       <TabsTrigger value="users" className="data-[state=active]:bg-pharmacy-accent data-[state=active]:text-white text-pharmacy-text1 text-xs md:text-sm">
         <Shield className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
         {!isMobile && "Usuários e Permissões"}
       </TabsTrigger>
+      */}
     </TabsList>
   );
 };
