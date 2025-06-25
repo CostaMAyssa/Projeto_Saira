@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
+import PublicForm from "./pages/PublicForm";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           {/* Rotas públicas */}
           <Route path="/" element={<Login />} />
           <Route path="/registro" element={<Register />} />
+          <Route path="/public/forms/:id" element={<PublicForm />} />
 
           {/* Rota protegida principal */}
           <Route element={<ProtectedRoute />}>

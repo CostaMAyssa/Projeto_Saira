@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -6,301 +5,335 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea'; // Added Textarea import
-import { FileText, Plus, Edit3 } from 'lucide-react'; // Added Edit3 for edit mode
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { FileText, Plus, Edit3, Trash2, GripVertical } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
+
+interface FormField {
+  id: string;
+  label: string;
+  type: 'text' | 'email' | 'phone' | 'textarea';
+  placeholder?: string;
+  required: boolean;
+}
 
 interface NewFormModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (formData: {
-    id?: string; // Added id for editing
+    id?: string;
     name: string;
     questions: number;
     status: 'active' | 'inactive';
-    fields?: any; // Added fields
-    redirect_url?: string; // Added redirect_url
-    createdAt?: string; // Kept createdAt as optional, might be needed by FormsModule
+    fields?: Record<string, FormFieldConfig>;
+    redirect_url?: string;
+    createdAt?: string;
   }) => void;
-  initialData?: { // Added initialData for editing
+  initialData?: {
     id: string;
     name: string;
     questions: number;
     status: 'active' | 'inactive';
-    fields?: any;
+    fields?: Record<string, FormFieldConfig>;
     redirect_url?: string;
     createdAt?: string;
   } | null;
 }
 
-interface FormTemplate {
-  name: string;
-  description: string;
-  questions: number;
+interface FormFieldConfig {
+  label: string;
+  type: string;
+  placeholder?: string;
+  required: boolean;
 }
 
 const NewFormModal: React.FC<NewFormModalProps> = ({ open, onOpenChange, onSubmit, initialData }) => {
-  const [formName, setFormName] = useState('');
-  const [templateType, setTemplateType] = useState(''); // This might need to be disabled/hidden in edit mode
-  const [numQuestions, setNumQuestions] = useState(5);
+  const [name, setName] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [redirectUrl, setRedirectUrl] = useState('');
-  const [fieldsJsonString, setFieldsJsonString] = useState('');
+  const [fields, setFields] = useState<FormField[]>([]);
+  
   const isMobile = useIsMobile();
+  const isEditing = Boolean(initialData);
 
-  const isEditing = !!initialData;
-
+  // Reset form when modal opens/closes or initialData changes
   useEffect(() => {
-    if (initialData) {
-      setFormName(initialData.name);
-      setNumQuestions(initialData.questions);
-      setIsActive(initialData.status === 'active');
-      setRedirectUrl(initialData.redirect_url || '');
-      setFieldsJsonString(JSON.stringify(initialData.fields || {}, null, 2));
-      // Template selection is disabled/hidden when editing
-      setTemplateType('custom'); // Or some other way to signify template doesn't apply
-    } else {
-      // Reset for new form
-      setFormName('');
-      setTemplateType('');
-      setNumQuestions(5);
-      setIsActive(true);
-      setRedirectUrl('');
-      setFieldsJsonString('');
-    }
-  }, [initialData, open]); // Re-run if initialData or open status changes
-
-  const templates: Record<string, FormTemplate> = {
-    satisfaction: {
-      name: 'Pesquisa de Satisfação',
-      description: 'Modelo para avaliar a satisfação dos clientes com os serviços da farmácia.',
-      questions: 8
-    },
-    registration: {
-      name: 'Cadastro de Cliente',
-      description: 'Formulário para registrar novos clientes com informações básicas e de saúde.',
-      questions: 12
-    },
-    medical: {
-      name: 'Histórico Médico',
-      description: 'Coleta de informações médicas relevantes para acompanhamento farmacêutico.',
-      questions: 15
-    },
-    feedback: {
-      name: 'Feedback de Atendimento',
-      description: 'Avaliação do atendimento recebido na farmácia.',
-      questions: 6
-    },
-    custom: {
-      name: 'Personalizado',
-      description: 'Crie um formulário do zero com suas próprias perguntas.',
-      questions: 5
-    }
-  };
-
-  const handleSubmit = () => {
-    if (!formName.trim()) {
-      // Basic validation, consider adding more specific error messages (e.g., using a toast library)
-      return;
-    }
-
-    let fieldsData = {};
-    if (fieldsJsonString.trim()) {
-      try {
-        fieldsData = JSON.parse(fieldsJsonString);
-      } catch (e) {
-        console.error("Invalid JSON for fields", e);
-        // alert('JSON dos campos do formulário é inválido.'); // Simple feedback, replace with better UX
-        // Consider adding a state for JSON validation error and displaying it near the textarea
-        return; // Prevent submission
+    if (open) {
+      if (initialData) {
+        // Editing mode - populate with existing data
+        setName(initialData.name || '');
+        setIsActive(initialData.status === 'active');
+        setRedirectUrl(initialData.redirect_url || '');
+        
+        // Parse existing fields
+        if (initialData.fields && typeof initialData.fields === 'object' && Object.keys(initialData.fields).length > 0) {
+          const parsedFields: FormField[] = Object.entries(initialData.fields).map(([key, value], index) => {
+            if (typeof value === 'string') {
+              return {
+                id: `field_${index}`,
+                label: value,
+                type: 'text' as const,
+                placeholder: '',
+                required: true
+              };
+            } else if (typeof value === 'object' && value !== null) {
+              const fieldConfig = value as FormFieldConfig;
+              const validType = ['text', 'email', 'phone', 'textarea'].includes(fieldConfig.type) 
+                ? fieldConfig.type as FormField['type']
+                : 'text' as const;
+              return {
+                id: key,
+                label: fieldConfig.label || key,
+                type: validType,
+                placeholder: fieldConfig.placeholder || '',
+                required: fieldConfig.required !== false
+              };
+            }
+            return {
+              id: key,
+              label: key,
+              type: 'text' as const,
+              placeholder: '',
+              required: true
+            };
+          });
+          setFields(parsedFields);
+        } else {
+          // Adicionar campos padrão se não houver campos
+          setFields([
+            { id: 'nome', label: 'Nome completo', type: 'text', placeholder: 'Digite seu nome completo', required: true },
+            { id: 'email', label: 'E-mail', type: 'email', placeholder: 'Digite seu e-mail', required: true },
+            { id: 'telefone', label: 'Telefone', type: 'phone', placeholder: 'Digite seu telefone', required: true }
+          ]);
+        }
+      } else {
+        // Creation mode - reset to defaults
+        setName('');
+        setIsActive(true);
+        setRedirectUrl('');
+        setFields([
+          { id: 'nome', label: 'Nome completo', type: 'text', placeholder: 'Digite seu nome completo', required: true },
+          { id: 'email', label: 'E-mail', type: 'email', placeholder: 'Digite seu e-mail', required: true },
+          { id: 'telefone', label: 'Telefone', type: 'phone', placeholder: 'Digite seu telefone', required: true }
+        ]);
       }
     }
+  }, [open, initialData]);
 
-    const dataToSubmit: {
-      id?: string;
-      name: string;
-      questions: number;
-      status: 'active' | 'inactive';
-      fields?: any;
-      redirect_url?: string;
-      createdAt?: string;
-    } = {
-      name: formName,
-      questions: numQuestions,
-      status: isActive ? 'active' : 'inactive',
-      redirect_url: redirectUrl.trim() || undefined, // Send undefined if empty to potentially clear it
-      fields: fieldsData,
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Convert fields array to the format expected by the database
+    const fieldsObject: Record<string, FormFieldConfig> = {};
+    fields.forEach(field => {
+      fieldsObject[field.id] = {
+        label: field.label,
+        type: field.type,
+        placeholder: field.placeholder,
+        required: field.required
+      };
+    });
+
+    const formData = {
+      id: initialData?.id,
+      name,
+      questions: fields.length,
+      status: isActive ? 'active' as const : 'inactive' as const,
+      fields: fieldsObject,
+      redirect_url: redirectUrl,
+      createdAt: initialData?.createdAt,
     };
 
-    if (isEditing && initialData?.id) {
-      dataToSubmit.id = initialData.id;
-      // If backend expects createdAt on update, and it was part of initialData
-      // if (initialData.createdAt) {
-      //   dataToSubmit.createdAt = initialData.createdAt;
-      // }
-    } else {
-      // For new forms, if your onSubmit prop still strictly requires createdAt (even if backend generates it)
-      // const currentDate = new Date();
-      // dataToSubmit.createdAt = `${currentDate.getDate().toString().padStart(2, '0')}/${(currentDate.getMonth() + 1).toString().padStart(2, '0')}/${currentDate.getFullYear()}`;
-      // However, the prompt implies FormsModule handles createdAt, so it might not be needed here for new forms either.
-      // Let's assume onSubmit is flexible or FormsModule handles it.
-    }
-
-    onSubmit(dataToSubmit);
-
-    if (!isEditing) { // Reset form only if it's a new form submission
-      setFormName('');
-      setTemplateType('');
-      setNumQuestions(5);
-      setIsActive(true);
-      setRedirectUrl('');
-      setFieldsJsonString('');
-    }
-    onOpenChange(false); // Close modal in both cases
+    onSubmit(formData);
   };
 
-  const handleTemplateChange = (value: string) => {
-    if (isEditing) return; // Don't change things if editing
-    setTemplateType(value);
-    if (value !== 'custom') {
-      const template = templates[value];
-      setFormName(template.name);
-      setNumQuestions(template.questions);
-    } else {
-      setFormName('');
-      setNumQuestions(5);
+  const addField = () => {
+    const newField: FormField = {
+      id: `campo_${Date.now()}`,
+      label: 'Novo campo',
+      type: 'text',
+      placeholder: '',
+      required: true
+    };
+    setFields([...fields, newField]);
+  };
+
+  const updateField = (index: number, updates: Partial<FormField>) => {
+    const updatedFields = [...fields];
+    updatedFields[index] = { ...updatedFields[index], ...updates };
+    setFields(updatedFields);
+  };
+
+  const removeField = (index: number) => {
+    if (fields.length > 1) { // Manter pelo menos um campo
+      setFields(fields.filter((_, i) => i !== index));
     }
   };
 
-  // Helper for JSON validation feedback (optional)
-  // const isJsonValid = (str: string) => {
-  //   if (!str.trim()) return true; // Empty is fine, will default to {}
-  //   try {
-  //     JSON.parse(str);
-  //   } catch (e) {
-  //     return false;
-  //   }
-  //   return true;
-  // };
+  const renderField = (field: FormField, index: number) => (
+    <Card key={field.id} className="mb-4">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <GripVertical className="h-4 w-4 text-gray-400" />
+            <CardTitle className="text-sm font-medium">Campo {index + 1}</CardTitle>
+          </div>
+          {fields.length > 1 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => removeField(index)}
+              className="text-red-500 hover:text-red-700 h-8 w-8 p-0"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs text-gray-600">Rótulo do campo</Label>
+            <Input
+              value={field.label}
+              onChange={(e) => updateField(index, { label: e.target.value })}
+              placeholder="Ex: Nome completo"
+              className="h-8 text-sm"
+            />
+          </div>
+          <div>
+            <Label className="text-xs text-gray-600">Tipo do campo</Label>
+            <Select value={field.type} onValueChange={(value: FormField['type']) => updateField(index, { type: value })}>
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="text">Texto</SelectItem>
+                <SelectItem value="email">E-mail</SelectItem>
+                <SelectItem value="phone">Telefone</SelectItem>
+                <SelectItem value="textarea">Texto longo</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        
+        <div>
+          <Label className="text-xs text-gray-600">Placeholder (texto de ajuda)</Label>
+          <Input
+            value={field.placeholder}
+            onChange={(e) => updateField(index, { placeholder: e.target.value })}
+            placeholder="Ex: Digite seu nome completo"
+            className="h-8 text-sm"
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <Label className="text-xs text-gray-600">Campo obrigatório</Label>
+          <Switch
+            checked={field.required}
+            onCheckedChange={(checked) => updateField(index, { required: checked })}
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-white sm:max-w-[550px] p-4 md:p-6 max-w-[95vw] md:max-w-[550px]">
-        <DialogHeader>
-          <DialogTitle className="text-lg md:text-xl font-semibold text-gray-900 flex items-center gap-2">
-            {isEditing ? <Edit3 className="h-5 w-5 text-pharmacy-accent" /> : <FileText className="h-5 w-5 text-pharmacy-accent" />}
+      <DialogContent className={`${isMobile ? 'w-[95vw] max-w-[95vw] h-[95vh] max-h-[95vh]' : 'max-w-2xl max-h-[90vh]'} overflow-hidden flex flex-col`}>
+        <DialogHeader className="flex-shrink-0">
+          <DialogTitle className="flex items-center gap-2 text-gray-900">
+            {isEditing ? <Edit3 className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
             {isEditing ? 'Editar Formulário' : 'Novo Formulário'}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="py-2 md:py-4 space-y-4">
-          {!isEditing && ( // Hide template selection when editing
-            <div className="space-y-2">
-              <Label htmlFor="template" className="text-gray-700">Tipo de Formulário</Label>
-              <Select value={templateType} onValueChange={handleTemplateChange} disabled={isEditing}>
-                <SelectTrigger className="bg-white border-gray-300">
-                  <SelectValue placeholder="Selecione um modelo" />
-                </SelectTrigger>
-                <SelectContent className={isMobile ? "max-w-[90vw]" : ""}>
-                  <SelectItem value="satisfaction">Pesquisa de Satisfação</SelectItem>
-                  <SelectItem value="registration">Cadastro de Cliente</SelectItem>
-                  <SelectItem value="medical">Histórico Médico</SelectItem>
-                  <SelectItem value="feedback">Feedback de Atendimento</SelectItem>
-                  <SelectItem value="custom">Formulário Personalizado</SelectItem>
-                </SelectContent>
-              </Select>
-              {templateType && templates[templateType] && (
-                <p className="text-xs text-gray-500 mt-1">
-                  {templates[templateType].description}
-                </p>
-              )}
-            </div>
-          )}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-hidden flex flex-col">
+          <div className="flex-1 overflow-y-auto px-1">
+            <div className="space-y-4">
+              {/* Informações básicas */}
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="name" className="text-gray-700">Nome do Formulário</Label>
+                  <Input
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Ex: Cadastro de Cliente"
+                    required
+                    className="bg-white border-gray-300"
+                  />
+                </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="formName" className="text-gray-700">Nome do Formulário</Label>
-            <Input
-              id="formName"
-              value={formName}
-              onChange={(e) => setFormName(e.target.value)}
-              placeholder="Ex: Pesquisa de Satisfação do Cliente"
-              className="bg-white border-gray-300"
-            />
-          </div>
+                <div>
+                  <Label htmlFor="redirectUrl" className="text-gray-700">URL de Redirecionamento (Opcional)</Label>
+                  <Input
+                    id="redirectUrl"
+                    value={redirectUrl}
+                    onChange={(e) => setRedirectUrl(e.target.value)}
+                    placeholder="Ex: https://meusite.com/obrigado"
+                    className="bg-white border-gray-300"
+                  />
+                </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="numQuestions" className="text-gray-700">Número de Perguntas</Label>
-            <Input
-              id="numQuestions"
-              type="number"
-              min={1}
-              max={50}
-              value={numQuestions}
-              onChange={(e) => setNumQuestions(parseInt(e.target.value) || 5)}
-              className="bg-white border-gray-300"
-              disabled={isEditing} // Number of questions might be derived from fields in edit mode
-            />
-          </div>
-
-          {isEditing && ( // Show these fields only in edit mode
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="redirectUrl" className="text-gray-700">URL de Redirecionamento (Opcional)</Label>
-                <Input
-                  id="redirectUrl"
-                  value={redirectUrl}
-                  onChange={(e) => setRedirectUrl(e.target.value)}
-                  placeholder="Ex: https://meusite.com/obrigado"
-                  className="bg-white border-gray-300"
-                />
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="isActive" className="text-gray-700">Ativar Formulário</Label>
+                    <p className="text-xs text-gray-500">
+                      Tornar o formulário disponível publicamente
+                    </p>
+                  </div>
+                  <Switch
+                    id="isActive"
+                    checked={isActive}
+                    onCheckedChange={setIsActive}
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="fieldsJson" className="text-gray-700">Campos do Formulário (JSON)</Label>
-                <Textarea
-                  id="fieldsJson"
-                  value={fieldsJsonString}
-                  onChange={(e) => setFieldsJsonString(e.target.value)}
-                  placeholder='Ex: { "question1": "Qual seu nome?", "question2": "Qual seu email?" }'
-                  className="bg-white border-gray-300 min-h-[100px]"
-                />
-                {/* Example of basic JSON validation feedback - you might want a helper 'isJsonValid' */}
-                {/* {!isJsonValid(fieldsJsonString) && fieldsJsonString.trim() && <p className="text-xs text-red-500">JSON inválido.</p>} */}
+
+              {/* Configuração de campos */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-gray-700 font-medium">Campos do Formulário</Label>
+                  <Button
+                    type="button"
+                    onClick={addField}
+                    size="sm"
+                    className="bg-pharmacy-accent hover:bg-pharmacy-accent/90"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Adicionar Campo
+                  </Button>
+                </div>
+
+                <div className="space-y-2">
+                  {fields.map((field, index) => renderField(field, index))}
+                </div>
               </div>
-            </>
-          )}
-
-          <div className="flex items-center justify-between">
-            <div>
-              <Label htmlFor="isActive" className="text-gray-700">Ativar Formulário</Label>
-              <p className="text-xs text-gray-500">
-                {isEditing ? "Define se o formulário está ativo ou inativo." : "Tornar o formulário disponível imediatamente"}
-              </p>
             </div>
-            <Switch
-              id="isActive"
-              checked={isActive}
-              onCheckedChange={setIsActive}
-            />
           </div>
-        </div>
 
-        <DialogFooter className={isMobile ? "flex-col space-y-2 sm:space-y-0" : ""}>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            className={`border-gray-300 text-gray-700 ${isMobile ? "w-full" : ""}`}
-          >
-            Cancelar
-          </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={!formName.trim()} // Consider adding !isJsonValid(fieldsJsonString) if using validation feedback
-            className={`bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white ${isMobile ? "w-full" : ""}`}
-          >
-            {isEditing ? <Edit3 className="h-4 w-4 mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-            {isEditing ? 'Salvar Alterações' : 'Criar Formulário'}
-          </Button>
-        </DialogFooter>
+          <DialogFooter className="flex-shrink-0 mt-4 pt-4 border-t">
+            <div className="flex gap-2 w-full">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1 bg-pharmacy-accent hover:bg-pharmacy-accent/90"
+                disabled={!name.trim() || fields.length === 0}
+              >
+                {isEditing ? 'Atualizar' : 'Criar'} Formulário
+              </Button>
+            </div>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
