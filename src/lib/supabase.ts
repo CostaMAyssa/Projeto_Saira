@@ -89,12 +89,30 @@ export const testRealtime = async () => {
   console.log('🧪 Testando Realtime...');
   
   const testResults = {
+    publication: { status: 'testing', tables: [], error: null },
     conversations: { status: 'testing', error: null },
-    messages: { status: 'testing', error: null }
+    messages: { status: 'testing', error: null },
+    clients: { status: 'testing', error: null }
   };
 
   try {
-    // Teste para conversations
+    // 1. Verificar se as tabelas estão na publication
+    console.log('📋 Verificando publication supabase_realtime...');
+    const { data: publicationData, error: publicationError } = await supabase
+      .from('pg_publication_tables')
+      .select('schemaname, tablename, pubname')
+      .eq('pubname', 'supabase_realtime');
+
+    if (publicationError) {
+      console.error('❌ Erro ao verificar publication:', publicationError);
+      testResults.publication.error = publicationError.message;
+    } else {
+      testResults.publication.tables = publicationData || [];
+      testResults.publication.status = 'verified';
+      console.log('✅ Tabelas na publication:', testResults.publication.tables);
+    }
+
+    // 2. Teste para conversations
     const conversationsChannel = supabase
       .channel('test-conversations')
       .on(
@@ -113,10 +131,13 @@ export const testRealtime = async () => {
         console.log('📡 Status conversations channel:', status);
         if (status === 'SUBSCRIBED') {
           testResults.conversations.status = 'subscribed';
+        } else if (status === 'CHANNEL_ERROR') {
+          testResults.conversations.status = 'error';
+          testResults.conversations.error = 'Erro no canal';
         }
       });
 
-    // Teste para messages
+    // 3. Teste para messages
     const messagesChannel = supabase
       .channel('test-messages')
       .on(
@@ -135,15 +156,45 @@ export const testRealtime = async () => {
         console.log('📡 Status messages channel:', status);
         if (status === 'SUBSCRIBED') {
           testResults.messages.status = 'subscribed';
+        } else if (status === 'CHANNEL_ERROR') {
+          testResults.messages.status = 'error';
+          testResults.messages.error = 'Erro no canal';
         }
       });
 
-    // Aguardar um pouco para ver se conecta
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    // 4. Teste para clients
+    const clientsChannel = supabase
+      .channel('test-clients')
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'clients' 
+        },
+        (payload) => {
+          console.log('✅ Realtime clients funcionando:', payload);
+          testResults.clients.status = 'connected';
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Status clients channel:', status);
+        if (status === 'SUBSCRIBED') {
+          testResults.clients.status = 'subscribed';
+        } else if (status === 'CHANNEL_ERROR') {
+          testResults.clients.status = 'error';
+          testResults.clients.error = 'Erro no canal';
+        }
+      });
 
-    // Cleanup
+    // 5. Aguardar um pouco para ver se conecta
+    console.log('⏳ Aguardando conexões Realtime...');
+    await new Promise(resolve => setTimeout(resolve, 5000));
+
+    // 6. Cleanup
     conversationsChannel.unsubscribe();
     messagesChannel.unsubscribe();
+    clientsChannel.unsubscribe();
 
     console.log('🔔 Resultado do teste Realtime:', testResults);
     return testResults;
