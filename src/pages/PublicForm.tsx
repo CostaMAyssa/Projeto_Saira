@@ -19,6 +19,11 @@ interface FormData {
   fields: Record<string, FormFieldConfig>;
   redirect_url?: string;
   status: string;
+  // Campos de personalização visual
+  logo_url?: string;
+  background_color?: string;
+  accent_color?: string;
+  text_color?: string;
 }
 
 interface FormFieldConfig {
@@ -394,12 +399,39 @@ const PublicForm: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <div 
+      className="min-h-screen py-8 px-4"
+      style={{ 
+        backgroundColor: form.background_color || '#f9fafb',
+        color: form.text_color || '#111827'
+      }}
+    >
       <div className="max-w-2xl mx-auto">
-        <Card>
+        <Card className="shadow-lg border-0" style={{ backgroundColor: 'white' }}>
           <CardHeader className="text-center pb-6">
-            <CardTitle className="text-2xl text-gray-900">{form.title}</CardTitle>
-            <p className="text-gray-600 mt-2">
+            {/* Logo personalizado */}
+            {form.logo_url && (
+              <div className="mb-4">
+                <img 
+                  src={form.logo_url} 
+                  alt="Logo" 
+                  className="h-16 mx-auto object-contain"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
+            <CardTitle 
+              className="text-2xl"
+              style={{ color: form.text_color || '#111827' }}
+            >
+              {form.title}
+            </CardTitle>
+            <p 
+              className="mt-2"
+              style={{ color: form.text_color ? `${form.text_color}99` : '#6b7280' }}
+            >
               Preencha os campos abaixo e envie suas informações.
             </p>
           </CardHeader>
@@ -421,7 +453,11 @@ const PublicForm: React.FC = () => {
                 <Button 
                   type="submit" 
                   disabled={submitting || Object.keys(form.fields || {}).length === 0}
-                  className="w-full bg-pharmacy-accent hover:bg-pharmacy-accent/90"
+                  className="w-full text-white font-medium"
+                  style={{ 
+                    backgroundColor: form.accent_color || '#10b981',
+                    borderColor: form.accent_color || '#10b981'
+                  }}
                 >
                   {submitting ? 'Enviando...' : 'Enviar Formulário'}
                 </Button>

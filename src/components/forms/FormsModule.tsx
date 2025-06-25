@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,6 +22,11 @@ interface FormData {
   // Include original DB fields if needed for editing, e.g. to pass back to updateForm
   fields?: any; // from DbForm.fields
   redirect_url?: string; // from DbForm.redirect_url
+  // Campos de personalização visual
+  logo_url?: string;
+  background_color?: string;
+  accent_color?: string;
+  text_color?: string;
 }
 
 // Single, consolidated FormsModule component definition
@@ -63,6 +67,11 @@ const FormsModule = () => {
             // Store original DB fields needed for editing
             fields: form.fields,
             redirect_url: form.redirect_url,
+            // Campos de personalização visual
+            logo_url: form.logo_url,
+            background_color: form.background_color,
+            accent_color: form.accent_color,
+            text_color: form.text_color,
           };
         });
         setForms(transformedForms);
@@ -92,6 +101,11 @@ const FormsModule = () => {
     status: 'active' | 'inactive'; // UI field: status
     fields?: any; // Optional: if modal collects this
     redirect_url?: string; // Optional: if modal collects this
+    // Campos de personalização visual
+    logo_url?: string;
+    background_color?: string;
+    accent_color?: string;
+    text_color?: string;
   };
 
   const handleAddForm = async (modalData: NewFormModalData) => {
@@ -102,6 +116,11 @@ const FormsModule = () => {
       status: modalData.status === 'active' ? 'ativo' : 'inativo',
       fields: modalData.fields || {}, // Default to empty object if not provided
       redirect_url: modalData.redirect_url || '', // Default to empty string
+      // Campos de personalização visual
+      logo_url: modalData.logo_url,
+      background_color: modalData.background_color,
+      accent_color: modalData.accent_color,
+      text_color: modalData.text_color,
       // created_by: 'user_placeholder_uuid', // Placeholder or get from auth context
     };
 
@@ -128,6 +147,11 @@ const FormsModule = () => {
     status: 'active' | 'inactive';
     fields?: any;
     redirect_url?: string;
+    // Campos de personalização visual
+    logo_url?: string;
+    background_color?: string;
+    accent_color?: string;
+    text_color?: string;
   };
 
   const handleSaveFormUpdate = async (formId: string, modalData: EditFormModalData) => {
@@ -137,6 +161,11 @@ const FormsModule = () => {
       status: modalData.status === 'active' ? 'ativo' : 'inativo',
       fields: modalData.fields,
       redirect_url: modalData.redirect_url,
+      // Campos de personalização visual
+      logo_url: modalData.logo_url,
+      background_color: modalData.background_color,
+      accent_color: modalData.accent_color,
+      text_color: modalData.text_color,
     };
 
     try {

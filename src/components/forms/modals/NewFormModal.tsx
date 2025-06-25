@@ -38,6 +38,10 @@ interface NewFormModalProps {
     fields?: Record<string, FormFieldConfig>;
     redirect_url?: string;
     createdAt?: string;
+    logo_url?: string;
+    background_color?: string;
+    accent_color?: string;
+    text_color?: string;
   } | null;
 }
 
@@ -55,6 +59,12 @@ const NewFormModal: React.FC<NewFormModalProps> = ({ open, onOpenChange, onSubmi
   const [redirectUrl, setRedirectUrl] = useState('');
   const [fields, setFields] = useState<FormField[]>([]);
   
+  // Estados para personalização visual
+  const [logoUrl, setLogoUrl] = useState('');
+  const [backgroundColor, setBackgroundColor] = useState('#f9fafb');
+  const [accentColor, setAccentColor] = useState('#10b981');
+  const [textColor, setTextColor] = useState('#111827');
+
   const isMobile = useIsMobile();
   const isEditing = Boolean(initialData);
 
@@ -66,6 +76,12 @@ const NewFormModal: React.FC<NewFormModalProps> = ({ open, onOpenChange, onSubmi
         setName(initialData.name || '');
         setIsActive(initialData.status === 'active');
         setRedirectUrl(initialData.redirect_url || '');
+        
+        // Carregar dados de personalização visual
+        setLogoUrl(initialData.logo_url || '');
+        setBackgroundColor(initialData.background_color || '#f9fafb');
+        setAccentColor(initialData.accent_color || '#10b981');
+        setTextColor(initialData.text_color || '#111827');
         
         // Parse existing fields
         if (initialData.fields && typeof initialData.fields === 'object' && Object.keys(initialData.fields).length > 0) {
@@ -119,6 +135,13 @@ const NewFormModal: React.FC<NewFormModalProps> = ({ open, onOpenChange, onSubmi
         setName('');
         setIsActive(true);
         setRedirectUrl('');
+        
+        // Reset personalização visual para padrões
+        setLogoUrl('');
+        setBackgroundColor('#f9fafb');
+        setAccentColor('#10b981');
+        setTextColor('#111827');
+        
         setFields([
           { id: 'nome', label: 'Nome completo', type: 'text', placeholder: 'Digite seu nome completo', required: true },
           { id: 'email', label: 'E-mail', type: 'email', placeholder: 'Digite seu e-mail', required: true },
@@ -151,6 +174,11 @@ const NewFormModal: React.FC<NewFormModalProps> = ({ open, onOpenChange, onSubmi
       fields: fieldsObject,
       redirect_url: redirectUrl,
       createdAt: initialData?.createdAt,
+      // Dados de personalização visual
+      logo_url: logoUrl,
+      background_color: backgroundColor,
+      accent_color: accentColor,
+      text_color: textColor,
     };
 
     onSubmit(formData);
@@ -369,6 +397,145 @@ const NewFormModal: React.FC<NewFormModalProps> = ({ open, onOpenChange, onSubmi
                     checked={isActive}
                     onCheckedChange={setIsActive}
                   />
+                </div>
+              </div>
+
+              {/* Seção de Personalização Visual */}
+              <div className="space-y-3">
+                <Label className="text-gray-700 font-medium">🎨 Personalização Visual</Label>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="logoUrl" className="text-gray-700">Logo</Label>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              // Converter para base64 ou fazer upload
+                              const reader = new FileReader();
+                              reader.onload = (event) => {
+                                const result = event.target?.result as string;
+                                setLogoUrl(result);
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="hidden"
+                          id="logoUpload"
+                        />
+                        <label
+                          htmlFor="logoUpload"
+                          className="cursor-pointer bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded border text-sm"
+                        >
+                          Escolher Arquivo
+                        </label>
+                        <span className="text-xs text-gray-500">
+                          {logoUrl ? 'Imagem selecionada' : 'Nenhuma imagem'}
+                        </span>
+                      </div>
+                      <Input
+                        value={logoUrl}
+                        onChange={(e) => setLogoUrl(e.target.value)}
+                        placeholder="Ou cole uma URL: https://exemplo.com/logo.png"
+                        className="bg-white border-gray-300"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Faça upload de uma imagem ou cole uma URL
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="backgroundColor" className="text-gray-700">Cor de Fundo</Label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="backgroundColor"
+                        type="color"
+                        value={backgroundColor}
+                        onChange={(e) => setBackgroundColor(e.target.value)}
+                        className="w-10 h-8 rounded border border-gray-300 cursor-pointer"
+                      />
+                      <Input
+                        value={backgroundColor}
+                        onChange={(e) => setBackgroundColor(e.target.value)}
+                        placeholder="#f9fafb"
+                        className="bg-white border-gray-300 text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="accentColor" className="text-gray-700">Cor de Destaque</Label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="accentColor"
+                        type="color"
+                        value={accentColor}
+                        onChange={(e) => setAccentColor(e.target.value)}
+                        className="w-10 h-8 rounded border border-gray-300 cursor-pointer"
+                      />
+                      <Input
+                        value={accentColor}
+                        onChange={(e) => setAccentColor(e.target.value)}
+                        placeholder="#10b981"
+                        className="bg-white border-gray-300 text-sm"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Cor dos botões e elementos de destaque
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="textColor" className="text-gray-700">Cor do Texto</Label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="textColor"
+                        type="color"
+                        value={textColor}
+                        onChange={(e) => setTextColor(e.target.value)}
+                        className="w-10 h-8 rounded border border-gray-300 cursor-pointer"
+                      />
+                      <Input
+                        value={textColor}
+                        onChange={(e) => setTextColor(e.target.value)}
+                        placeholder="#111827"
+                        className="bg-white border-gray-300 text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preview da personalização */}
+                <div className="mt-4 p-4 rounded-lg border border-gray-200" style={{ backgroundColor }}>
+                  <div className="text-center">
+                    {logoUrl && (
+                      <img 
+                        src={logoUrl} 
+                        alt="Logo" 
+                        className="h-12 mx-auto mb-3 object-contain"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    )}
+                    <h3 className="font-semibold mb-2" style={{ color: textColor }}>
+                      Preview do Formulário
+                    </h3>
+                    <p className="text-sm mb-3" style={{ color: textColor }}>
+                      Assim será a aparência do seu formulário
+                    </p>
+                    <button 
+                      className="px-4 py-2 rounded text-white text-sm font-medium"
+                      style={{ backgroundColor: accentColor }}
+                    >
+                      Botão de Exemplo
+                    </button>
+                  </div>
                 </div>
               </div>
 

@@ -40,6 +40,11 @@ export interface Form {
   question_count: number;
   created_by: string;
   created_at: string;
+  // Campos de personalização visual
+  logo_url?: string;
+  background_color?: string;
+  accent_color?: string;
+  text_color?: string;
 }
 
 export interface FormResponse {
@@ -936,6 +941,11 @@ export const createForm = async (form: Omit<Form, 'id' | 'created_at' | 'created
   const formData = {
     ...form,
     created_by: userId, // 🔒 USAR USUÁRIO LOGADO
+    // Garantir valores padrão para personalização visual
+    logo_url: form.logo_url || null,
+    background_color: form.background_color || '#f9fafb',
+    accent_color: form.accent_color || '#10b981',
+    text_color: form.text_color || '#111827',
   };
 
   const { data, error } = await supabase
@@ -948,17 +958,26 @@ export const createForm = async (form: Omit<Form, 'id' | 'created_at' | 'created
   return data;
 };
 
-export const updateForm = async (id: string, updates: Partial<Form>) => {
+export const updateForm = async (id: string, form: Partial<Omit<Form, 'id' | 'created_at' | 'created_by'>>) => {
   // 🔒 CRÍTICO: Verificar autenticação antes de qualquer operação
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) throw new Error('User not authenticated');
-  const userId = user.id;
+
+  const formData = {
+    ...form,
+    updated_at: new Date().toISOString(),
+    // Manter valores de personalização se fornecidos
+    logo_url: form.logo_url !== undefined ? form.logo_url : undefined,
+    background_color: form.background_color || undefined,
+    accent_color: form.accent_color || undefined,
+    text_color: form.text_color || undefined,
+  };
 
   const { data, error } = await supabase
     .from('forms')
-    .update(updates)
+    .update(formData)
     .eq('id', id)
-    .eq('created_by', userId) // 🔒 GARANTIR QUE SÓ ATUALIZA FORMS DO PRÓPRIO USUÁRIO
+    .eq('created_by', user.id) // 🔒 SEGURANÇA: Só atualizar próprios formulários
     .select()
     .single();
 
