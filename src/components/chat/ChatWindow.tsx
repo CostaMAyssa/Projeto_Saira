@@ -20,6 +20,13 @@ interface DbMessage {
   message_id?: string;
   from_me?: boolean;
   timestamp?: string;
+  message_type?: 'text' | 'image' | 'audio' | 'document';
+  media_url?: string;
+  media_type?: string;
+  file_name?: string;
+  file_size?: number;
+  transcription?: string;
+  caption?: string;
 }
 
 const ChatWindow: React.FC<ChatWindowProps> = ({ 
@@ -66,7 +73,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             timestamp: msg.timestamp || new Date(msg.sent_at).toLocaleTimeString([], { 
               hour: '2-digit', 
               minute: '2-digit' 
-            })
+            }),
+            message_type: msg.message_type || 'text',
+            media_url: msg.media_url,
+            media_type: msg.media_type,
+            file_name: msg.file_name,
+            file_size: msg.file_size,
+            transcription: msg.transcription,
+            caption: msg.caption
           };
 
           setMessages(prev => [...prev, newMessage]);
@@ -136,6 +150,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             hour: '2-digit', 
             minute: '2-digit' 
           }),
+          message_type: msg.message_type || 'text',
+          media_url: msg.media_url,
+          media_type: msg.media_type,
+          file_name: msg.file_name,
+          file_size: msg.file_size,
+          transcription: msg.transcription,
+          caption: msg.caption
         }));
         
         const ids = new Set(fetchedMessages.map(m => m.id));
@@ -161,6 +182,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       content: content,
       sender: 'pharmacy',
       timestamp: sentAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      message_type: 'text',
+      media_url: undefined,
+      media_type: undefined,
+      file_name: undefined,
+      file_size: undefined,
+      transcription: undefined,
+      caption: undefined
     };
     setMessages(prev => [...prev, newMessage]);
 
