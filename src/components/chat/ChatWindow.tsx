@@ -69,7 +69,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           const newMessage: Message = {
             id: messageId,
             content: msg.content,
-            sender: msg.from_me ? 'pharmacy' : 'client',
+            sender: msg.sender,
             timestamp: msg.timestamp || new Date(msg.sent_at).toLocaleTimeString([], { 
               hour: '2-digit', 
               minute: '2-digit' 
@@ -145,7 +145,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         const fetchedMessages: Message[] = (data as DbMessage[]).map(msg => ({
           id: msg.message_id || msg.id,
           content: msg.content,
-          sender: msg.from_me ? 'pharmacy' : 'client',
+          sender: msg.sender,
           timestamp: msg.timestamp || new Date(msg.sent_at).toLocaleTimeString([], { 
             hour: '2-digit', 
             minute: '2-digit' 
