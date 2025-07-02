@@ -1,7 +1,7 @@
 export type Message = {
   id: string;
   content: string;
-  sender: 'client' | 'pharmacy';
+  sender: 'client' | 'user';
   timestamp: string;
   message_type?: 'text' | 'image' | 'audio' | 'document';
   media_url?: string;

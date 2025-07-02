@@ -3,13 +3,16 @@ import ChatHeader from './chat-window/ChatHeader';
 import MessageList from './chat-window/MessageList';
 import MessageInput from './chat-window/MessageInput';
 import EmptyState from './chat-window/EmptyState';
-import { Message } from './types';
+import { Message, Conversation } from './types';
 import { supabase } from '@/lib/supabase';
+import { useSupabase } from '@/contexts/SupabaseContext';
 
 interface ChatWindowProps {
   activeConversation: string | null;
   onBackClick?: () => void;
   isMobile: boolean;
+  conversations?: Conversation[];
+  evolutionInstance?: string;
 }
 
 interface DbMessage {
@@ -32,11 +35,14 @@ interface DbMessage {
 const ChatWindow: React.FC<ChatWindowProps> = ({ 
   activeConversation, 
   onBackClick,
-  isMobile
+  isMobile,
+  conversations = [],
+  evolutionInstance
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageIds, setMessageIds] = useState<Set<string>>(new Set());
   const [realtimeStatus, setRealtimeStatus] = useState<'connected' | 'disconnected'>('disconnected');
+  const { user } = useSupabase();
   
   // Listener Supabase Realtime para mensagens
   useEffect(() => {
@@ -173,6 +179,39 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const handleSendMessage = useCallback(async (content: string) => {
     if (!activeConversation || !content.trim()) return;
 
+    // Buscar dados da conversa e da instância Evolution do banco se não estiverem disponíveis
+    let clientPhone = '';
+    let clientName = '';
+    let clientId = '';
+    let evolutionInstanceName = evolutionInstance || '';
+
+    // Buscar dados da conversa (JOIN com clients)
+    const { data: conversationData, error: conversationError } = await supabase
+      .from('conversations')
+      .select(`id, client_id, clients (name, phone), assigned_to`)
+      .eq('id', activeConversation)
+      .single();
+
+    if (!conversationError && conversationData) {
+      clientId = conversationData.client_id || '';
+      clientName = conversationData.clients?.name || '';
+      clientPhone = conversationData.clients?.phone || '';
+      // Buscar settings do usuário responsável para pegar a instância Evolution
+      const assignedTo = conversationData.assigned_to;
+      if (!evolutionInstanceName && assignedTo) {
+        const { data: settingsData, error: settingsError } = await supabase
+          .from('settings')
+          .select('evolution_instance_name')
+          .eq('user_id', assignedTo)
+          .single();
+        if (!settingsError && settingsData) {
+          evolutionInstanceName = settingsData.evolution_instance_name || '';
+        }
+      }
+    }
+
+    const userId = user?.id || '';
+
     const optimisticId = `${activeConversation}-${Date.now()}`;
     const sentAt = new Date();
     
@@ -180,7 +219,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     const newMessage: Message = {
       id: optimisticId,
       content: content,
-      sender: 'pharmacy',
+      sender: 'user',
       timestamp: sentAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       message_type: 'text',
       media_url: undefined,
@@ -193,31 +232,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     setMessages(prev => [...prev, newMessage]);
 
     try {
-      // 2. Salvar mensagem no Supabase
-      const { error: supabaseError } = await supabase
-        .from('messages')
-        .insert({
-          conversation_id: activeConversation,
-          content: content,
-          sender: 'user', // 'user' representa a farmácia/sistema
-          sent_at: sentAt.toISOString()
-        });
-        
-      if (supabaseError) {
-        // Se a inserção no Supabase falhar, idealmente removeríamos a mensagem otimista
-        console.error('Erro ao salvar mensagem no Supabase:', supabaseError);
-        // Opcional: Lógica para remover a mensagem da UI ou marcar como "não enviada"
-        setMessages(prev => prev.filter(m => m.id !== optimisticId));
-        return; 
-      }
-
-      // 3. Enviar para o webhook do n8n
-      // A URL agora é lida de uma variável de ambiente
+      // 2. Enviar para o webhook do n8n (REMOVIDO o insert no Supabase)
       const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL;
 
       if (!webhookUrl) {
-        console.error('A URL do webhook do n8n (VITE_N8N_WEBHOOK_URL) não está configurada.');
-        // Opcional: Tratar o erro na UI
         setMessages(prev => prev.filter(m => m.id !== optimisticId));
         return;
       }
@@ -229,16 +247,19 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         },
         body: JSON.stringify({
           conversationId: activeConversation,
-          text: content
+          text: content,
+          userId,
+          evolutionInstance: evolutionInstanceName,
+          clientPhone,
+          clientName,
+          clientId
         })
       });
 
     } catch (error) {
-      console.error('Erro no processo de envio da mensagem:', error);
-      // Opcional: Lógica para tratar falha de rede ou no n8n
       setMessages(prev => prev.filter(m => m.id !== optimisticId));
     }
-  }, [activeConversation]);
+  }, [activeConversation, user, evolutionInstance]);
   
   if (!activeConversation) {
     return <EmptyState />;
