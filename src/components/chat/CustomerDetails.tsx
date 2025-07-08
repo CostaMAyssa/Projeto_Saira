@@ -12,6 +12,8 @@ import { MessageSquare } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import ProductCreateForm from '@/components/products/ProductCreateForm';
 import { dashboardService } from '@/services/dashboardService';
+import NewCampaignModal from '@/components/campaigns/modals/NewCampaignModal';
+import { NewCampaignData } from '@/services/dashboardService';
 
 interface CustomerDetailsProps {
   activeConversation: string | null;
@@ -30,10 +32,25 @@ const defaultCustomerDetails: CustomerDetailsType = {
   notes: '',
 };
 
+// Definir interface para os dados recebidos do NewCampaignModal
+interface NewCampaignFormDataType {
+  name: string;
+  type: string;
+  audience: string;
+  schedule: string;
+  status: 'active' | 'paused' | 'scheduled';
+  lastRun: string;
+  tags: Array<{ value: string; label: string; color: string }>;
+  scheduleType: string;
+  scheduleDate: Date | undefined;
+  messageTemplate: string;
+}
+
 const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation }) => {
   const [customerData, setCustomerData] = useState<CustomerDetailsType>(defaultCustomerDetails); // Inicializa com objeto padrão
   const [loading, setLoading] = useState(false);
   const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
+  const [isNewAutomationModalOpen, setIsNewAutomationModalOpen] = useState(false);
   
   // Buscar dados reais do cliente quando a conversa ativa muda
   useEffect(() => {
@@ -139,18 +156,39 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
     toast.success('Dados do cliente atualizados com sucesso!');
   };
   
-  const handleAddTag = (tag: string) => {
+  const handleAddTag = async (tag: string) => {
     if (customerData.tags.includes(tag)) {
       toast.error('Esta tag já existe para este cliente.');
       return;
     }
     
-    setCustomerData(prevData => ({
-      ...prevData,
-      tags: [...prevData.tags, tag]
-    }));
-    
-    toast.success('Tag adicionada com sucesso!');
+    // Tentar adicionar a tag no Supabase
+    setLoading(true); // Ativar loading
+    try {
+      const updatedTags = [...customerData.tags, tag];
+      const updatedClient = await dashboardService.updateClient(customerData.id, { tags: updatedTags });
+      
+      if (updatedClient) {
+        setCustomerData(prevData => ({
+          ...prevData,
+          tags: updatedTags
+        }));
+        toast.success('Tag adicionada com sucesso e salva no banco de dados!');
+      } else {
+        toast.error('Falha ao adicionar tag: Não foi possível atualizar o cliente no banco de dados.');
+      }
+    } catch (error: unknown) {
+      console.error('❌ Erro ao adicionar tag:', error);
+      let errorMessage = 'Ocorreu um erro inesperado ao adicionar a tag.';
+      if (error instanceof Error) {
+        errorMessage = `Ocorreu um erro ao adicionar a tag: ${error.message}`;
+      } else if (typeof error === 'string') {
+        errorMessage = `Ocorreu um erro ao adicionar a tag: ${error}`;
+      }
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false); // Desativar loading
+    }
   };
   
   const handleAddProduct = async (newProductData: Omit<Product, 'id'>) => {
@@ -205,6 +243,52 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
     
     toast.success('Observações atualizadas com sucesso!');
   };
+
+  // Função para lidar com a criação de uma nova automação/campanha
+  const handleCreateAutomation = async (campaignData: NewCampaignFormDataType) => {
+    setLoading(true);
+    try {
+      // Adicionar o client_id ao target_audience da campanha
+      const campaignToSave: NewCampaignData = {
+        name: campaignData.name,
+        trigger: campaignData.type, // Usar o tipo de campanha como trigger
+        status: campaignData.status === 'active' ? 'ativa' : 
+                campaignData.status === 'paused' ? 'pausada' : 'agendada',
+        template: campaignData.messageTemplate || 'Template padrão',
+        target_audience: {
+          client_id: customerData.id, // Vincula a campanha ao cliente atual
+          count: 1, // Para uma automação de cliente específico
+          // Se houver tags ou outras segmentações específicas do cliente para automação, adicione aqui
+          tags: campaignData.tags.map(tag => tag.value), // Exemplo: se as tags do form forem para segmentar o cliente
+        },
+        scheduled_for: campaignData.scheduleType === 'once' && campaignData.scheduleDate
+                         ? new Date(campaignData.scheduleDate).toISOString()
+                         : null,
+      };
+
+      console.log('🚧 Tentando criar campanha/automação com:', campaignToSave);
+      const newCampaign = await dashboardService.createCampaign(campaignToSave);
+
+      if (newCampaign) {
+        toast.success('Automação criada com sucesso!');
+        setIsNewAutomationModalOpen(false);
+        // Talvez recarregar as automações do cliente aqui, se houver uma listagem.
+      } else {
+        toast.error('Falha ao criar automação.');
+      }
+    } catch (error: unknown) {
+      console.error('❌ Erro ao criar automação:', error);
+      let errorMessage = 'Ocorreu um erro inesperado ao criar a automação.';
+      if (error instanceof Error) {
+        errorMessage = `Ocorreu um erro ao criar a automação: ${error.message}`;
+      } else if (typeof error === 'string') {
+        errorMessage = `Ocorreu um erro ao criar a automação: ${error}`;
+      }
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
   
   return (
     <div className="h-full bg-white border-l border-pharmacy-border1 overflow-y-auto">
@@ -235,7 +319,10 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
       </div>
       
       <div className="p-4 border-b border-pharmacy-border1">
-        <CustomerAutomations products={customerData.products} />
+        <CustomerAutomations 
+          products={customerData.products} 
+          onNovaAutomacaoClick={() => setIsNewAutomationModalOpen(true)} // Passa a função para abrir o modal de automação
+        />
       </div>
       
       <div className="p-4">
@@ -249,6 +336,12 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
         isOpen={isAddProductModalOpen}
         onClose={() => setIsAddProductModalOpen(false)}
         onSave={handleAddProduct} // handleAddProduct é passado aqui
+      />
+
+      <NewCampaignModal
+        open={isNewAutomationModalOpen}
+        onOpenChange={setIsNewAutomationModalOpen}
+        onSubmit={handleCreateAutomation}
       />
     </div>
   );

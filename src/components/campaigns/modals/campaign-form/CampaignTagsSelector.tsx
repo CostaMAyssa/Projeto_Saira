@@ -1,118 +1,84 @@
 import React, { useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
-import { supabase } from '@/lib/supabase';
+// import { supabase } from '@/lib/supabase'; // Não mais necessário
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { X, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface Tag {
-  id: string;
-  name: string;
-  color: string;
-}
+// Removida a interface Tag, pois não interagimos com uma tabela 'tags' separada.
+// interface Tag {
+//   id: string;
+//   name: string;
+//   color: string;
+// }
 
 interface TagOption {
-  value: string;
+  value: string; // O nome da tag será o valor e o label
   label: string;
-  color: string;
+  // color: string; // Cor será gerada dinamicamente ou fixada para exibição
   __isNew__?: boolean;
 }
 
 interface CampaignTagsSelectorProps {
   selectedTags: TagOption[];
   onTagsChange: (tags: TagOption[]) => void;
+  allClientTags: string[]; // Nova prop para receber todas as tags dos clientes
+  onNewTagAdded: (tagName: string) => void; // Callback para quando uma nova tag é adicionada
 }
 
 const CampaignTagsSelector: React.FC<CampaignTagsSelectorProps> = ({
   selectedTags,
-  onTagsChange
+  onTagsChange,
+  allClientTags, // Desestruturar a nova prop
+  onNewTagAdded // Desestruturar a nova prop
 }) => {
   const [availableTags, setAvailableTags] = useState<TagOption[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [showInput, setShowInput] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // Manter o estado de loading para a criação de tags locais
 
   useEffect(() => {
-    fetchCampaignTags();
-  }, []);
+    // Mapear as tags de clientes existentes para o formato TagOption
+    const mappedTags: TagOption[] = allClientTags.map(tag => ({
+      value: tag,
+      label: tag,
+      // color: '#D1D5DB' // Cor padrão para tags existentes
+    }));
+    setAvailableTags(mappedTags);
+  }, [allClientTags]); // Re-executar quando allClientTags mudar
 
-  const fetchCampaignTags = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('tags')
-        .select('id, name, color')
-        .eq('type', 'campaign')
-        .order('name');
+  // Função removida, pois não buscamos mais do Supabase
+  // const fetchCampaignTags = async () => { ... };
 
-      if (error) throw error;
-
-      if (data) {
-        const tagOptions: TagOption[] = data.map((tag: Tag) => ({
-          value: tag.id,
-          label: tag.name,
-          color: tag.color
-        }));
-        setAvailableTags(tagOptions);
-      }
-    } catch (error) {
-      console.error('Erro ao buscar tags:', error);
-      toast.error('Erro ao carregar tags disponíveis');
-    }
-  };
-
-  const createNewTag = async (inputValue: string): Promise<TagOption> => {
-    try {
-      setIsLoading(true);
-      
-      // Gerar cor aleatória ou usar cor padrão
-      const colors = ['#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', '#FF9FF3', '#FF5722'];
-      const randomColor = colors[Math.floor(Math.random() * colors.length)];
-
-      const { data, error } = await supabase
-        .from('tags')
-        .insert({
-          name: inputValue,
-          type: 'campaign',
-          color: randomColor
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      const newTag: TagOption = {
-        value: data.id,
-        label: data.name,
-        color: data.color
-      };
-
-      // Atualizar lista de tags disponíveis
-      setAvailableTags(prev => [...prev, newTag]);
-      
-      toast.success(`Tag "${inputValue}" criada com sucesso!`);
-      return newTag;
-    } catch (error) {
-      console.error('Erro ao criar tag:', error);
-      toast.error('Erro ao criar nova tag');
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // Simplificada a criação de tags: agora apenas notifica o pai
   const handleCreateNewTag = async () => {
     if (!newTagName.trim()) return;
     
+    setIsLoading(true);
     try {
-      const newTag = await createNewTag(newTagName);
-      const updatedTags = [...selectedTags, newTag];
-      onTagsChange(updatedTags);
+      const newTagValue = newTagName.trim();
+      const newTagOption: TagOption = { value: newTagValue, label: newTagValue, __isNew__: true };
+
+      // Notifica o componente pai sobre a nova tag para que ele a persista ou gerencie globalmente.
+      onNewTagAdded(newTagValue);
+
+      // Adiciona a nova tag à lista de tags disponíveis localmente para seleção imediata
+      setAvailableTags(prev => [...prev, newTagOption]);
+
+      // Adiciona a nova tag às tags selecionadas imediatamente
+      const updatedSelectedTags = [...selectedTags, newTagOption];
+      onTagsChange(updatedSelectedTags);
+
+      toast.success(`Tag "${newTagValue}" adicionada!`);
       setNewTagName('');
       setShowInput(false);
     } catch (error) {
-      // Error already handled in createNewTag
+      console.error('Erro ao adicionar nova tag localmente:', error);
+      toast.error('Erro ao adicionar nova tag');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -145,7 +111,8 @@ const CampaignTagsSelector: React.FC<CampaignTagsSelectorProps> = ({
               key={tag.value}
               variant="secondary"
               className="px-2 py-1 text-sm"
-              style={{ backgroundColor: tag.color + '20', color: tag.color === '#FFD700' ? '#000' : '#333' }}
+              // Remover estilo de cor dinâmica, usar uma cor padrão para tags
+              // style={{ backgroundColor: tag.color + '20', color: tag.color === '#FFD700' ? '#000' : '#333' }}
             >
               {tag.label}
               <Button
@@ -175,10 +142,11 @@ const CampaignTagsSelector: React.FC<CampaignTagsSelectorProps> = ({
                 className="h-8 px-3 text-xs"
                 onClick={() => toggleTag(tag)}
               >
-                <div 
+                {/* Remover círculo de cor dinâmica */}
+                {/* <div 
                   className="w-2 h-2 rounded-full mr-2"
                   style={{ backgroundColor: tag.color }}
-                />
+                /> */}
                 {tag.label}
               </Button>
             ))}
@@ -198,44 +166,26 @@ const CampaignTagsSelector: React.FC<CampaignTagsSelectorProps> = ({
             Criar nova tag
           </Button>
         ) : (
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <Input
               value={newTagName}
               onChange={(e) => setNewTagName(e.target.value)}
               placeholder="Nome da nova tag"
-              className="h-8"
+              className="flex-1"
               onKeyPress={(e) => {
                 if (e.key === 'Enter') {
                   handleCreateNewTag();
                 }
               }}
             />
-            <Button
-              size="sm"
-              onClick={handleCreateNewTag}
-              disabled={!newTagName.trim() || isLoading}
-              className="h-8"
-            >
-              {isLoading ? 'Criando...' : 'Criar'}
+            <Button onClick={handleCreateNewTag} disabled={isLoading || !newTagName.trim()}>
+              Criar
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setShowInput(false);
-                setNewTagName('');
-              }}
-              className="h-8"
-            >
-              Cancelar
-            </Button>
+            <Button variant="outline" onClick={() => setShowInput(false)}>Cancelar</Button>
           </div>
         )}
+        <p className="text-xs text-muted-foreground">Selecione tags existentes ou crie novas. As tags ajudam a segmentar e organizar suas campanhas.</p>
       </div>
-
-      <p className="text-xs text-pharmacy-text2">
-        Selecione tags existentes ou crie novas. As tags ajudam a segmentar e organizar suas campanhas.
-      </p>
     </div>
   );
 };

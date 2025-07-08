@@ -713,6 +713,37 @@ class DashboardService {
     }
   }
 
+  async getAllClientTags(): Promise<string[]> {
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error('User not authenticated');
+      const userId = user.id;
+
+      const { data, error } = await supabase
+        .from('clients')
+        .select('tags')
+        .eq('created_by', userId) // Filtrar por usuário logado
+        .not('tags', 'is', null);
+
+      if (error) {
+        console.error('Error fetching client tags:', error);
+        throw error;
+      }
+
+      const allTags = new Set<string>();
+      data.forEach(client => {
+        if (Array.isArray(client.tags)) {
+          client.tags.forEach((tag: string) => allTags.add(tag));
+        }
+      });
+
+      return Array.from(allTags);
+    } catch (error) {
+      console.error('Error in getAllClientTags:', error);
+      return [];
+    }
+  }
+
   // --- Product CRUD Methods ---
   async createProduct(productData: ProductData): Promise<any> { // productData now adheres to stricter interface
     try {

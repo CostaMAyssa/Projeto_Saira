@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Bell, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { dashboardService } from '@/services/dashboardService';
 
 import CampaignTypeSelector from './campaign-form/CampaignTypeSelector';
 import CampaignNameField from './campaign-form/CampaignNameField';
@@ -17,7 +18,6 @@ import { campaignTypes } from './campaign-form/campaignTypes';
 interface TagOption {
   value: string;
   label: string;
-  color: string;
 }
 
 interface NewCampaignModalProps {
@@ -31,6 +31,9 @@ interface NewCampaignModalProps {
     status: 'active' | 'paused' | 'scheduled';
     lastRun: string;
     tags: TagOption[];
+    scheduleType: string;
+    scheduleDate: Date | undefined;
+    messageTemplate: string;
   }) => void;
 }
 
@@ -44,6 +47,21 @@ const NewCampaignModal: React.FC<NewCampaignModalProps> = ({ open, onOpenChange,
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>(new Date());
   const [isActive, setIsActive] = useState(true);
   const [messageTemplate, setMessageTemplate] = useState('');
+  const [allClientTags, setAllClientTags] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (open) {
+      const fetchTags = async () => {
+        try {
+          const tags = await dashboardService.getAllClientTags();
+          setAllClientTags(tags);
+        } catch (error) {
+          console.error('Erro ao carregar tags dos clientes:', error);
+        }
+      };
+      fetchTags();
+    }
+  }, [open]);
 
   const handleTypeChange = (value: string) => {
     setCampaignType(value);
@@ -85,7 +103,10 @@ const NewCampaignModal: React.FC<NewCampaignModalProps> = ({ open, onOpenChange,
       schedule,
       status,
       lastRun: status === 'scheduled' ? 'Nunca executado' : 'Agora',
-      tags: selectedTags
+      tags: selectedTags,
+      scheduleType: scheduleType,
+      scheduleDate: scheduleDate,
+      messageTemplate: messageTemplate,
     });
 
     // Reset form
@@ -101,9 +122,18 @@ const NewCampaignModal: React.FC<NewCampaignModalProps> = ({ open, onOpenChange,
     onOpenChange(false);
   };
 
+  const handleNewTagAdded = (tagName: string) => {
+    setAllClientTags(prev => { 
+      if (!prev.includes(tagName)) {
+        return [...prev, tagName];
+      }
+      return prev;
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-white sm:max-w-[600px]">
+      <DialogContent className="bg-white sm:max-w-[600px] overflow-y-auto max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold text-pharmacy-text1 flex items-center gap-2">
             <Bell className="h-5 w-5 text-pharmacy-accent" />
@@ -144,6 +174,8 @@ const NewCampaignModal: React.FC<NewCampaignModalProps> = ({ open, onOpenChange,
           <CampaignTagsSelector
             selectedTags={selectedTags}
             onTagsChange={setSelectedTags}
+            allClientTags={allClientTags}
+            onNewTagAdded={handleNewTagAdded}
           />
 
           <MessageTemplateField 

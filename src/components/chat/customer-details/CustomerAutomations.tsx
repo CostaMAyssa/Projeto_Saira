@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { Bell, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import AddAutomationDialog from './AddAutomationDialog';
-import { Product } from './types';
+import { Product } from '@/components/products/types';
 
 interface Automation {
   type: 'lembrete' | 'aniversario';
@@ -12,10 +11,10 @@ interface Automation {
 
 interface CustomerAutomationsProps {
   products: Product[];
+  onNovaAutomacaoClick: () => void;
 }
 
-const CustomerAutomations: React.FC<CustomerAutomationsProps> = ({ products }) => {
-  const [isAddAutomationDialogOpen, setIsAddAutomationDialogOpen] = useState(false);
+const CustomerAutomations: React.FC<CustomerAutomationsProps> = ({ products, onNovaAutomacaoClick }) => {
   const [automations, setAutomations] = useState<Automation[]>([{
     type: 'lembrete',
     productName: 'Losartana 50mg',
@@ -50,18 +49,11 @@ const CustomerAutomations: React.FC<CustomerAutomationsProps> = ({ products }) =
         variant="outline" 
         size="sm" 
         className="w-full text-pharmacy-whatsapp-primary border-pharmacy-border1 hover:bg-pharmacy-whatsapp-primary hover:text-white"
-        onClick={() => setIsAddAutomationDialogOpen(true)}
+        onClick={onNovaAutomacaoClick}
       >
         <Plus className="h-4 w-4 mr-2" />
         Nova Automação
       </Button>
-      
-      <AddAutomationDialog 
-        open={isAddAutomationDialogOpen}
-        setOpen={setIsAddAutomationDialogOpen}
-        onAddAutomation={handleAddAutomation}
-        products={products.map(p => ({ id: p.id, name: p.name }))}
-      />
     </div>
   );
 };
