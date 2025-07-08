@@ -30,49 +30,15 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
       try {
         console.log('🔍 Buscando dados do cliente para conversa:', activeConversation);
         
-        // PRIMEIRA TENTATIVA: Buscar na tabela chats (onde estão as conversas reais)
-        const { data: chatData, error: chatError } = await supabase
-          .from('chats')
-          .select('id, name, phone_number')
-          .eq('id', activeConversation)
-          .single();
-
-        if (!chatError && chatData) {
-          console.log('✅ Dados encontrados na tabela chats:', chatData);
-          
-          const customerDetails: CustomerDetailsType = {
-            id: chatData.id,
-            name: chatData.name || 'Cliente',
-            phone: chatData.phone_number || '',
-            email: '',
-            address: '',
-            birthdate: '',
-            tags: [],
-            products: [],
-            notes: ''
-          };
-          
-          setCustomerData(customerDetails);
-          console.log('✅ Dados do cliente carregados da tabela chats:', customerDetails);
-          return;
-        }
-
-        console.log('⚠️ Não encontrado na tabela chats, tentando conversations...');
-        
-        // SEGUNDA TENTATIVA: Buscar dados da conversa e cliente (tabela conversations)
+        // AGORA ÚNICA TENTATIVA: Buscar dados da conversa e cliente (tabela conversations)
         const { data: conversationData, error: conversationError } = await supabase
           .from('conversations')
           .select(`
             id,
             client_id,
             clients (
-              id,
               name,
-              phone,
-              email,
-              address,
-              birthdate,
-              notes
+              phone
             )
           `)
           .eq('id', activeConversation)
@@ -87,15 +53,15 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
           
           if (client) {
             const customerDetails: CustomerDetailsType = {
-              id: client.id,
+              id: '', // Definindo como vazio temporariamente
               name: client.name || 'Cliente',
               phone: client.phone || '',
-              email: client.email || '',
-              address: client.address || '',
-              birthdate: client.birthdate || '',
-              tags: [],
-              products: [],
-              notes: client.notes || ''
+              email: '', // Definindo como vazio temporariamente
+              address: '', // Definindo como vazio temporariamente
+              birthdate: '', // Definindo como vazio temporariamente
+              tags: [], // Mantendo como vazio temporariamente
+              products: [], // Mantendo como vazio temporariamente
+              notes: '' // Definindo como vazio temporariamente
             };
             
             setCustomerData(customerDetails);
@@ -104,38 +70,9 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
           }
         }
 
-        console.log('⚠️ Não encontrado em conversations, tentando unified_conversations...');
-
-        // TERCEIRA TENTATIVA: Fallback para view unified_conversations
-        const { data: unifiedData, error: unifiedError } = await supabase
-          .from('unified_conversations')
-          .select('name, phone_number')
-          .eq('id', activeConversation)
-          .single();
-
-        if (!unifiedError && unifiedData) {
-          console.log('✅ Dados encontrados na view unified_conversations:', unifiedData);
-          
-          const basicCustomerData: CustomerDetailsType = {
-            id: activeConversation,
-            name: unifiedData.name || 'Cliente',
-            phone: unifiedData.phone_number || '',
-            email: '',
-            address: '',
-            birthdate: '',
-            tags: [],
-            products: [],
-            notes: ''
-          };
-          
-          setCustomerData(basicCustomerData);
-          console.log('✅ Dados do cliente carregados da view unified_conversations:', basicCustomerData);
-          return;
-        }
-
         // Se chegou até aqui, não encontrou nada
         console.error('❌ Nenhum dado encontrado em nenhuma fonte para a conversa:', activeConversation);
-        console.log('Erros encontrados:', { chatError, conversationError, unifiedError });
+        console.log('Erro de busca de dados da conversa:', { conversationError });
         setCustomerData(null);
 
       } catch (error) {

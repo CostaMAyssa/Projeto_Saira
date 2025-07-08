@@ -69,10 +69,9 @@ const ConversationList: React.FC<ConversationListProps> = ({
                 .select('content, sent_at')
                 .eq('conversation_id', conv.id)
                 .order('sent_at', { ascending: false })
-                .limit(1)
-                .single();
+                .limit(1);
 
-              const lastMsg = lastMessage as LastMessageData | null;
+              const lastMsg = lastMessage && lastMessage[0] as LastMessageData | undefined;
 
               return {
                 id: conv.id,

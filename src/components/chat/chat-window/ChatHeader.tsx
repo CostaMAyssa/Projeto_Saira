@@ -14,8 +14,10 @@ interface ChatHeaderProps {
 }
 
 interface ConversationData {
-  name: string;
-  phone_number: string;
+  clients: {
+    name: string;
+    phone: string;
+  } | null;
 }
 
 const ChatHeader: React.FC<ChatHeaderProps> = ({ 
@@ -33,8 +35,13 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
 
       try {
         const { data, error } = await supabase
-          .from('unified_conversations')
-          .select('name, phone_number')
+          .from('conversations')
+          .select(`
+            clients (
+              name,
+              phone
+            )
+          `)
           .eq('id', activeConversation)
           .single();
 
@@ -44,7 +51,8 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
         }
 
         if (data) {
-          setConversationData(data);
+          const clientInfo = Array.isArray(data.clients) ? data.clients[0] : data.clients;
+          setConversationData({ clients: clientInfo });
         }
       } catch (error) {
         console.error('Erro ao buscar dados da conversa:', error);
@@ -54,8 +62,8 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
     fetchConversationData();
   }, [activeConversation]);
 
-  const name = conversationData?.name || 'Carregando...';
-  const phone = conversationData?.phone_number || '';
+  const name = conversationData?.clients?.name || 'Carregando...';
+  const phone = conversationData?.clients?.phone || '';
   const initial = name.charAt(0).toUpperCase();
   
   return (
