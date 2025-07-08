@@ -2,17 +2,14 @@ import React, { useState } from 'react';
 import { Package, Clock, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import AddProductDialog from './AddProductDialog';
-import { Product } from './types';
+import { Product } from '../../products/types';
 
 interface CustomerProductsProps {
   products: Product[];
-  onAddProduct: (product: Product) => void;
+  onAddProduct: () => void;
 }
 
 const CustomerProducts: React.FC<CustomerProductsProps> = ({ products, onAddProduct }) => {
-  const [isAddProductDialogOpen, setIsAddProductDialogOpen] = useState(false);
-
   return (
     <div>
       <div className="flex items-center gap-2 mb-3">
@@ -42,17 +39,11 @@ const CustomerProducts: React.FC<CustomerProductsProps> = ({ products, onAddProd
         variant="outline" 
         size="sm" 
         className="w-full text-pharmacy-whatsapp-primary border-pharmacy-border1 hover:bg-pharmacy-whatsapp-primary hover:text-white mt-2"
-        onClick={() => setIsAddProductDialogOpen(true)}
+        onClick={onAddProduct}
       >
         <Plus className="h-4 w-4 mr-2" />
         Adicionar Produto
       </Button>
-      
-      <AddProductDialog 
-        open={isAddProductDialogOpen}
-        setOpen={setIsAddProductDialogOpen}
-        onAddProduct={onAddProduct}
-      />
     </div>
   );
 };

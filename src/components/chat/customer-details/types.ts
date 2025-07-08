@@ -1,11 +1,4 @@
-
-export interface Product {
-  id: string;
-  name: string;
-  category: string;
-  lastPurchase: string;
-  continuous: boolean;
-}
+import { Product } from '@/components/products/types';
 
 export interface CustomerDetails {
   id: string;

@@ -1,4 +1,3 @@
-
 export interface Product {
   id: string;
   name: string;
@@ -8,4 +7,6 @@ export interface Product {
   tags: string[];
   needsPrescription: boolean;
   controlled?: boolean;
+  lastPurchase?: string;
+  continuous?: boolean;
 }
