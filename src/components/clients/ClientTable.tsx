@@ -1,34 +1,28 @@
 import React, { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { Edit, MoreHorizontal, Trash2, UserCheck, UserX, MessageSquare } from 'lucide-react';
-import { Client } from './types';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogFooter 
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { MoreHorizontal, MessageSquare, UserCheck, UserX, Edit, Trash2 } from 'lucide-react';
+import SendMessageModal from './modals/SendMessageModal';
+import { useNavigate } from 'react-router-dom';
+
+interface Client {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  status: 'active' | 'inactive';
+  tags: string[];
+  last_purchase?: string;
+}
 
 interface ClientTableProps {
   clients: Client[];
   getStatusBadge: (status: 'active' | 'inactive') => React.ReactNode;
   getTagBadge: (tag: string) => React.ReactNode;
-  onOpenEditModal: (client: Client) => void; // New prop from ClientsModule
-  onDeleteClient: (clientId: string) => void; // Prop from ClientsModule
-  onToggleStatus: (client: Client) => void; // Prop from ClientsModule
-  // onEditClient was the save handler, now handled by modal in ClientsModule
+  onOpenEditModal: (client: Client) => void;
+  onDeleteClient: (clientId: string) => void;
+  onToggleStatus: (client: Client) => void;
 }
 
 const ClientTable = ({ 
@@ -39,70 +33,72 @@ const ClientTable = ({
   onDeleteClient,
   onToggleStatus 
 }: ClientTableProps) => {
-  // Removed local state for edit modal: editingClient, isEditModalOpen, name, phone, email, status, tags
-  // Removed local handlers: handleEditClick, handleCloseEditModal, handleSaveEdit, handleTagToggle
-  // Local handleDeleteClient and handleToggleStatus are also removed, will use props.
+  const [sendMessageModalOpen, setSendMessageModalOpen] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const navigate = useNavigate();
 
-  const handleSendMessage = (clientId: string) => {
-    console.log('Enviando mensagem para cliente:', clientId); // This can remain as is or be refactored later
-    // Aqui você implementaria a lógica real para enviar mensagem
+  const handleSendMessage = (client: Client) => {
+    setSelectedClient(client);
+    setSendMessageModalOpen(true);
+  };
+
+  const handleSendMessageSuccess = (conversationId: string) => {
+    // Navegar para o chat com a conversa criada
+    navigate(`/chat?conversation=${conversationId}`);
   };
 
   return (
     <>
       <div className="rounded-xl overflow-hidden bg-white border border-gray-200 shadow-sm w-full">
         <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
-          <Table className="w-full table-auto">
-            <TableHeader className="bg-white border-gray-200 sticky top-0 z-10">
+          <Table>
+            <TableHeader className="bg-gray-50 sticky top-0 z-10">
               <TableRow>
-                <TableHead className="text-gray-600 font-medium py-3">Nome</TableHead>
-                <TableHead className="text-gray-600 font-medium py-3">Telefone</TableHead>
-                <TableHead className="text-gray-600 font-medium py-3 hidden md:table-cell">Email</TableHead>
-                <TableHead className="text-gray-600 font-medium py-3 hidden lg:table-cell">Última Compra</TableHead>
-                <TableHead className="text-gray-600 font-medium py-3 hidden md:table-cell">Tags</TableHead>
-                <TableHead className="text-gray-600 font-medium py-3">Status</TableHead>
-                <TableHead className="text-gray-600 font-medium py-3">Ações</TableHead>
+                <TableHead className="text-gray-900 font-semibold">Nome</TableHead>
+                <TableHead className="text-gray-900 font-semibold">Telefone</TableHead>
+                <TableHead className="text-gray-900 font-semibold">Email</TableHead>
+                <TableHead className="text-gray-900 font-semibold">Última Compra</TableHead>
+                <TableHead className="text-gray-900 font-semibold">Tags</TableHead>
+                <TableHead className="text-gray-900 font-semibold">Status</TableHead>
+                <TableHead className="text-gray-900 font-semibold text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {clients.map((client) => (
                 <TableRow key={client.id} className="border-b border-gray-200 hover:bg-gray-50 h-14">
-                  <TableCell className="text-gray-900 font-medium py-2">
-                    <div className="sm:w-auto min-w-[100px]">{client.name}</div>
-                    <div className="md:hidden mt-1 text-xs text-gray-500">{client.email}</div>
-                  </TableCell>
-                  <TableCell className="text-gray-500 py-2 whitespace-nowrap min-w-[100px]">{client.phone}</TableCell>
-                  <TableCell className="text-gray-500 py-2 hidden md:table-cell">{client.email}</TableCell>
-                  <TableCell className="text-gray-500 py-2 hidden lg:table-cell whitespace-nowrap">{client.lastPurchase}</TableCell>
-                  <TableCell className="py-2 hidden md:table-cell">
+                  <TableCell className="font-medium text-gray-900">{client.name}</TableCell>
+                  <TableCell className="text-gray-600">{client.phone}</TableCell>
+                  <TableCell className="text-gray-600">{client.email}</TableCell>
+                  <TableCell className="text-gray-600">{client.last_purchase || 'N/A'}</TableCell>
+                  <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {client.tags.map((tag, idx) => (
-                        <span key={`${client.id}-tag-${idx}`}>{getTagBadge(tag)}</span>
+                      {client.tags.map((tag) => (
+                        <div key={tag}>
+                          {getTagBadge(tag)}
+                        </div>
                       ))}
                     </div>
                   </TableCell>
-                  <TableCell className="py-2">
-                    {getStatusBadge(client.status)}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
+                  <TableCell>{getStatusBadge(client.status)}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end items-center gap-1">
                       <Button 
                         variant="ghost" 
-                        size="icon" 
-                        className="text-pharmacy-accent hover:bg-gray-100"
-                        onClick={() => onOpenEditModal(client)} // Use prop
+                        size="sm"
+                        onClick={() => onOpenEditModal(client)}
+                        className="text-gray-600 hover:text-gray-900 p-2"
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="text-pharmacy-accent hover:bg-gray-100">
+                          <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-900 p-2">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="bg-white border-gray-200 text-gray-900">
                           <DropdownMenuItem 
-                            onClick={() => onToggleStatus(client)} // Use prop
+                            onClick={() => onToggleStatus(client)}
                             className="hover:bg-gray-100 cursor-pointer"
                           >
                             {client.status === 'active' ? (
@@ -118,14 +114,14 @@ const ClientTable = ({
                             )}
                           </DropdownMenuItem>
                           <DropdownMenuItem 
-                            onClick={() => handleSendMessage(client.id)}
+                            onClick={() => handleSendMessage(client)}
                             className="hover:bg-gray-100 cursor-pointer"
                           >
                             <MessageSquare className="h-4 w-4 mr-2" />
                             <span>Enviar Mensagem</span>
                           </DropdownMenuItem>
                           <DropdownMenuItem 
-                            onClick={() => onDeleteClient(client.id)} // Use prop
+                            onClick={() => onDeleteClient(client.id)}
                             className="text-red-500 hover:bg-gray-100 cursor-pointer"
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
@@ -141,7 +137,14 @@ const ClientTable = ({
           </Table>
         </div>
       </div>
-      {/* Removed local Dialog for Edit Modal */}
+
+      {/* Modal de Envio de Mensagem */}
+      <SendMessageModal
+        open={sendMessageModalOpen}
+        onOpenChange={setSendMessageModalOpen}
+        client={selectedClient}
+        onSuccess={handleSendMessageSuccess}
+      />
     </>
   );
 };
