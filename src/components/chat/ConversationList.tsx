@@ -5,6 +5,7 @@ import ConversationItem from './conversation-list/ConversationItem';
 import EmptyState from './conversation-list/EmptyState';
 import { Conversation } from './types';
 import { supabase } from '@/lib/supabase';
+import { useSupabase } from '@/contexts/SupabaseContext';
 
 interface ConversationListProps {
   activeConversation: string | null;
@@ -37,22 +38,30 @@ const ConversationList: React.FC<ConversationListProps> = ({
   const [filterType, setFilterType] = useState<'all' | 'unread'>('all');
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [filteredConversations, setFilteredConversations] = useState<Conversation[]>([]);
+  const { user } = useSupabase();
+  const userRole = user?.user_metadata?.role || 'atendente';
 
   useEffect(() => {
     const fetchConversations = async () => {
       try {
-        // 1. Buscar conversas da tabela 'conversations' com um JOIN em 'clients'
-        const { data: conversationsData, error: conversationsError } = await supabase
+        let query = supabase
           .from('conversations')
           .select(`
             id,
             last_message_at,
+            assigned_to,
             clients (
               name,
               phone
             )
           `)
           .order('last_message_at', { ascending: false });
+
+        if (userRole !== 'admin' && user) {
+          query = query.eq('assigned_to', user.id);
+        }
+
+        const { data: conversationsData, error: conversationsError } = await query;
 
         if (conversationsError) {
           console.error('Erro ao buscar conversas:', conversationsError);
@@ -97,7 +106,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
     };
 
     fetchConversations();
-  }, []);
+  }, [user, userRole]);
 
   // Apply filters when search term or filter type changes
   useEffect(() => {

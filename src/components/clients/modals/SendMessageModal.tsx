@@ -90,7 +90,7 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({
         });
 
       // 5. Enviar mensagem através do webhook do n8n
-      const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL;
+      const webhookUrl = `${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/send-message`;
       
       if (webhookUrl) {
         try {

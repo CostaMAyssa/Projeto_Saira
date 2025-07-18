@@ -1,6 +1,7 @@
 import React from 'react';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useSearchParams } from 'react-router-dom';
 import SettingsTabs from './components/SettingsTabs';
 import ProfileTab from './tabs/ProfileTab';
 import WhatsAppTab from './tabs/WhatsAppTab';
@@ -11,13 +12,15 @@ import SecurityTab from './tabs/SecurityTab';
 
 const SettingsModule = () => {
   const isMobile = useIsMobile();
+  const [searchParams] = useSearchParams();
+  const defaultTab = searchParams.get('tab') || 'profile';
   
   return (
     <div className="flex-1 p-3 md:p-6 overflow-y-auto bg-white">
       <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-pharmacy-text1">Configurações</h1>
       
-      <Tabs defaultValue="profile">
-        <SettingsTabs defaultValue="profile" />
+      <Tabs defaultValue={defaultTab}>
+        <SettingsTabs defaultValue={defaultTab} />
         
         <TabsContent value="profile">
           <ProfileTab />

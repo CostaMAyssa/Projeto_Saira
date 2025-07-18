@@ -1,0 +1,1507 @@
+{
+  "name": "Backend Erick",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        -1000
+      ],
+      "id": "16517ee3-fafb-458a-9e06-705f44de319e",
+      "name": "Supabase",
+      "credentials": {
+        "supabaseApi": {
+          "id": "DPqY5RUMhicaMQcD",
+          "name": "Supabase account 2"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "content": "## Dispara Mensagem\n** Envia mensagem com base no usuário que está selecionando",
+        "height": 300,
+        "width": 920
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -140,
+        -120
+      ],
+      "typeVersion": 1,
+      "id": "a5b11850-9500-4320-ad99-2c56b51499e3",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "e59f314f-d993-40f4-8905-b9a4fd89fbbe",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -120,
+        20
+      ],
+      "id": "51eb18ab-c89f-465f-a1c3-0283ebeb66fa",
+      "name": "Recebe https",
+      "webhookId": "e59f314f-d993-40f4-8905-b9a4fd89fbbe"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "baeb0df0-2550-4327-b262-ff093a0e62f1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -120,
+        440
+      ],
+      "id": "5abc538f-61e2-4edc-82da-570c05f7e91c",
+      "name": "Webhook",
+      "webhookId": "baeb0df0-2550-4327-b262-ff093a0e62f1"
+    },
+    {
+      "parameters": {
+        "content": "## Recebe Mensagens e Atualiza no Supabase\n** Atualiza no Supabase",
+        "height": 300,
+        "width": 920
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -160,
+        280
+      ],
+      "typeVersion": 1,
+      "id": "a943ab7b-5772-4991-8c70-e960821c2b06",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f04df543-3d21-4a01-9946-83d45514d11c",
+              "name": "content",
+              "value": "={{ $json.body.data.message.conversation }}",
+              "type": "string"
+            },
+            {
+              "id": "9a1431f4-7837-4c01-ac65-b22f530d2eb4",
+              "name": "sender",
+              "value": "={{ $json.body.data.key.fromMe }}",
+              "type": "string"
+            },
+            {
+              "id": "50a2ce70-4e90-4dee-ad1d-4f5a1516ead3",
+              "name": "sent_at",
+              "value": "={{ $json.body.data.message.messageContextInfo.deviceListMetadata.recipientTimestamp }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1780,
+        1580
+      ],
+      "id": "184c31e9-9ac3-4360-a0b9-b47293a66db6",
+      "name": "Edit Fields",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1838f3b1-3b8a-4433-8ab7-c7dbe6da5998",
+              "name": "customer_phone",
+              "value": "={{ $json.body.data.key.remoteJid }}",
+              "type": "string"
+            },
+            {
+              "id": "9e83b62a-5d41-4c47-847e-2b89387a9aa7",
+              "name": "message_content",
+              "value": "={{ $json.body.data.message.conversation }}",
+              "type": "string"
+            },
+            {
+              "id": "9568f7e2-fb1e-492a-a220-855402a4a0e3",
+              "name": "message_timestamp",
+              "value": "={{ $json.body.data.messageTimestamp }}",
+              "type": "string"
+            },
+            {
+              "id": "4e630358-5596-45a9-ab7f-44078aec61ae",
+              "name": "instance_name",
+              "value": "={{ $json.body.instance }}",
+              "type": "string"
+            },
+            {
+              "id": "09dc216a-6e99-4539-aa05-fbba6a7c6017",
+              "name": "name",
+              "value": "={{ $json.body.data.pushName }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        320,
+        420
+      ],
+      "id": "d2a63688-2c19-4267-a171-b89a800fbc57",
+      "name": "Variáveis",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5d38efa4-8a30-49d1-b709-e23625f12885",
+              "leftValue": "={{ $json.name }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1180,
+        560
+      ],
+      "id": "a14c1374-fd74-4250-9fb4-c2c3e47367fe",
+      "name": "If",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "clients",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "keyValue": "={{ $('Variáveis').item.json.customer_phone.replace(/\\D/g, '') }}"
+            },
+            {
+              "keyName": "created_by",
+              "keyValue": "={{ $json.user_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        860,
+        600
+      ],
+      "id": "e34accc2-4f09-48a3-84f0-9b1adc67fd53",
+      "name": "Compara Whatsapp se já está nos contatos",
+      "alwaysOutputData": true,
+      "executeOnce": false,
+      "credentials": {
+        "supabaseApi": {
+          "id": "gIFvKlw1cPfUxRqs",
+          "name": "Erick"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a2b43bca-c0b0-4b56-968b-500271ff456d",
+              "name": "user_id",
+              "value": "={{ $json.user_id }}",
+              "type": "string"
+            },
+            {
+              "id": "6fe54552-61a4-4140-a796-4579572e9c4d",
+              "name": "id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        760,
+        420
+      ],
+      "id": "3803c4e3-edb9-4cbd-8578-46efea8fcb3a",
+      "name": "Variáveis 2",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "tableId": "clients",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "name",
+              "fieldValue": "={{ $('Variáveis').item.json.name }}"
+            },
+            {
+              "fieldId": "phone",
+              "fieldValue": "={{ $('Variáveis').item.json.customer_phone.replace(/\\D/g, '') }}"
+            },
+            {
+              "fieldId": "created_by",
+              "fieldValue": "={{ $('Variáveis 2').item.json.user_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1480,
+        580
+      ],
+      "id": "5e6c7ccf-125d-4baa-94d9-0af95880ab12",
+      "name": "Cria o contato",
+      "alwaysOutputData": true,
+      "executeOnce": false,
+      "credentials": {
+        "supabaseApi": {
+          "id": "gIFvKlw1cPfUxRqs",
+          "name": "Erick"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [
+        1880,
+        700
+      ],
+      "id": "5b7d136d-45ad-48df-97ac-ef40b729a2e5",
+      "name": "Merge",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "481b57db-ad7b-42c4-8fef-c976a7376a7f",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2300,
+        480
+      ],
+      "id": "e74a988d-d48a-40b5-a111-7c73e61305fd",
+      "name": "Existe Conversa?",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "conversations",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "client_id",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2080,
+        480
+      ],
+      "id": "cb9e3970-34b5-4218-9014-c71edc3ad044",
+      "name": "Encontrar a Conversa Ativa",
+      "alwaysOutputData": true,
+      "executeOnce": false,
+      "credentials": {
+        "supabaseApi": {
+          "id": "gIFvKlw1cPfUxRqs",
+          "name": "Erick"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "conversations",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "client_id",
+              "fieldValue": "={{ $('Variáveis 2').item.json.id }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "=active"
+            },
+            {
+              "fieldId": "last_message_at",
+              "fieldValue": "={{ $('Webhook').item.json.body.date_time }}"
+            },
+            {
+              "fieldId": "assigned_to",
+              "fieldValue": "={{ $('Variáveis 2').item.json.user_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2320,
+        660
+      ],
+      "id": "acf05fd4-c223-4558-833d-cbd4f9e7d221",
+      "name": "Criar nova Conversa",
+      "alwaysOutputData": true,
+      "executeOnce": false,
+      "credentials": {
+        "supabaseApi": {
+          "id": "gIFvKlw1cPfUxRqs",
+          "name": "Erick"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [
+        2580,
+        560
+      ],
+      "id": "2998b5aa-f8f9-4a9c-876c-df65d096d3fd",
+      "name": "Merge1",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "settings",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "evolution_instance_name",
+              "keyValue": "={{ $json.instance_name }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        520,
+        420
+      ],
+      "id": "dc7754eb-3299-48c8-aaed-983c21140803",
+      "name": "Compara Instância e busca ID",
+      "alwaysOutputData": false,
+      "executeOnce": false,
+      "credentials": {
+        "supabaseApi": {
+          "id": "gIFvKlw1cPfUxRqs",
+          "name": "Erick"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "messages",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "conversation_id",
+              "fieldValue": "={{ $json.id }}"
+            },
+            {
+              "fieldId": "content",
+              "fieldValue": "={{ $('Variáveis').item.json.message_content }}"
+            },
+            {
+              "fieldId": "sender",
+              "fieldValue": "client"
+            },
+            {
+              "fieldId": "sent_at",
+              "fieldValue": "={{ new Date($('Variáveis').item.json.message_timestamp * 1000).toISOString() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2820,
+        560
+      ],
+      "id": "ccd359dc-1c2a-41fc-a806-576cafd49156",
+      "name": "Supabase1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "gIFvKlw1cPfUxRqs",
+          "name": "Erick"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f24364c1-62ab-45d6-8c4d-0a795675638d",
+              "leftValue": "={{ $json.body.data.key.fromMe }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        120,
+        440
+      ],
+      "id": "ab62e8f5-9568-49a9-9a09-d49033c674d6",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1838f3b1-3b8a-4433-8ab7-c7dbe6da5998",
+              "name": "customer_phone",
+              "value": "={{ $json.body.data.key.remoteJid }}",
+              "type": "string"
+            },
+            {
+              "id": "9e83b62a-5d41-4c47-847e-2b89387a9aa7",
+              "name": "message_content",
+              "value": "={{ $json.body.data.message.conversation }}",
+              "type": "string"
+            },
+            {
+              "id": "9568f7e2-fb1e-492a-a220-855402a4a0e3",
+              "name": "message_timestamp",
+              "value": "={{ $json.body.data.messageTimestamp }}",
+              "type": "string"
+            },
+            {
+              "id": "4e630358-5596-45a9-ab7f-44078aec61ae",
+              "name": "instance_name",
+              "value": "={{ $json.body.instance }}",
+              "type": "string"
+            },
+            {
+              "id": "09dc216a-6e99-4539-aa05-fbba6a7c6017",
+              "name": "name",
+              "value": "={{ $json.body.data.pushName }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        300,
+        820
+      ],
+      "id": "76fd8eb9-d553-4acb-944e-5f9acfea1913",
+      "name": "Variáveis1",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "5d38efa4-8a30-49d1-b709-e23625f12885",
+              "leftValue": "={{ $json.name }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1240,
+        820
+      ],
+      "id": "fdcb6a6b-93f1-4247-a441-6ceac44a8de0",
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "clients",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "phone",
+              "keyValue": "={{ $('Variáveis1').item.json.customer_phone.replace(/\\D/g, '') }}"
+            },
+            {
+              "keyName": "created_by",
+              "keyValue": "={{ $json.user_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1020,
+        820
+      ],
+      "id": "a3ef93f1-0844-4bd3-93c1-efa950b0c30f",
+      "name": "Compara Whatsapp se já está nos contatos1",
+      "alwaysOutputData": true,
+      "executeOnce": false,
+      "credentials": {
+        "supabaseApi": {
+          "id": "gIFvKlw1cPfUxRqs",
+          "name": "Erick"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a2b43bca-c0b0-4b56-968b-500271ff456d",
+              "name": "user_id",
+              "value": "={{ $json.user_id }}",
+              "type": "string"
+            },
+            {
+              "id": "6fe54552-61a4-4140-a796-4579572e9c4d",
+              "name": "id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        740,
+        820
+      ],
+      "id": "53c32ec6-7aa7-4bde-8c35-18738cd27f33",
+      "name": "Variáveis ",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "tableId": "clients",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "name",
+              "fieldValue": "={{ $('Variáveis1').item.json.name }}"
+            },
+            {
+              "fieldId": "phone",
+              "fieldValue": "={{ $('Variáveis1').item.json.customer_phone.replace(/\\D/g, '') }}"
+            },
+            {
+              "fieldId": "created_by",
+              "fieldValue": "={{ $('Variáveis ').item.json.user_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1240,
+        980
+      ],
+      "id": "e29d2028-d8e5-4c8d-b81f-52b08d698311",
+      "name": "Cria o contato1",
+      "alwaysOutputData": true,
+      "executeOnce": false,
+      "credentials": {
+        "supabaseApi": {
+          "id": "gIFvKlw1cPfUxRqs",
+          "name": "Erick"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [
+        1520,
+        880
+      ],
+      "id": "4987b989-36c7-4c5c-886b-16b335713c86",
+      "name": "Merge2",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "481b57db-ad7b-42c4-8fef-c976a7376a7f",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2060,
+        880
+      ],
+      "id": "d880ad8f-0885-4176-8abe-cd2e1b8bb569",
+      "name": "Existe Conversa?1",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "conversations",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "client_id",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1840,
+        880
+      ],
+      "id": "9f2f8f49-ee70-4e12-84d4-a56ce714787b",
+      "name": "Encontrar a Conversa Ativa1",
+      "alwaysOutputData": true,
+      "executeOnce": false,
+      "credentials": {
+        "supabaseApi": {
+          "id": "gIFvKlw1cPfUxRqs",
+          "name": "Erick"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "conversations",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "client_id",
+              "fieldValue": "={{ $('Merge2').item.json.id }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "=active"
+            },
+            {
+              "fieldId": "last_message_at",
+              "fieldValue": "={{ $('Webhook').item.json.body.date_time }}"
+            },
+            {
+              "fieldId": "assigned_to",
+              "fieldValue": "={{ $('Variáveis ').item.json.user_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2080,
+        1060
+      ],
+      "id": "290accef-b8ad-4f77-8383-bce242a94f3c",
+      "name": "Criar nova Conversa1",
+      "alwaysOutputData": true,
+      "executeOnce": false,
+      "credentials": {
+        "supabaseApi": {
+          "id": "gIFvKlw1cPfUxRqs",
+          "name": "Erick"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.1,
+      "position": [
+        2340,
+        960
+      ],
+      "id": "8162de6a-3907-4e61-af24-7595c8a25a99",
+      "name": "Merge3",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "settings",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "evolution_instance_name",
+              "keyValue": "={{ $json.instance_name }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        500,
+        820
+      ],
+      "id": "2b111b29-658d-484e-b8ac-07c3a7aa33e5",
+      "name": "Compara Instância e busca ID1",
+      "alwaysOutputData": false,
+      "executeOnce": false,
+      "credentials": {
+        "supabaseApi": {
+          "id": "gIFvKlw1cPfUxRqs",
+          "name": "Erick"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "tableId": "messages",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "conversation_id",
+              "fieldValue": "={{ $json.id }}"
+            },
+            {
+              "fieldId": "content",
+              "fieldValue": "={{ $('Variáveis1').item.json.message_content }}"
+            },
+            {
+              "fieldId": "sender",
+              "fieldValue": "user"
+            },
+            {
+              "fieldId": "sent_at",
+              "fieldValue": "={{ new Date($('Variáveis1').item.json.message_timestamp * 1000).toISOString() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2580,
+        960
+      ],
+      "id": "7d9783f6-2dd3-4fa1-94fb-a4711ec14f81",
+      "name": "Supabase2",
+      "credentials": {
+        "supabaseApi": {
+          "id": "gIFvKlw1cPfUxRqs",
+          "name": "Erick"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c17d7764-d450-4f78-880a-a6c5a463d0d3",
+              "name": "conversation_id",
+              "value": "={{ $json.body.conversationId }}",
+              "type": "string"
+            },
+            {
+              "id": "613c7d14-b87a-4398-b044-f7d282e9b99a",
+              "name": "message_text",
+              "value": "={{ $json.body.text }}",
+              "type": "string"
+            },
+            {
+              "id": "c2a0e920-6d93-415c-be01-cc86eda5a1e7",
+              "name": "clientName",
+              "value": "={{ $json.body.clientName }}",
+              "type": "string"
+            },
+            {
+              "id": "de3d05bf-9ac5-4ece-859c-a1b9eb8e7a97",
+              "name": "clientId",
+              "value": "={{ $json.body.clientId }}",
+              "type": "string"
+            },
+            {
+              "id": "99f7fae3-a2ba-4168-a728-29285867874b",
+              "name": "userId",
+              "value": "={{ $json.body.userId }}",
+              "type": "string"
+            },
+            {
+              "id": "e72a6964-5796-4a9c-b2e0-ffa20c025278",
+              "name": "clientPhone",
+              "value": "={{ $json.body.clientPhone }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        100,
+        20
+      ],
+      "id": "a6c20fbc-d082-4aef-b9e6-21c3ef26d1bf",
+      "name": "Variáveis2"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "settings",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "user_id",
+              "keyValue": "={{ $json.userId }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        360,
+        20
+      ],
+      "id": "46f4055b-5ef9-4674-97ea-36877b364871",
+      "name": "Buscar Settings",
+      "alwaysOutputData": true,
+      "executeOnce": false,
+      "credentials": {
+        "supabaseApi": {
+          "id": "gIFvKlw1cPfUxRqs",
+          "name": "Erick"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "conversations",
+        "returnAll": true,
+        "matchType": "allFilters"
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        -740
+      ],
+      "id": "3e771b27-175f-4c20-8740-a7c37d8910e7",
+      "name": "Buscar Settings1",
+      "alwaysOutputData": true,
+      "executeOnce": false,
+      "credentials": {
+        "supabaseApi": {
+          "id": "gIFvKlw1cPfUxRqs",
+          "name": "Erick"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "messages",
+        "matchType": "allFilters"
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3580,
+        480
+      ],
+      "id": "f7679d39-c117-439c-b5bf-a79dd67c093c",
+      "name": "Encontrar a Conversa Ativa2",
+      "alwaysOutputData": true,
+      "executeOnce": false,
+      "credentials": {
+        "supabaseApi": {
+          "id": "gIFvKlw1cPfUxRqs",
+          "name": "Erick"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "messages-api",
+        "instanceName": "={{ $json.evolution_instance_name }}",
+        "remoteJid": "={{ $('Variáveis2').item.json.clientPhone }}",
+        "messageText": "={{ $('Variáveis2').item.json.message_text }}",
+        "options_message": {}
+      },
+      "type": "n8n-nodes-evolution-api.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        580,
+        20
+      ],
+      "id": "428b62f5-2d32-41cd-86da-d27dd18c68a1",
+      "name": "Evolution API",
+      "credentials": {
+        "evolutionApi": {
+          "id": "PWDyfH2pqSqhUPU1",
+          "name": "Evolution account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Recebe https": [
+      {
+        "json": {
+          "headers": {
+            "host": "api.codegrana.com.br",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+            "content-length": "282",
+            "accept": "*/*",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "accept-language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+            "content-type": "application/json",
+            "origin": "http://localhost:8080",
+            "priority": "u=1, i",
+            "referer": "http://localhost:8080/",
+            "sec-ch-ua": "\"Google Chrome\";v=\"137\", \"Chromium\";v=\"137\", \"Not/A)Brand\";v=\"24\"",
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": "\"Windows\"",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "cross-site",
+            "x-forwarded-for": "138.122.221.199",
+            "x-forwarded-host": "api.codegrana.com.br",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "ac27b2472660",
+            "x-real-ip": "138.122.221.199"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "conversationId": "0eb55dfc-a33f-47a9-a131-3c1e3229df00",
+            "text": "oi",
+            "userId": "fe39cc23-b68b-4526-a514-c92b877cac0c",
+            "evolutionInstance": "",
+            "clientPhone": "556481365341@s.whatsapp.net",
+            "clientName": "Mateus Correa | Automação & IA",
+            "clientId": "21db52e9-5251-4df6-a906-dbd3f31497f4"
+          },
+          "webhookUrl": "https://api.codegrana.com.br/webhook/e59f314f-d993-40f4-8905-b9a4fd89fbbe",
+          "executionMode": "production"
+        }
+      }
+    ],
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "api.codegrana.com.br",
+            "user-agent": "axios/1.7.9",
+            "content-length": "988",
+            "accept-encoding": "gzip, compress, deflate, br",
+            "content-type": "application/json",
+            "x-forwarded-for": "172.18.0.1",
+            "x-forwarded-host": "api.codegrana.com.br",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "ac27b2472660",
+            "x-real-ip": "172.18.0.1"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "event": "messages.upsert",
+            "instance": "caldasIA",
+            "data": {
+              "key": {
+                "remoteJid": "556492067866@s.whatsapp.net",
+                "fromMe": false,
+                "id": "E25EB936355C9CADBE3364323B8D3554"
+              },
+              "pushName": "MATEUS COSTA",
+              "status": "DELIVERY_ACK",
+              "message": {
+                "messageContextInfo": {
+                  "deviceListMetadata": {
+                    "recipientKeyHash": "tWZfYBffDIr9LA==",
+                    "recipientTimestamp": "1751921724"
+                  },
+                  "deviceListMetadataVersion": 2,
+                  "messageSecret": "bJdNJAqU/ejT5i/S05QOnXihDlBvfItWFPFbSO+T6bU="
+                },
+                "conversation": "Oi"
+              },
+              "contextInfo": {
+                "entryPointConversionSource": "contact_search",
+                "entryPointConversionApp": "whatsapp",
+                "entryPointConversionDelaySeconds": 18
+              },
+              "messageType": "conversation",
+              "messageTimestamp": 1752333564,
+              "instanceId": "f86c8b02-29df-4de1-ac9d-1e8c78d7475c",
+              "source": "android"
+            },
+            "destination": "https://api.codegrana.com.br/webhook/baeb0df0-2550-4327-b262-ff093a0e62f1",
+            "date_time": "2025-07-12T12:19:24.501Z",
+            "sender": "556492469875@s.whatsapp.net",
+            "server_url": "https://evolution.codegrana.com.br",
+            "apikey": "493ED0BEB1A8-47F2-A6EE-731DBFDB99D2"
+          },
+          "webhookUrl": "https://api.codegrana.com.br/webhook/baeb0df0-2550-4327-b262-ff093a0e62f1",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Recebe https": {
+      "main": [
+        [
+          {
+            "node": "Variáveis2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Variáveis": {
+      "main": [
+        [
+          {
+            "node": "Compara Instância e busca ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compara Whatsapp se já está nos contatos": {
+      "main": [
+        []
+      ]
+    },
+    "Variáveis 2": {
+      "main": [
+        [
+          {
+            "node": "Encontrar a Conversa Ativa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Cria o contato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cria o contato": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        []
+      ]
+    },
+    "Encontrar a Conversa Ativa": {
+      "main": [
+        [
+          {
+            "node": "Existe Conversa?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Existe Conversa?": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Criar nova Conversa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar nova Conversa": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Compara Instância e busca ID": {
+      "main": [
+        [
+          {
+            "node": "Variáveis 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Supabase1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Variáveis",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Variáveis1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Variáveis1": {
+      "main": [
+        [
+          {
+            "node": "Compara Instância e busca ID1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Cria o contato1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compara Whatsapp se já está nos contatos1": {
+      "main": [
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Variáveis ": {
+      "main": [
+        [
+          {
+            "node": "Compara Whatsapp se já está nos contatos1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cria o contato1": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "node": "Encontrar a Conversa Ativa1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Existe Conversa?1": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Criar nova Conversa1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Encontrar a Conversa Ativa1": {
+      "main": [
+        [
+          {
+            "node": "Existe Conversa?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar nova Conversa1": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge3": {
+      "main": [
+        [
+          {
+            "node": "Supabase2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compara Instância e busca ID1": {
+      "main": [
+        [
+          {
+            "node": "Variáveis ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Variáveis2": {
+      "main": [
+        [
+          {
+            "node": "Buscar Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Settings": {
+      "main": [
+        [
+          {
+            "node": "Evolution API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "19d98db0-da9b-4c9d-814e-862ae449fba7",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8894988a030618df1e9468cc6c102e41aeff45e4ba811d32f8f4d2c6a2eacf60"
+  },
+  "id": "I088husUvPasORhr",
+  "tags": []
+}
