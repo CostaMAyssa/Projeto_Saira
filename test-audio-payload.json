@@ -1,0 +1,25 @@
+{
+  "event": "messages.upsert",
+  "instance": "caldasIA",
+  "data": {
+    "key": {
+      "remoteJid": "556481365341@s.whatsapp.net",
+      "fromMe": false,
+      "id": "TEST_AUDIO_001"
+    },
+    "pushName": "Teste Áudio",
+    "status": "DELIVERY_ACK",
+    "message": {
+      "audioMessage": {
+        "audio": "SGVsbG8gV29ybGQ=",
+        "mimetype": "audio/mp3",
+        "fileLength": "12345",
+        "mediaKey": "test-audio-key-123"
+      }
+    },
+    "messageType": "audioMessage",
+    "messageTimestamp": 1752927185,
+    "instanceId": "f86c8b02-29df-4de1-ac9d-1e8c78d7475c",
+    "source": "android"
+  }
+} 
