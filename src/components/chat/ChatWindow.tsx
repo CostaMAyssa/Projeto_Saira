@@ -176,8 +176,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   }, [activeConversation]);
   
   // Função de envio de mensagem com HTTP Request para o n8n
-  const handleSendMessage = useCallback(async (content: string) => {
-    if (!activeConversation || !content.trim()) return;
+  const handleSendMessage = useCallback(async (content: string, filePayload?: { name: string; base64: string; type: string }) => {
+    if (!activeConversation || (!content.trim() && !filePayload)) return;
 
     // Buscar dados da conversa e da instância Evolution do banco se não estiverem disponíveis
     let clientPhone = '';
@@ -222,19 +222,36 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     const sentAt = new Date();
     
     // 1. Atualização Otimista da UI
-    const newMessage: Message = {
-      id: optimisticId,
-      content: content,
-      sender: 'user',
-      timestamp: sentAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      message_type: 'text',
-      media_url: undefined,
-      media_type: undefined,
-      file_name: undefined,
-      file_size: undefined,
-      transcription: undefined,
-      caption: undefined
-    };
+    let newMessage: Message;
+    if (filePayload) {
+      newMessage = {
+        id: optimisticId,
+        content: 'Enviando arquivo...',
+        sender: 'user',
+        timestamp: sentAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        message_type: filePayload.type.startsWith('image') ? 'image' : 'document',
+        media_url: undefined,
+        media_type: filePayload.type,
+        file_name: filePayload.name,
+        file_size: undefined,
+        transcription: undefined,
+        caption: content || undefined
+      };
+    } else {
+      newMessage = {
+        id: optimisticId,
+        content: content,
+        sender: 'user',
+        timestamp: sentAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        message_type: 'text',
+        media_url: undefined,
+        media_type: undefined,
+        file_name: undefined,
+        file_size: undefined,
+        transcription: undefined,
+        caption: undefined
+      };
+    }
     setMessages(prev => [...prev, newMessage]);
 
     try {
@@ -246,22 +263,42 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         return;
       }
 
-      await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({
-          conversationId: activeConversation,
-          text: content,
-          userId,
-          evolutionInstance: evolutionInstanceName,
-          clientPhone,
-          clientName,
-          clientId
-        })
-      });
+      if (filePayload) {
+        await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({
+            conversationId: activeConversation,
+            file: filePayload,
+            text: content,
+            userId,
+            evolutionInstance: evolutionInstanceName,
+            clientPhone,
+            clientName,
+            clientId
+          })
+        });
+      } else {
+        await fetch(webhookUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({
+            conversationId: activeConversation,
+            text: content,
+            userId,
+            evolutionInstance: evolutionInstanceName,
+            clientPhone,
+            clientName,
+            clientId
+          })
+        });
+      }
 
     } catch (error) {
       setMessages(prev => prev.filter(m => m.id !== optimisticId));

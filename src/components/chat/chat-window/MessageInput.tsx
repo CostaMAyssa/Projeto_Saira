@@ -16,15 +16,17 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onSendAudio 
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  
+  const [isUploading, setIsUploading] = useState(false);
+
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const handleSendMessage = () => {
     if (newMessage.trim() === '') return;
     onSendMessage(newMessage);
     setNewMessage('');
   };
-  
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -38,23 +40,16 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onSendAudio 
       const recorder = new MediaRecorder(stream, {
         mimeType: 'audio/webm;codecs=opus'
       });
-      
       const chunks: Blob[] = [];
-      
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           chunks.push(event.data);
         }
       };
-      
       recorder.onstop = () => {
         const audioBlob = new Blob(chunks, { type: 'audio/webm' });
         setAudioChunks(chunks);
-        
-        // Parar todas as tracks do stream
         stream.getTracks().forEach(track => track.stop());
-        
-        // Processar o áudio
         if (onSendAudio && audioBlob.size > 0) {
           setIsProcessing(true);
           const fileName = `audio_${Date.now()}.webm`;
@@ -62,19 +57,14 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onSendAudio 
           setIsProcessing(false);
         }
       };
-      
       setMediaRecorder(recorder);
       setAudioChunks([]);
       setRecordingTime(0);
       setIsRecording(true);
-      
       recorder.start();
-      
-      // Iniciar contador de tempo
       recordingIntervalRef.current = setInterval(() => {
         setRecordingTime(prev => prev + 1);
       }, 1000);
-      
     } catch (error) {
       console.error('Erro ao iniciar gravação:', error);
       alert('Erro ao acessar microfone. Verifique as permissões.');
@@ -85,8 +75,6 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onSendAudio 
     if (mediaRecorder && isRecording) {
       mediaRecorder.stop();
       setIsRecording(false);
-      
-      // Parar contador
       if (recordingIntervalRef.current) {
         clearInterval(recordingIntervalRef.current);
         recordingIntervalRef.current = null;
@@ -107,7 +95,47 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onSendAudio 
       startRecording();
     }
   };
-  
+
+  // NOVO: Função para abrir o seletor de arquivos
+  const handleClipClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current.click();
+    }
+  };
+
+  // NOVO: Função para processar o arquivo selecionado
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    try {
+      // Converter arquivo para base64
+      const toBase64 = (file: File) => new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const base64 = await toBase64(file);
+      // Montar objeto para envio
+      const filePayload = {
+        name: file.name,
+        base64,
+        type: file.type
+      };
+      // Chamar função de envio (precisa ser adaptada no ChatWindow para aceitar arquivo)
+      if (typeof (onSendMessage as any) === 'function') {
+        (onSendMessage as any)('', filePayload); // Envia mensagem vazia + arquivo
+      }
+    } catch (err) {
+      alert('Erro ao processar arquivo.');
+      console.error(err);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   return (
     <div className="p-2 bg-[#F0F2F5]">
       <div className="flex items-center gap-1 md:gap-2">
@@ -118,15 +146,24 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onSendAudio 
         >
           <Smile className="h-5 w-5 md:h-6 md:w-6" />
         </Button>
-        
+        {/* NOVO: Botão de clipe funcional */}
         <Button 
           variant="ghost" 
           size="icon" 
+          onClick={handleClipClick}
           className="text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded-full h-9 w-9 md:h-10 md:w-10"
+          disabled={isUploading}
         >
-          <Paperclip className="h-5 w-5 md:h-6 md:w-6" />
+          {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Paperclip className="h-5 w-5 md:h-6 md:w-6" />}
         </Button>
-        
+        {/* Input invisível para upload */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/zip,application/x-zip-compressed,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+          style={{ display: 'none' }}
+          onChange={handleFileChange}
+        />
         <div className="flex-1 relative">
           {isRecording ? (
             <div className="bg-red-100 border border-red-300 rounded-2xl px-4 py-2 flex items-center justify-between">
@@ -155,7 +192,6 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onSendAudio 
           />
           )}
         </div>
-        
         {!isRecording && (
         <Button 
             onClick={newMessage.trim() === '' ? handleMicClick : handleSendMessage}
@@ -171,7 +207,6 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onSendAudio 
           )}
         </Button>
         )}
-        
         {isRecording && (
           <Button 
             onClick={handleMicClick}

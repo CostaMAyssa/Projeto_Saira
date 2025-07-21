@@ -88,47 +88,45 @@ serve(async (req) => {
     let mediaUrl = null, mediaType = null, fileName = null, fileSize = null;
     if (file || audio) {
       const media = file || audio;
-      
       try {
-        // Melhor tratamento do base64
-        let buffer;
-        if (media.base64) {
-          // Remover prefixo data: se existir
-          const base64Data = media.base64.replace(/^data:[^;]+;base64,/, '');
-          
-          // Verificar se o base64 é válido
-          if (!/^[A-Za-z0-9+/]*={0,2}$/.test(base64Data)) {
-            throw new Error('Invalid base64 format');
-          }
-          
-          // Decodificar base64
-          const binaryString = atob(base64Data);
-          buffer = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            buffer[i] = binaryString.charCodeAt(i);
-          }
-        } else {
-          throw new Error('Base64 data is missing');
+        // --- SANITIZAÇÃO DO NOME DO ARQUIVO ---
+        function sanitizeFileName(name) {
+          return name
+            .normalize('NFD').replace(/[ -]/g, '') // remove acentos
+            .replace(/[^a-zA-Z0-9.\-_]/g, '_') // só letras, números, ponto, hífen, underscore
+            .replace(/\s+/g, '_') // espaços por underscore
+            .replace(/_+/g, '_') // múltiplos underscores por um só
+            .toLowerCase();
         }
-        
-        fileName = media.name || `audio_${Date.now()}.webm`;
+        // --- CONVERSÃO ROBUSTA BASE64 PARA BINÁRIO ---
+        function base64ToUint8Array(base64) {
+          const cleaned = base64.replace(/^data:[^;]+;base64,/, '');
+          const binaryString = atob(cleaned);
+          const len = binaryString.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          return bytes;
+        }
+        fileName = media.name ? sanitizeFileName(media.name) : `audio_${Date.now()}.webm`;
         mediaType = media.type || 'audio/webm';
+        // Usar função robusta para converter base64 em buffer
+        const buffer = base64ToUint8Array(media.base64);
         fileSize = buffer.length;
-        
         console.log('Salvando mídia:', {
           fileName,
           mediaType,
           fileSize,
           base64Length: media.base64.length
         });
-        
         const { data: storageData, error: storageError } = await supabase.storage
           .from('whatsapp-media')
           .upload(`${userId}/${evolutionInstance}/${Date.now()}_${fileName}`, buffer, {
             contentType: mediaType,
             upsert: true
           });
-        
+        console.log('storageData:', storageData);
         if (storageError) {
           console.error('Erro no storage:', storageError);
           return new Response(JSON.stringify({
@@ -142,9 +140,16 @@ serve(async (req) => {
             },
           });
         }
-        
-        mediaUrl = supabase.storage.from('whatsapp-media').getPublicUrl(storageData.path).publicUrl;
+        // Corrigir obtenção da URL pública (compatível com diferentes versões da SDK)
+        let publicUrl = '';
+        let publicUrlObj = supabase.storage.from('whatsapp-media').getPublicUrl(storageData.path);
+        console.log('getPublicUrl result:', publicUrlObj);
+        publicUrl = publicUrlObj.data ? publicUrlObj.data.publicUrl : publicUrlObj.publicUrl;
+        mediaUrl = publicUrl;
         console.log('Mídia salva com sucesso:', mediaUrl);
+        if (!mediaUrl) {
+          console.error('URL pública da mídia não gerada corretamente! storageData:', storageData);
+        }
       } catch (decodeError) {
         console.error('Erro ao decodificar base64:', decodeError);
         return new Response(JSON.stringify({
@@ -161,64 +166,75 @@ serve(async (req) => {
     }
 
     // 4. Montar payload Evolution API
-    const payload = {
-      number: clientPhone, // Campo obrigatório para a Evolution API
-      text: text || ''
-    };
-    
-    if (mediaUrl) {
-      payload.mediaUrl = mediaUrl;
-      payload.mediaType = mediaType;
-      payload.fileName = fileName;
-      payload.fileSize = fileSize;
-    }
-
-    // 5. Enviar para Evolution API
     let evoRes;
     let endpoint;
-    
+    let evoPayload;
+
     if (audio) {
       // Endpoint específico para áudio usando sendWhatsAppAudio
       endpoint = `${settings.api_url}/message/sendWhatsAppAudio/${evolutionInstance}`;
-      
       // Remover prefixo data: do base64 para a Evolution API
       const cleanBase64 = audio.base64.replace(/^data:[^;]+;base64,/, '');
-      
       // Payload correto para áudio na Evolution API
-      const audioPayload = {
+      evoPayload = {
         number: clientPhone,
         audio: cleanBase64 // Enviar base64 puro diretamente
       };
-      
-      console.log('Enviando áudio para Evolution API:', endpoint);
-      console.log('Payload do áudio:', {
+    } else if (file) {
+      // Detectar tipo de mídia
+      const isImage = typeof mediaType === 'string' && mediaType.startsWith('image');
+      const isDocument = typeof mediaType === 'string' && !mediaType.startsWith('image');
+      endpoint = `${settings.api_url}/message/sendMedia/${evolutionInstance}`;
+      // Enviar base64 puro no campo media (sem prefixo)
+      const cleanBase64 = file.base64.replace(/^data:[^;]+;base64,/, '');
+      evoPayload = {
         number: clientPhone,
-        audioLength: cleanBase64.length
-      });
-      
-      evoRes = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': settings.api_key
-        },
-        body: JSON.stringify(audioPayload)
-      });
+        mediatype: isImage ? 'image' : 'document',
+        mimetype: mediaType,
+        caption: text || '',
+        media: cleanBase64,
+        fileName: fileName
+      };
     } else {
-      // Endpoint para texto e outros tipos
+      // Endpoint para texto
       endpoint = `${settings.api_url}/message/sendText/${evolutionInstance}`;
+      evoPayload = {
+        number: clientPhone,
+        text: text || ''
+      };
+    }
+
+    // LOG do payload e endpoint
+    console.log('Enviando para Evolution API:', { endpoint, evoPayload });
+
+    // 5. Enviar para Evolution API
+    let evoData;
+    try {
       evoRes = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'apikey': settings.api_key
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(evoPayload)
+      });
+      evoData = await evoRes.json();
+      console.log('Resposta da Evolution API:', { status: evoRes.status, evoData });
+    } catch (evoError) {
+      console.error('Erro ao enviar para Evolution API:', evoError);
+      return new Response(JSON.stringify({
+        error: 'Erro ao enviar para Evolution API',
+        details: evoError && evoError.message ? evoError.message : evoError
+      }), {
+        status: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json',
+        },
       });
     }
-    
-    const evoData = await evoRes.json();
     if (!evoRes.ok) {
+      console.error('Erro Evolution API:', evoData);
       return new Response(JSON.stringify({
         error: 'Erro Evolution API',
         details: evoData

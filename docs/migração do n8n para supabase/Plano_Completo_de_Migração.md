@@ -4,6 +4,22 @@ Perfeito! Seguindo sua diretriz de engenharia sênior, segue um **plano detalhad
 
 # 🏁 **Plano Completo de Migração: n8n → Supabase Functions**
 
+Frontend (Chat)
+   │
+   ▼
+/send-message (Supabase Edge Function)
+   │
+   ▼
+Evolution API (envio WhatsApp)
+   │
+   ▼
+/receive-message (Supabase Edge Function, webhook Evolution)
+   │
+   ▼
+Supabase Storage + Tabelas (clients, conversations, messages)
+   │
+   ▼
+Frontend (exibe tudo em tempo real)
 ---
 
 ## **1. Auditoria e Levantamento**
