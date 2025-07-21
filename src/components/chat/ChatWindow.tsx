@@ -267,6 +267,137 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       setMessages(prev => prev.filter(m => m.id !== optimisticId));
     }
   }, [activeConversation, user, evolutionInstance]);
+
+  // Função de envio de áudio
+  const handleSendAudio = useCallback(async (audioBlob: Blob, fileName: string) => {
+    if (!activeConversation || !user?.id) return;
+
+    try {
+      // Buscar dados da conversa
+      let clientPhone = '';
+      let clientName = '';
+      let clientId = '';
+      let evolutionInstanceName = evolutionInstance || '';
+
+      const { data: conversationData, error: conversationError } = await supabase
+        .from('conversations')
+        .select(`id, client_id, clients (name, phone), assigned_to`)
+        .eq('id', activeConversation)
+        .single();
+
+      if (conversationError || !conversationData) {
+        console.error('Erro ao buscar dados da conversa:', conversationError);
+        return;
+      }
+
+      clientId = conversationData.client_id || '';
+      const clients = conversationData.clients;
+      if (Array.isArray(clients) && clients.length > 0 && typeof clients[0] === 'object' && 'name' in clients[0] && 'phone' in clients[0]) {
+        clientName = (clients[0] as { name?: string }).name || '';
+        clientPhone = (clients[0] as { phone?: string }).phone || '';
+      } else if (clients && typeof clients === 'object' && 'name' in clients && 'phone' in clients) {
+        clientName = (clients as { name?: string }).name || '';
+        clientPhone = (clients as { phone?: string }).phone || '';
+      }
+      
+      // Buscar instância Evolution
+      const assignedTo = conversationData.assigned_to;
+      if (!evolutionInstanceName && assignedTo) {
+        const { data: settingsData, error: settingsError } = await supabase
+          .from('settings')
+          .select('evolution_instance_name')
+          .eq('user_id', assignedTo)
+          .single();
+        if (!settingsError && settingsData) {
+          evolutionInstanceName = settingsData.evolution_instance_name || '';
+        }
+      }
+
+      const optimisticId = `${activeConversation}-audio-${Date.now()}`;
+      const sentAt = new Date();
+
+      // 1. Atualização Otimista da UI
+      const newMessage: Message = {
+        id: optimisticId,
+        content: '🎵 Áudio gravado',
+        sender: 'user',
+        timestamp: sentAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        message_type: 'audio',
+        media_url: undefined,
+        media_type: 'audio/webm',
+        file_name: fileName,
+        file_size: audioBlob.size,
+        transcription: undefined,
+        caption: undefined
+      };
+      setMessages(prev => [...prev, newMessage]);
+
+      // 2. Converter Blob para base64 de forma segura
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      
+      // Converter para base64 usando uma abordagem mais segura
+      let base64 = '';
+      const chunkSize = 8192; // Processar em chunks para evitar stack overflow
+      
+      for (let i = 0; i < uint8Array.length; i += chunkSize) {
+        const chunk = uint8Array.slice(i, i + chunkSize);
+        // Usar uma abordagem mais segura para converter Uint8Array para string
+        const chunkString = Array.from(chunk, byte => String.fromCharCode(byte)).join('');
+        base64 += chunkString;
+      }
+      
+      base64 = btoa(base64);
+
+      // 3. Enviar para a função send-message
+      const webhookUrl = `${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/send-message`;
+
+      if (!webhookUrl) {
+        setMessages(prev => prev.filter(m => m.id !== optimisticId));
+        return;
+      }
+
+      console.log('Enviando áudio...', {
+        size: audioBlob.size,
+        base64Length: base64.length,
+        fileName
+      });
+
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          conversationId: activeConversation,
+          audio: {
+            base64: base64,
+            name: fileName,
+            type: 'audio/webm'
+          },
+          userId: user.id,
+          evolutionInstance: evolutionInstanceName,
+          clientPhone,
+          clientName,
+          clientId
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`HTTP error! status: ${response.status} - ${JSON.stringify(errorData)}`);
+      }
+
+      const result = await response.json();
+      console.log('Áudio enviado com sucesso:', result);
+
+    } catch (error) {
+      console.error('Erro ao enviar áudio:', error);
+      // Remover mensagem otimista em caso de erro
+      setMessages(prev => prev.filter(m => !m.id.includes('audio-')));
+    }
+  }, [activeConversation, user, evolutionInstance]);
   
   if (!activeConversation) {
     return <EmptyState />;
@@ -282,7 +413,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         realtimeStatus={realtimeStatus}
       />
       <MessageList messages={messages} />
-      <MessageInput onSendMessage={handleSendMessage} />
+      <MessageInput onSendMessage={handleSendMessage} onSendAudio={handleSendAudio} />
     </div>
   );
 };

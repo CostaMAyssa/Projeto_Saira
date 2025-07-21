@@ -111,12 +111,12 @@ const WhatsAppTab = () => {
 
       if (primaryInstance) {
         // Atualizar instância principal existente
-        const { error } = await supabase
-          .from('settings')
+      const { error } = await supabase
+        .from('settings')
           .update(settingsData)
           .eq('id', primaryInstance.id);
-        
-        if (error) throw error;
+      
+      if (error) throw error;
       } else {
         // Criar nova instância principal
         const { error } = await supabase
