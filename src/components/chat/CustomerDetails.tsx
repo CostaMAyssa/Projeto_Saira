@@ -26,7 +26,6 @@ const defaultCustomerDetails: CustomerDetailsType = {
   name: 'Cliente',
   phone: '',
   email: '',
-  address: '',
   birthdate: '',
   tags: [],
   products: [],
@@ -87,7 +86,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
         console.log(`🔍 Etapa 2: Buscando detalhes do cliente com ID: ${clientId}`);
         const { data: clientData, error: clientError } = await supabase
           .from('clients')
-          .select('id, name, phone, email, birth_date, tags')
+          .select('id, name, phone, email, birth_date, tags, notes')
           .eq('id', clientId)
           .single();
 
@@ -109,7 +108,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
           birthdate: clientData.birth_date || '',
           tags: clientData.tags || [],
           products: customerData.products, // Manter produtos para não perder estado
-          notes: '', // Não buscar mais do banco, evitar erro
+          notes: clientData.notes || '',
         };
 
         setCustomerData(customerDetails);
@@ -236,13 +235,17 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
     }
   };
   
-  const handleSaveNotes = (notes: string) => {
+  const handleSaveNotes = async (notes: string) => {
     setCustomerData(prevData => ({
       ...prevData,
       notes
     }));
-    
-    toast.success('Observações atualizadas com sucesso!');
+    try {
+      await dashboardService.updateClient(customerData.id, { notes });
+      toast.success('Observações atualizadas com sucesso!');
+    } catch (error) {
+      toast.error('Erro ao salvar observações!');
+    }
   };
 
   // Função para lidar com a criação de uma nova automação/campanha
@@ -374,7 +377,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
           await dashboardService.updateClient(customerData.id, {
             ...formData,
             status: statusDb,
-            birthdate: formData.birth_date || '',
+            birth_date: formData.birth_date || null,
           });
           setIsEditModalOpen(false);
           // Recarregar dados do cliente após salvar
