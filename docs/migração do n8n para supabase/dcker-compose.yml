@@ -41,7 +41,7 @@ services:
       - DATABASE_SAVE_DATA_HISTORIC=true
 
       ## 🤖 Integração com N8N
-      - N8N_ENABLED=true
+      - N8N_ENABLED=false
 
       ## 🤖 Integração com EvoAI
       - EVOAI_ENABLED=true

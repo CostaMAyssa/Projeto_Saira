@@ -58,15 +58,16 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
   useEffect(() => {
     const fetchCustomerData = async () => {
       if (!activeConversation) {
+        console.log('🕵️ CustomerDetails: Nenhuma conversa ativa. Resetando para o padrão.');
         setCustomerData(defaultCustomerDetails); // Resetar para padrão se não houver conversa ativa
         return;
       }
 
       setLoading(true);
       try {
-        console.log('🔍 Buscando dados do cliente para conversa:', activeConversation);
+        console.log('🔍 CustomerDetails: Buscando dados do cliente para a conversa ID:', activeConversation);
         
-        // AGORA ÚNICA TENTATIVA: Buscar dados da conversa e cliente (tabela conversations)
+        // TENTATIVA ÚNICA: Buscar dados da conversa e, a partir dela, os dados do cliente
         const { data: conversationData, error: conversationError } = await supabase
           .from('conversations')
           .select(`
@@ -77,47 +78,48 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
               name,
               phone,
               email,
-              address,
-              birthdate,
-              notes
+              birth_date,
+              notes,
+              tags
             )
           `)
           .eq('id', activeConversation)
           .single();
 
+        console.log('📝 CustomerDetails: Resultado da query na tabela conversations:', { conversationData, conversationError });
+
+        if (conversationError) {
+          console.error('❌ CustomerDetails: Erro ao buscar dados da conversa:', conversationError);
+        }
+
         if (!conversationError && conversationData?.clients) {
-          console.log('✅ Dados encontrados na tabela conversations:', conversationData);
-          
-          const client = Array.isArray(conversationData.clients) 
-            ? conversationData.clients[0] 
-            : conversationData.clients;
+          const client = conversationData.clients; // O Supabase já retorna o objeto diretamente, não um array
           
           if (client) {
+            console.log('✅ CustomerDetails: Cliente encontrado através da conversa:', client);
             const customerDetails: CustomerDetailsType = {
               id: client.id || '',
               name: client.name || 'Cliente',
               phone: client.phone || '',
               email: client.email || '',
-              address: client.address || '',
-              birthdate: client.birthdate || '',
-              tags: customerData.tags,
-              products: customerData.products,
+              birthdate: client.birth_date || '',
+              tags: client.tags || [], // Usar as tags do cliente
+              products: customerData.products, // Manter produtos já carregados se houver
               notes: client.notes || '',
             };
             
             setCustomerData(customerDetails);
-            console.log('✅ Dados do cliente carregados da tabela conversations:', customerDetails);
+            console.log('✅ CustomerDetails: Estado final do cliente definido:', customerDetails);
             return;
           }
         }
 
-        // Se chegou até aqui, não encontrou nada, resetar para padrão
-        console.error('❌ Nenhum dado encontrado em nenhuma fonte para a conversa:', activeConversation);
-        console.log('Erro de busca de dados da conversa:', { conversationError });
+        // Se chegou até aqui, não encontrou nada ou houve um erro
+        console.warn('⚠️ CustomerDetails: Nenhum dado de cliente encontrado para a conversa:', activeConversation, 'Redefinindo para o padrão.');
         setCustomerData(defaultCustomerDetails); // Resetar para padrão em caso de erro/não encontrado
 
       } catch (error) {
-        console.error('❌ Erro crítico ao buscar dados do cliente:', error);
+        console.error('❌ CustomerDetails: Erro crítico ao buscar dados do cliente:', error);
         setCustomerData(defaultCustomerDetails); // Resetar para padrão em caso de erro crítico
       } finally {
         setLoading(false);
@@ -310,7 +312,6 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
         <CustomerContactInfo 
           phone={customerData.phone}
           email={customerData.email}
-          address={customerData.address}
           birthdate={customerData.birthdate}
         />
         <CustomerTags 
@@ -360,13 +361,14 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
           name: customerData.name,
           phone: customerData.phone,
           email: customerData.email,
-          status: 'active', // ou 'inactive' se quiser lógica extra
+          status: 'active', // Assumindo 'active', pois a conversa existe
           tags: customerData.tags,
           lastPurchase: '',
-          isVip: false,
-          isRegular: false,
-          isOccasional: false,
-          profile_type: undefined,
+          // Campos que não existem em CustomerDetails, mas são esperados pelo modal
+          isVip: customerData.tags.includes('VIP'), 
+          isRegular: customerData.tags.includes('Regular'),
+          isOccasional: customerData.tags.includes('Occasional'),
+          profile_type: customerData.tags.includes('VIP') ? 'vip' : customerData.tags.includes('Regular') ? 'regular' : undefined,
           birth_date: customerData.birthdate || undefined,
         }}
         onSubmit={async (formData) => {
