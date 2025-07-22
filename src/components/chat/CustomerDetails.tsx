@@ -59,68 +59,65 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
     const fetchCustomerData = async () => {
       if (!activeConversation) {
         console.log('🕵️ CustomerDetails: Nenhuma conversa ativa. Resetando para o padrão.');
-        setCustomerData(defaultCustomerDetails); // Resetar para padrão se não houver conversa ativa
+        setCustomerData(defaultCustomerDetails);
         return;
       }
 
       setLoading(true);
       try {
-        console.log('🔍 CustomerDetails: Buscando dados do cliente para a conversa ID:', activeConversation);
-        
-        // TENTATIVA ÚNICA: Buscar dados da conversa e, a partir dela, os dados do cliente
-        const { data: conversationData, error: conversationError } = await supabase
+        // Etapa 1: Buscar o client_id na tabela de conversas
+        console.log('🔍 Etapa 1: Buscando client_id para a conversa ID:', activeConversation);
+        const { data: conversation, error: convError } = await supabase
           .from('conversations')
-          .select(`
-            id,
-            client_id,
-            clients (
-              id,
-              name,
-              phone,
-              email,
-              birth_date,
-              notes,
-              tags
-            )
-          `)
+          .select('client_id')
           .eq('id', activeConversation)
           .single();
 
-        console.log('📝 CustomerDetails: Resultado da query na tabela conversations:', { conversationData, conversationError });
-
-        if (conversationError) {
-          console.error('❌ CustomerDetails: Erro ao buscar dados da conversa:', conversationError);
+        if (convError || !conversation?.client_id) {
+          console.error('❌ Erro ao buscar ID do cliente na conversa:', convError);
+          setCustomerData(defaultCustomerDetails);
+          setLoading(false);
+          return;
         }
 
-        if (!conversationError && conversationData?.clients) {
-          const client = conversationData.clients; // O Supabase já retorna o objeto diretamente, não um array
-          
-          if (client) {
-            console.log('✅ CustomerDetails: Cliente encontrado através da conversa:', client);
-            const customerDetails: CustomerDetailsType = {
-              id: client.id || '',
-              name: client.name || 'Cliente',
-              phone: client.phone || '',
-              email: client.email || '',
-              birthdate: client.birth_date || '',
-              tags: client.tags || [], // Usar as tags do cliente
-              products: customerData.products, // Manter produtos já carregados se houver
-              notes: client.notes || '',
-            };
-            
-            setCustomerData(customerDetails);
-            console.log('✅ CustomerDetails: Estado final do cliente definido:', customerDetails);
-            return;
-          }
+        const clientId = conversation.client_id;
+        console.log(`✅ Etapa 1: client_id encontrado: ${clientId}`);
+
+        // Etapa 2: Buscar os detalhes do cliente usando o client_id
+        console.log(`🔍 Etapa 2: Buscando detalhes do cliente com ID: ${clientId}`);
+        const { data: clientData, error: clientError } = await supabase
+          .from('clients')
+          .select('id, name, phone, email, birth_date, tags')
+          .eq('id', clientId)
+          .single();
+
+        if (clientError || !clientData) {
+          console.error('❌ Erro ao buscar os dados do cliente:', clientError);
+          setCustomerData(defaultCustomerDetails);
+          setLoading(false);
+          return;
         }
 
-        // Se chegou até aqui, não encontrou nada ou houve um erro
-        console.warn('⚠️ CustomerDetails: Nenhum dado de cliente encontrado para a conversa:', activeConversation, 'Redefinindo para o padrão.');
-        setCustomerData(defaultCustomerDetails); // Resetar para padrão em caso de erro/não encontrado
+        console.log('✅ Etapa 2: Dados do cliente encontrados:', clientData);
+
+        // Montar o objeto final
+        const customerDetails: CustomerDetailsType = {
+          id: clientData.id || '',
+          name: clientData.name || 'Cliente',
+          phone: clientData.phone || '',
+          email: clientData.email || '',
+          birthdate: clientData.birth_date || '',
+          tags: clientData.tags || [],
+          products: customerData.products, // Manter produtos para não perder estado
+          notes: '', // Não buscar mais do banco, evitar erro
+        };
+
+        setCustomerData(customerDetails);
+        console.log('✅ CustomerDetails: Estado final do cliente definido:', customerDetails);
 
       } catch (error) {
-        console.error('❌ CustomerDetails: Erro crítico ao buscar dados do cliente:', error);
-        setCustomerData(defaultCustomerDetails); // Resetar para padrão em caso de erro crítico
+        console.error('❌ CustomerDetails: Erro crítico no fetchCustomerData:', error);
+        setCustomerData(defaultCustomerDetails);
       } finally {
         setLoading(false);
       }
