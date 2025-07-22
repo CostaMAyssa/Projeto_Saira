@@ -28,10 +28,10 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({
       </div>
       
       <div className="relative mb-3">
-        <div className="relative flex items-center">
+        <div className="relative flex items-center min-w-0">
           <Input
             placeholder="Buscar conversa..."
-            className="pl-10 bg-white rounded-full border-pharmacy-border1 focus-visible:ring-0 focus-visible:border-pharmacy-border1 text-pharmacy-text1"
+            className="pl-10 bg-white rounded-full border-pharmacy-border1 focus-visible:ring-0 focus-visible:border-pharmacy-border1 text-pharmacy-text1 min-w-0"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />

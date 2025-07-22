@@ -48,11 +48,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   useEffect(() => {
     if (!activeConversation) return;
 
-    console.log('🔔 Configurando listener Supabase Realtime para mensagens');
-    setRealtimeStatus('connected');
-    
     const channel = supabase
-      .channel('messages-realtime')
+      .channel(`messages-convo-${activeConversation}`)
       .on(
         'postgres_changes',
         { 
@@ -62,11 +59,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           filter: `conversation_id=eq.${activeConversation}`
         },
         (payload) => {
-          console.log('📨 Nova mensagem via Supabase Realtime:', payload);
+          console.log('📨 Nova mensagem via Supabase Realtime:', payload.new);
           const msg = payload.new as DbMessage;
           
-          // Evitar duplicatas usando message_id ou id
-          const messageId = msg.message_id || msg.id;
+          const messageId = msg.id; // Usar o ID do banco como fonte da verdade
+          
           if (messageIds.has(messageId)) {
             console.log('⚠️ Mensagem duplicada ignorada:', messageId);
             return;
@@ -76,7 +73,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             id: messageId,
             content: msg.content,
             sender: msg.sender,
-            timestamp: msg.timestamp || new Date(msg.sent_at).toLocaleTimeString([], { 
+            timestamp: new Date(msg.sent_at).toLocaleTimeString([], { 
               hour: '2-digit', 
               minute: '2-digit' 
             }),
@@ -89,9 +86,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             caption: msg.caption
           };
 
-          setMessages(prev => [...prev, newMessage]);
-          setMessageIds(prev => new Set([...prev, messageId]));
-          console.log('✅ Mensagem adicionada via Realtime:', newMessage.content.substring(0, 50));
+          setMessages(prev => {
+            // Evita adicionar se já existir
+            if (prev.some(m => m.id === newMessage.id)) return prev;
+            return [...prev, newMessage];
+          });
+          setMessageIds(prev => new Set(prev).add(messageId));
         }
       )
       .on(
@@ -103,26 +103,30 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           filter: `conversation_id=eq.${activeConversation}`
         },
         (payload) => {
-          console.log('🔄 Mensagem atualizada via Supabase Realtime:', payload);
+          console.log('🔄 Mensagem atualizada via Supabase Realtime:', payload.new);
           const msg = payload.new as DbMessage;
-          const messageId = msg.message_id || msg.id;
+          const messageId = msg.id;
           
           setMessages(prev => prev.map(m => 
             m.id === messageId 
-              ? { ...m, content: msg.content }
+              ? { ...m, content: msg.content, media_url: msg.media_url, file_name: msg.file_name }
               : m
           ));
         }
       )
       .subscribe((status) => {
-        console.log('🔔 Status do canal Realtime:', status);
-        setRealtimeStatus(status === 'SUBSCRIBED' ? 'connected' : 'disconnected');
+        if (status === 'SUBSCRIBED') {
+          console.log('🔔 Canal Realtime conectado para conversa:', activeConversation);
+          setRealtimeStatus('connected');
+        } else {
+          console.warn('⚠️ Canal Realtime não conectado. Status:', status);
+          setRealtimeStatus('disconnected');
+        }
       });
 
     return () => {
-      console.log('🔌 Desconectando listener Supabase Realtime');
-      setRealtimeStatus('disconnected');
-      channel.unsubscribe();
+      console.log('🔌 Desconectando listener da conversa:', activeConversation);
+      supabase.removeChannel(channel);
     };
   }, [activeConversation, messageIds]);
 
@@ -135,7 +139,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         return;
       }
 
-      console.log('📚 Carregando histórico de mensagens do Supabase');
+      console.log(`📚 Carregando histórico para conversa: ${activeConversation}`);
 
       const { data, error } = await supabase
         .from('messages')
@@ -149,10 +153,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         setMessageIds(new Set());
       } else if (data) {
         const fetchedMessages: Message[] = (data as DbMessage[]).map(msg => ({
-          id: msg.message_id || msg.id,
+          id: msg.id, // Usar sempre o ID do banco
           content: msg.content,
           sender: msg.sender,
-          timestamp: msg.timestamp || new Date(msg.sent_at).toLocaleTimeString([], { 
+          timestamp: new Date(msg.sent_at).toLocaleTimeString([], { 
             hour: '2-digit', 
             minute: '2-digit' 
           }),
@@ -168,7 +172,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         const ids = new Set(fetchedMessages.map(m => m.id));
         setMessages(fetchedMessages);
         setMessageIds(ids);
-        console.log(`📚 ${fetchedMessages.length} mensagens históricas carregadas`);
+        console.log(`✅ ${fetchedMessages.length} mensagens históricas carregadas. Remetentes:`, 
+          JSON.stringify(fetchedMessages.map(m => m.sender))
+        );
       }
     };
 
@@ -218,50 +224,28 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
     const userId = user?.id || '';
 
-    const optimisticId = `${activeConversation}-${Date.now()}`;
-    const sentAt = new Date();
-    
-    // 1. Atualização Otimista da UI
-    let newMessage: Message;
-    if (filePayload) {
-      newMessage = {
-        id: optimisticId,
-        content: 'Enviando arquivo...',
-        sender: 'user',
-        timestamp: sentAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        message_type: filePayload.type.startsWith('image') ? 'image' : 'document',
-        media_url: undefined,
-        media_type: filePayload.type,
-        file_name: filePayload.name,
-        file_size: undefined,
-        transcription: undefined,
-        caption: content || undefined
-      };
-    } else {
-      newMessage = {
-        id: optimisticId,
-        content: content,
-        sender: 'user',
-        timestamp: sentAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        message_type: 'text',
-        media_url: undefined,
-        media_type: undefined,
-        file_name: undefined,
-        file_size: undefined,
-        transcription: undefined,
-        caption: undefined
-      };
-    }
-    setMessages(prev => [...prev, newMessage]);
+    // A atualização otimista será substituída pela resposta do Realtime.
+    // Opcional: manter uma UI de "enviando..." que é removida quando a mensagem real chega.
+    // Por simplicidade, vamos confiar no Realtime para adicionar a mensagem.
 
     try {
-      // 2. Enviar para o webhook do n8n (REMOVIDO o insert no Supabase)
+      // 2. Enviar para a função do Supabase
       const webhookUrl = `${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/send-message`;
 
       if (!webhookUrl) {
-        setMessages(prev => prev.filter(m => m.id !== optimisticId));
+        console.error("URL da função 'send-message' não configurada.");
         return;
       }
+
+      const body = {
+            conversationId: activeConversation,
+            text: content,
+            userId,
+            evolutionInstance: evolutionInstanceName,
+            clientPhone,
+            clientName,
+            clientId
+      };
 
       if (filePayload) {
         await fetch(webhookUrl, {
@@ -270,16 +254,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
           },
-          body: JSON.stringify({
-            conversationId: activeConversation,
-            file: filePayload,
-            text: content,
-            userId,
-            evolutionInstance: evolutionInstanceName,
-            clientPhone,
-            clientName,
-            clientId
-          })
+          body: JSON.stringify({ ...body, file: filePayload, text: content })
         });
       } else {
         await fetch(webhookUrl, {
@@ -288,20 +263,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
           },
-          body: JSON.stringify({
-            conversationId: activeConversation,
-            text: content,
-            userId,
-            evolutionInstance: evolutionInstanceName,
-            clientPhone,
-            clientName,
-            clientId
-          })
+          body: JSON.stringify({ ...body, text: content })
         });
       }
 
     } catch (error) {
-      setMessages(prev => prev.filter(m => m.id !== optimisticId));
+      console.error("Erro ao chamar a função 'send-message':", error);
     }
   }, [activeConversation, user, evolutionInstance]);
 
@@ -351,54 +318,29 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       }
 
       const optimisticId = `${activeConversation}-audio-${Date.now()}`;
-      const sentAt = new Date();
-
-      // 1. Atualização Otimista da UI
-      const newMessage: Message = {
-        id: optimisticId,
-        content: '🎵 Áudio gravado',
-        sender: 'user',
-        timestamp: sentAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        message_type: 'audio',
-        media_url: undefined,
-        media_type: 'audio/webm',
-        file_name: fileName,
-        file_size: audioBlob.size,
-        transcription: undefined,
-        caption: undefined
-      };
-      setMessages(prev => [...prev, newMessage]);
+      
+      // A atualização otimista de áudio pode ser mantida se desejado,
+      // mas a mensagem real virá do Realtime.
+      // Por simplicidade, removeremos a UI otimista daqui também.
 
       // 2. Converter Blob para base64 de forma segura
-      const arrayBuffer = await audioBlob.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
+      const toBase64 = (blob: Blob): Promise<string> =>
+        new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(blob);
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = (error) => reject(error);
+        });
       
-      // Converter para base64 usando uma abordagem mais segura
-      let base64 = '';
-      const chunkSize = 8192; // Processar em chunks para evitar stack overflow
-      
-      for (let i = 0; i < uint8Array.length; i += chunkSize) {
-        const chunk = uint8Array.slice(i, i + chunkSize);
-        // Usar uma abordagem mais segura para converter Uint8Array para string
-        const chunkString = Array.from(chunk, byte => String.fromCharCode(byte)).join('');
-        base64 += chunkString;
-      }
-      
-      base64 = btoa(base64);
+      const base64Audio = await toBase64(audioBlob);
 
       // 3. Enviar para a função send-message
       const webhookUrl = `${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/send-message`;
 
       if (!webhookUrl) {
-        setMessages(prev => prev.filter(m => m.id !== optimisticId));
+        // Remover mensagem otimista se ela existisse
         return;
       }
-
-      console.log('Enviando áudio...', {
-        size: audioBlob.size,
-        base64Length: base64.length,
-        fileName
-      });
 
       const response = await fetch(webhookUrl, {
         method: 'POST',
@@ -409,7 +351,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         body: JSON.stringify({
           conversationId: activeConversation,
           audio: {
-            base64: base64,
+            base64: base64Audio.split(',')[1], // Envia apenas o base64 puro
             name: fileName,
             type: 'audio/webm'
           },
@@ -427,17 +369,23 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       }
 
       const result = await response.json();
-      console.log('Áudio enviado com sucesso:', result);
+      console.log('Áudio enviado para processamento:', result);
 
     } catch (error) {
       console.error('Erro ao enviar áudio:', error);
       // Remover mensagem otimista em caso de erro
-      setMessages(prev => prev.filter(m => !m.id.includes('audio-')));
     }
   }, [activeConversation, user, evolutionInstance]);
   
   if (!activeConversation) {
-    return <EmptyState />;
+    return (
+      <div className="flex flex-1 items-center justify-center h-full bg-white">
+        <div className="text-center text-gray-400">
+          <h2 className="text-lg font-semibold mb-2">Selecione uma conversa para começar</h2>
+          <p className="text-sm">ou inicie uma nova conversa</p>
+        </div>
+      </div>
+    );
   }
   
   return (

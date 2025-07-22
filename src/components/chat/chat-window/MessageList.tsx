@@ -8,6 +8,9 @@ interface MessageListProps {
 }
 
 const MessageList: React.FC<MessageListProps> = ({ messages }) => {
+  // Log para depuração
+  console.log('Mensagens renderizadas:', messages);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Scroll to bottom when messages change

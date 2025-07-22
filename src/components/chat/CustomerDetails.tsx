@@ -14,6 +14,7 @@ import ProductCreateForm from '@/components/products/ProductCreateForm';
 import { dashboardService } from '@/services/dashboardService';
 import NewCampaignModal from '@/components/campaigns/modals/NewCampaignModal';
 import { NewCampaignData } from '@/services/dashboardService';
+import ClientFormModal from '@/components/clients/ClientFormModal';
 
 interface CustomerDetailsProps {
   activeConversation: string | null;
@@ -51,6 +52,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
   const [loading, setLoading] = useState(false);
   const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
   const [isNewAutomationModalOpen, setIsNewAutomationModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
   // Buscar dados reais do cliente quando a conversa ativa muda
   useEffect(() => {
@@ -293,18 +295,24 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
   return (
     <div className="h-full bg-white border-l border-pharmacy-border1 overflow-y-auto">
       <div className="p-4 border-b border-pharmacy-border1">
-        <CustomerHeader 
-          customer={customerData} 
-          onSave={handleUpdateCustomer} 
-        />
-        
+        <div className="flex justify-between items-center">
+          <CustomerHeader 
+            customer={customerData} 
+            onSave={handleUpdateCustomer} 
+          />
+          <button
+            className="ml-2 px-3 py-1 rounded border border-pharmacy-accent text-pharmacy-accent bg-white text-sm hover:bg-pharmacy-accent hover:text-white transition-colors"
+            onClick={() => setIsEditModalOpen(true)}
+          >
+            Editar
+          </button>
+        </div>
         <CustomerContactInfo 
           phone={customerData.phone}
           email={customerData.email}
           address={customerData.address}
           birthdate={customerData.birthdate}
         />
-        
         <CustomerTags 
           tags={customerData.tags} 
           onAddTag={handleAddTag} 
@@ -342,6 +350,37 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
         open={isNewAutomationModalOpen}
         onOpenChange={setIsNewAutomationModalOpen}
         onSubmit={handleCreateAutomation}
+      />
+
+      <ClientFormModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        initialClientData={{
+          id: customerData.id,
+          name: customerData.name,
+          phone: customerData.phone,
+          email: customerData.email,
+          status: 'active', // ou 'inactive' se quiser lógica extra
+          tags: customerData.tags,
+          lastPurchase: '',
+          isVip: false,
+          isRegular: false,
+          isOccasional: false,
+          profile_type: undefined,
+          birth_date: customerData.birthdate || undefined,
+        }}
+        onSubmit={async (formData) => {
+          // Mapeia status para o formato do banco
+          const statusDb = formData.status === 'active' ? 'ativo' : 'inativo';
+          await dashboardService.updateClient(customerData.id, {
+            ...formData,
+            status: statusDb,
+            birthdate: formData.birth_date || '',
+          });
+          setIsEditModalOpen(false);
+          // Recarregar dados do cliente após salvar
+          // (opcional: pode chamar fetchCustomerData aqui se quiser)
+        }}
       />
     </div>
   );

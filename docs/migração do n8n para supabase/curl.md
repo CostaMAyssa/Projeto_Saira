@@ -11,7 +11,7 @@ curl -X POST http://URL_DA_EVOLUTION_API/webhook/set/INSTANCIA \
     "events": ["messages.upsert", "messages.update", "messages.delete"]
   }'
 
-## teste ✅ Mensagem enviada com sucesso para o WhatsApp
+## teste ✅ Mensagem enviada com sucesso para o WhatsApp, Teste de envio de mensagem via função Edge (Supabase)
 
 curl -X POST https://svkgfvfhmngcvfsjpero.supabase.co/functions/v1/send-message \
   -H "Content-Type: application/json" \

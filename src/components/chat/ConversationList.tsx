@@ -131,7 +131,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
   }, [searchTerm, filterType, conversations]);
   
   return (
-    <div className="h-full bg-white border-r border-gray-200 flex flex-col font-sans">
+    <div className="h-full bg-white border-r border-gray-200 flex flex-col font-sans min-w-0 overflow-hidden">
       <SearchFilters
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
@@ -139,7 +139,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
         setFilterType={setFilterType}
       />
       
-      <ScrollArea className="flex-1 overflow-y-auto">
+      <ScrollArea className="flex-1 overflow-y-auto min-w-0">
         <div className="pb-4">
           {filteredConversations.length > 0 ? (
             filteredConversations.map((conversation) => (

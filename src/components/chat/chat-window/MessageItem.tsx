@@ -7,6 +7,9 @@ interface MessageItemProps {
 }
 
 const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
+  // Log para depuração
+  console.log('Renderizando mensagem:', message);
+
   const isClient = message.sender === 'client';
 
   const renderMessageContent = () => {

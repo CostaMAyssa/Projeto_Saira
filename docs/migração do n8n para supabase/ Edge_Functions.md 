@@ -1,0 +1,25 @@
+
+
+### 1. **send-message**
+- **Função:** Responsável por **enviar mensagens** (texto, imagem, áudio, documento) do seu sistema para o WhatsApp via Evolution API.
+- **Como funciona:** Recebe uma requisição do frontend (ou backend), processa o payload (mensagem, arquivo, etc.), faz upload para o Supabase Storage se necessário, e chama a Evolution API para entregar a mensagem ao destinatário no WhatsApp.
+- **Fluxo:** Frontend → `send-message` → Evolution API → WhatsApp do cliente.
+
+---
+
+### 2. **receive-message**
+- **Função:** (Provavelmente) responsável por **processar mensagens recebidas** do WhatsApp, caso você tenha um fluxo alternativo de recebimento além do webhook.
+- **Como funciona:** Pode ser chamada manualmente ou por outro serviço para registrar mensagens recebidas, mas normalmente o correto é usar o webhook (`webhook-receiver`).
+- **Observação:** Em muitos projetos, essa função é redundante se o webhook estiver funcionando corretamente.
+
+---
+
+
+
+### 4. **webhook-receiver**
+- **Função:** **Recebe webhooks** da Evolution API quando chegam novas mensagens do WhatsApp (ou outros eventos configurados).
+- **Como funciona:** A Evolution API faz uma requisição HTTP para essa função sempre que chega uma mensagem nova. A função processa o payload, identifica o cliente, cria a conversa se necessário, salva a mensagem na tabela `messages` e atualiza a tabela `conversations`.
+- **Fluxo:** WhatsApp do cliente → Evolution API → `webhook-receiver` → Supabase (tabelas `clients`, `conversations`, `messages`).
+
+---
+

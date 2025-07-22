@@ -32,17 +32,17 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
           {initial}
         </div>
         
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 min-w-0 overflow-hidden">
           <div className="flex justify-between mb-1">
-            <span className="font-medium text-gray-900">{conversation.name}</span>
-            <span className="text-xs text-gray-500">{conversation.time}</span>
+            <span className="font-medium text-gray-900 max-w-[120px] truncate block">{conversation.name}</span>
+            <span className="text-xs text-gray-500 max-w-[60px] truncate block">{conversation.time}</span>
           </div>
           
           <div className="flex justify-between items-start">
             <div className="overflow-hidden">
-              <p className="text-sm text-gray-600 truncate pr-2 max-w-[90%] flex items-center gap-1">
+              <p className="text-sm text-gray-600 truncate pr-2 max-w-[160px] flex items-center gap-1">
                 <StatusIcon status={conversation.status} />
-                {conversation.lastMessage}
+                <span className="truncate max-w-[120px] block">{conversation.lastMessage}</span>
               </p>
               
               <div className="flex gap-1 mt-1 flex-wrap">
