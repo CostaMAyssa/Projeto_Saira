@@ -332,23 +332,29 @@ const PurchaseHistory: React.FC<PurchaseHistoryProps> = ({ activeConversationId,
         <ShoppingCart className="h-4 w-4 text-pharmacy-whatsapp-primary" />
         <h3 className="font-medium text-pharmacy-text1">Histórico de Compras</h3>
       </div>
-      {isLoading ? (
-        <div className="text-sm text-pharmacy-text2 mb-2">Carregando histórico de compras...</div>
-      ) : purchases.length === 0 ? (
-        <div className="text-sm text-pharmacy-text2 mb-2">Nenhuma compra registrada.</div>
-      ) : null}
-      {!isLoading && purchases.map((purchase) => (
-        <div key={purchase.id} className="mb-3 p-2 bg-pharmacy-light2 rounded-xl">
-          <div className="flex justify-between mb-1">
-            <span className="text-xs text-pharmacy-text2">{purchase.date}</span>
-          </div>
-          <ul className="text-sm text-pharmacy-text1 pl-4 list-disc">
-            {purchase.items.map((item, idx) => (
-              <li key={idx}>{item.name} <span className="text-xs text-pharmacy-text2">x{item.quantity}</span></li>
-            ))}
-          </ul>
-        </div>
-      ))}
+      
+      {/* Container com scroll para o histórico */}
+      <div className="max-h-48 overflow-y-auto mb-3">
+        {isLoading ? (
+          <div className="text-sm text-pharmacy-text2 mb-2">Carregando histórico de compras...</div>
+        ) : purchases.length === 0 ? (
+          <div className="text-sm text-pharmacy-text2 mb-2">Nenhuma compra registrada.</div>
+        ) : (
+          purchases.map((purchase) => (
+            <div key={purchase.id} className="mb-3 p-2 bg-pharmacy-light2 rounded-xl">
+              <div className="flex justify-between mb-1">
+                <span className="text-xs text-pharmacy-text2">{purchase.date}</span>
+              </div>
+              <ul className="text-sm text-pharmacy-text1 pl-4 list-disc">
+                {purchase.items.map((item, idx) => (
+                  <li key={idx}>{item.name} <span className="text-xs text-pharmacy-text2">x{item.quantity}</span></li>
+                ))}
+              </ul>
+            </div>
+          ))
+        )}
+      </div>
+      
       <Button
         variant="outline"
         size="sm"
