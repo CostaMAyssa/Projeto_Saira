@@ -42,6 +42,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageIds, setMessageIds] = useState<Set<string>>(new Set());
   const [realtimeStatus, setRealtimeStatus] = useState<'connected' | 'disconnected'>('disconnected');
+  const [saleMessage, setSaleMessage] = useState<string>('');
   const { user } = useSupabase();
   
   // Listener Supabase Realtime para mensagens
@@ -130,6 +131,38 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     };
   }, [activeConversation, messageIds]);
 
+  // Escutar eventos de venda
+  useEffect(() => {
+    if (!activeConversation) return;
+    
+    // Criar um canal para escutar eventos de venda
+    const channel = supabase
+      .channel(`sale-events-${activeConversation}`)
+      .on(
+        'postgres_changes',
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'messages',
+          filter: `conversation_id=eq.${activeConversation} AND content=ilike.%Venda registrada com sucesso%`
+        },
+        (payload) => {
+          console.log('💰 Nova venda registrada:', payload.new);
+          const msg = payload.new as DbMessage;
+          
+          // Extrair a mensagem de venda e definir no estado
+          if (msg.content && msg.content.includes('Venda registrada com sucesso')) {
+            setSaleMessage(msg.content);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeConversation]);
+  
   // Carregar mensagens do Supabase
   useEffect(() => {
     const fetchMessages = async () => {
@@ -398,7 +431,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         realtimeStatus={realtimeStatus}
       />
       <MessageList messages={messages} />
-      <MessageInput onSendMessage={handleSendMessage} onSendAudio={handleSendAudio} />
+      <MessageInput 
+        onSendMessage={handleSendMessage} 
+        onSendAudio={handleSendAudio} 
+        initialMessage={saleMessage}
+      />
     </div>
   );
 };

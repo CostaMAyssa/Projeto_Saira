@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
     console.log('Recebendo requisição para register-sale');
     const body = await req.json();
     console.log('Corpo da requisição:', JSON.stringify(body));
-    const { client_id, user_id, itens, total } = body;
+    const { client_id, user_id, itens, total, conversation_id } = body;
     if (!client_id || !user_id || !Array.isArray(itens) || itens.length === 0) {
       return new Response(JSON.stringify({ error: 'Dados obrigatórios faltando' }), { 
         status: 400,
@@ -164,7 +164,42 @@ Deno.serve(async (req) => {
         last_purchase: now
       }, { onConflict: ['client_id', 'product_id'] });
     }
-    return new Response(JSON.stringify({ success: true, sale_id }), { 
+    // Preparar mensagem de confirmação da venda para o chat
+    let saleMessage = "✅ *Venda registrada com sucesso!* \n\n";
+    saleMessage += "📋 *Itens:* \n";
+    
+    // Buscar informações dos produtos vendidos para incluir na mensagem
+    for (const item of itens) {
+      const { data: produto } = await supabase
+        .from('products')
+        .select('name')
+        .eq('id', item.product_id)
+        .single();
+      
+      if (produto) {
+        saleMessage += `- ${produto.name} (${item.quantity} unid.)\n`;
+      }
+    }
+    
+    // Inserir mensagem no chat se o ID da conversa foi fornecido
+    if (conversation_id) {
+      await supabase.from('messages').insert({
+        conversation_id: conversation_id,
+        content: saleMessage,
+        sender: 'user',
+        sent_at: now,
+        message_type: 'text'
+      });
+      console.log('Mensagem de confirmação da venda inserida no chat');
+    } else {
+      console.log('ID da conversa não fornecido, mensagem de confirmação não será enviada');
+    }
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      sale_id,
+      message: saleMessage 
+    }), { 
       status: 200,
       headers: {
         'Access-Control-Allow-Origin': '*',

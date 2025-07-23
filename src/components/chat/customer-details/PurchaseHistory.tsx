@@ -251,7 +251,8 @@ const PurchaseHistory: React.FC<PurchaseHistoryProps> = ({ activeConversationId 
         body: JSON.stringify({
           client_id: conversation.client_id,
           user_id: user.id,
-          itens
+          itens,
+          conversation_id: activeConversationId // Enviar o ID da conversa para exibir a mensagem no chat
         })
       });
 

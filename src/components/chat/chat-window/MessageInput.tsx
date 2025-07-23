@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Send, Paperclip, Smile, Mic, Square, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,10 +7,11 @@ import { Input } from '@/components/ui/input';
 interface MessageInputProps {
   onSendMessage: (content: string) => void;
   onSendAudio?: (audioBlob: Blob, fileName: string) => void;
+  initialMessage?: string; // Mensagem inicial para preencher o campo de entrada
 }
 
-const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onSendAudio }) => {
-  const [newMessage, setNewMessage] = useState('');
+const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onSendAudio, initialMessage = '' }) => {
+  const [newMessage, setNewMessage] = useState(initialMessage);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
@@ -20,6 +21,13 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onSendAudio 
 
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  
+  // Atualizar o campo de entrada quando a propriedade initialMessage mudar
+  useEffect(() => {
+    if (initialMessage) {
+      setNewMessage(initialMessage);
+    }
+  }, [initialMessage]);
 
   const handleSendMessage = () => {
     if (newMessage.trim() === '') return;
