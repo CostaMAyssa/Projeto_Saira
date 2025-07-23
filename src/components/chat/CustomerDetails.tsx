@@ -322,7 +322,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
       </div>
       
       <div className="p-4 border-b border-pharmacy-border1">
-        <PurchaseHistory />
+        <PurchaseHistory activeConversationId={activeConversation} />
       </div>
       
       <div className="p-4 border-b border-pharmacy-border1">

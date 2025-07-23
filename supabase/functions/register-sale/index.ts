@@ -2,23 +2,55 @@
 // https://deno.land/manual/getting_started/setup_your_environment
 // This enables autocomplete, go to definition, etc.
 
+// Declare Deno namespace to fix TypeScript errors
+declare const Deno: {
+  serve: (handler: (req: Request) => Promise<Response>) => void;
+  env: {
+    get: (key: string) => string | undefined;
+  };
+};
+
 // Setup type definitions for built-in Supabase Runtime APIs
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
+// @deno-types="npm:@supabase/supabase-js@2"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 console.log("Hello from Functions!")
 
 Deno.serve(async (req) => {
+  // Configuração de CORS para permitir requisições do frontend
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
+      }
+    });
+  }
+
   try {
-    const { client_id, user_id, itens, total } = await req.json();
+    console.log('Recebendo requisição para register-sale');
+    const body = await req.json();
+    console.log('Corpo da requisição:', JSON.stringify(body));
+    const { client_id, user_id, itens, total } = body;
     if (!client_id || !user_id || !Array.isArray(itens) || itens.length === 0) {
-      return new Response(JSON.stringify({ error: 'Dados obrigatórios faltando' }), { status: 400 });
+      return new Response(JSON.stringify({ error: 'Dados obrigatórios faltando' }), { 
+        status: 400,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json'
+        }
+      });
     }
 
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const sale_id = crypto.randomUUID();
     const now = new Date().toISOString();
 
+    console.log('Inserindo venda com dados:', { client_id, user_id, itens_count: itens.length });
+    
     // 1. Inserir venda
     const { error: saleError } = await supabase.from('sales').insert({
       id: sale_id,
@@ -28,15 +60,34 @@ Deno.serve(async (req) => {
       total: total || null
     });
     if (saleError) {
-      return new Response(JSON.stringify({ error: 'Erro ao registrar venda', details: saleError.message }), { status: 500 });
+      console.error('Erro ao inserir venda:', saleError.message);
+      return new Response(JSON.stringify({ error: 'Erro ao registrar venda', details: saleError.message }), { 
+        status: 500,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'application/json'
+        }
+      });
     }
+    
+    console.log('Venda inserida com sucesso, ID:', sale_id);
 
     // 2. Para cada item: inserir em sale_items, atualizar estoque, atualizar relacionamento
+    console.log('Processando itens da venda...');
     for (const item of itens) {
       const { product_id, quantity, unit_price } = item;
       if (!product_id || !quantity || quantity <= 0) {
-        return new Response(JSON.stringify({ error: 'Dados de item inválidos', item }), { status: 400 });
+        console.error('Dados de item inválidos:', item);
+        return new Response(JSON.stringify({ error: 'Dados de item inválidos', item }), { 
+          status: 400,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Content-Type': 'application/json'
+          }
+        });
       }
+      
+      console.log(`Processando item: ${product_id}, quantidade: ${quantity}`);
       // 2.1 Inserir em sale_items
       const { error: itemError } = await supabase.from('sale_items').insert({
         id: crypto.randomUUID(),
@@ -47,16 +98,63 @@ Deno.serve(async (req) => {
         created_at: now
       });
       if (itemError) {
-        return new Response(JSON.stringify({ error: 'Erro ao registrar item da venda', details: itemError.message, item }), { status: 500 });
+        console.error('Erro ao inserir item da venda:', itemError.message);
+        return new Response(JSON.stringify({ error: 'Erro ao registrar item da venda', details: itemError.message, item }), { 
+          status: 500,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Content-Type': 'application/json'
+          }
+        });
       }
+      
+      console.log('Item inserido com sucesso');
       // 2.2 Atualizar estoque
-      const { error: stockError } = await supabase.rpc('decrement_product_stock', {
-        product_id,
-        quantidade: quantity
-      });
-      if (stockError) {
-        // fallback: update direto
-        await supabase.from('products').update({ stock: supabase.raw('stock - ?', [quantity]) }).eq('id', product_id);
+      try {
+        // Primeiro tenta usar a função RPC
+        const { error: stockError } = await supabase.rpc('decrement_product_stock', {
+          product_id,
+          quantidade: quantity
+        });
+        
+        if (stockError) {
+          console.log('Erro ao usar RPC para atualizar estoque:', stockError.message);
+          // Fallback: update direto
+          const { data: produto, error: produtoError } = await supabase
+            .from('products')
+            .select('stock')
+            .eq('id', product_id)
+            .single();
+          
+          if (produtoError) {
+            throw new Error(`Erro ao buscar produto: ${produtoError.message}`);
+          }
+          
+          if (produto.stock < quantity) {
+            throw new Error(`Estoque insuficiente para o produto ${product_id}`);
+          }
+          
+          const { error: updateError } = await supabase
+            .from('products')
+            .update({ stock: produto.stock - quantity })
+            .eq('id', product_id);
+          
+          if (updateError) {
+            throw new Error(`Erro ao atualizar estoque: ${updateError.message}`);
+          }
+          
+          console.log(`Estoque atualizado diretamente: ${product_id}, novo estoque: ${produto.stock - quantity}`);
+        } else {
+          console.log(`Estoque atualizado via RPC: ${product_id}`);
+        }
+      } catch (error) {
+        return new Response(JSON.stringify({ error: 'Erro ao atualizar estoque', details: error.message }), { 
+          status: 500,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Content-Type': 'application/json'
+          }
+        });
       }
       // 2.3 Upsert relacionamento cliente-produto
       await supabase.from('client_product_associations').upsert({
@@ -66,9 +164,22 @@ Deno.serve(async (req) => {
         last_purchase: now
       }, { onConflict: ['client_id', 'product_id'] });
     }
-    return new Response(JSON.stringify({ success: true, sale_id }), { status: 200 });
+    return new Response(JSON.stringify({ success: true, sale_id }), { 
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json'
+      }
+    });
   } catch (err) {
-    return new Response(JSON.stringify({ error: 'Erro interno', details: err.message }), { status: 500 });
+    console.error('Erro interno na função register-sale:', err.message, err.stack);
+    return new Response(JSON.stringify({ error: 'Erro interno', details: err.message }), { 
+      status: 500,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json'
+      }
+    });
   }
 });
 

@@ -5,13 +5,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 
-// Mock de produtos disponíveis (depois buscar do backend)
-const mockProducts = [
-  { id: '1', name: 'Losartana 50mg', category: 'Anti-hipertensivo', stock: 10, tags: ['Uso Contínuo'], needsPrescription: false },
-  { id: '2', name: 'Aspirina 100mg', category: 'Analgésico', stock: 20, tags: ['Uso Comum'], needsPrescription: false },
-  { id: '3', name: 'Insulina Lantus', category: 'Hormônio', stock: 5, tags: ['Controlado'], needsPrescription: true },
-];
+// Interface para os dados de compra
 
 interface Purchase {
   id: string;
@@ -19,23 +15,7 @@ interface Purchase {
   items: { name: string; quantity: number }[];
 }
 
-const mockPurchases: Purchase[] = [
-  {
-    id: '1',
-    date: '2024-07-25',
-    items: [
-      { name: 'Losartana 50mg', quantity: 2 },
-      { name: 'Aspirina 100mg', quantity: 1 },
-    ],
-  },
-  {
-    id: '2',
-    date: '2024-07-10',
-    items: [
-      { name: 'Insulina Lantus', quantity: 1 },
-    ],
-  },
-];
+// Estado para armazenar as compras reais do cliente
 
 interface CartItem {
   id: string;
@@ -58,7 +38,11 @@ interface Product {
   controlled?: boolean;
 }
 
-const PurchaseHistory: React.FC = () => {
+interface PurchaseHistoryProps {
+  activeConversationId?: string;
+}
+
+const PurchaseHistory: React.FC<PurchaseHistoryProps> = ({ activeConversationId }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
@@ -68,6 +52,8 @@ const PurchaseHistory: React.FC = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isSuccess, setIsSuccess] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(false);
+  const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Buscar produtos reais do banco ao abrir o modal
   useEffect(() => {
@@ -96,6 +82,101 @@ const PurchaseHistory: React.FC = () => {
         });
     }
   }, [isModalOpen]);
+  
+  // Buscar histórico de compras do cliente quando a conversa ativa mudar
+  useEffect(() => {
+    if (activeConversationId) {
+      // Buscar o ID do cliente da conversa ativa
+      supabase
+        .from('conversations')
+        .select('client_id')
+        .eq('id', activeConversationId)
+        .single()
+        .then(({ data, error }) => {
+          if (error || !data?.client_id) {
+            console.error('Erro ao buscar cliente da conversa:', error);
+            return;
+          }
+          // Buscar o histórico de compras do cliente
+          fetchPurchaseHistory(data.client_id);
+        });
+    }
+  }, [activeConversationId]);
+  
+  // Função para buscar o histórico de compras do cliente
+  const fetchPurchaseHistory = async (clientId: string) => {
+    try {
+      setIsLoading(true);
+      // Buscar as vendas do cliente
+      const { data: sales, error: salesError } = await supabase
+        .from('sales')
+        .select('id, created_at')
+        .eq('client_id', clientId)
+        .order('created_at', { ascending: false });
+
+      if (salesError) {
+        console.error('Erro ao buscar vendas:', salesError);
+        setIsLoading(false);
+        return;
+      }
+
+      if (!sales || sales.length === 0) {
+        setPurchases([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Para cada venda, buscar os itens
+      const purchaseHistory: Purchase[] = [];
+      for (const sale of sales) {
+        const { data: items, error: itemsError } = await supabase
+          .from('sale_items')
+          .select('product_id, quantity')
+          .eq('sale_id', sale.id);
+
+        if (itemsError) {
+          console.error('Erro ao buscar itens da venda:', itemsError);
+          continue;
+        }
+
+        if (!items || items.length === 0) continue;
+
+        // Buscar os nomes dos produtos
+        const productIds = items.map(item => item.product_id);
+        const { data: products, error: productsError } = await supabase
+          .from('products')
+          .select('id, name')
+          .in('id', productIds);
+
+        if (productsError) {
+          console.error('Erro ao buscar produtos:', productsError);
+          continue;
+        }
+
+        // Mapear os itens com os nomes dos produtos
+        const purchaseItems = items.map(item => {
+          const product = products?.find(p => p.id === item.product_id);
+          return {
+            name: product ? product.name : 'Produto não encontrado',
+            quantity: item.quantity
+          };
+        });
+
+        purchaseHistory.push({
+          id: sale.id,
+          date: new Date(sale.created_at).toISOString().split('T')[0], // Formato YYYY-MM-DD
+          items: purchaseItems
+        });
+      }
+
+      // Atualizar o estado com o histórico real
+      setPurchases(purchaseHistory);
+    } catch (error) {
+      console.error('Erro ao buscar histórico de compras:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Filtro de busca
   useEffect(() => {
@@ -131,13 +212,73 @@ const PurchaseHistory: React.FC = () => {
     setCart(cart.filter(item => item.id !== id));
   };
 
-  const handleRegisterSale = () => {
-    setIsSuccess(true);
-    setTimeout(() => {
-      setIsModalOpen(false);
-      setIsSuccess(false);
-      setCart([]);
-    }, 1500);
+  const handleRegisterSale = async () => {
+    try {
+      if (!activeConversationId) {
+        toast.error('Não foi possível identificar a conversa ativa.');
+        return;
+      }
+      
+      // Obter o ID do cliente da conversa ativa
+      const { data: conversation, error: convError } = await supabase
+        .from('conversations')
+        .select('client_id')
+        .eq('id', activeConversationId)
+        .single();
+
+      if (convError || !conversation?.client_id) {
+        console.error('Erro ao buscar cliente da conversa:', convError);
+        toast.error('Não foi possível identificar o cliente para esta venda.');
+        return;
+      }
+
+      // Obter o ID do usuário logado
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        console.error('Erro ao obter usuário:', userError);
+        toast.error('Usuário não autenticado.');
+        return;
+      }
+
+      // Preparar os itens para a venda
+      const itens = cart.map(item => ({
+        product_id: item.id,
+        quantity: item.quantity
+      }));
+
+      // Chamar a Edge Function para registrar a venda
+      const { data, error } = await supabase.functions.invoke('register-sale', {
+        body: JSON.stringify({
+          client_id: conversation.client_id,
+          user_id: user.id,
+          itens
+        })
+      });
+
+      if (error) {
+        console.error('Erro ao registrar venda:', error);
+        toast.error(`Erro ao registrar venda: ${error.message}`);
+        return;
+      }
+
+      console.log('Venda registrada com sucesso:', data);
+      toast.success('Venda registrada com sucesso!');
+      setIsSuccess(true);
+      
+      // Atualizar o histórico de compras após o registro da venda
+      setTimeout(() => {
+        setIsModalOpen(false);
+        setIsSuccess(false);
+        setCart([]);
+        // Recarregar o histórico de compras
+        if (conversation.client_id) {
+          fetchPurchaseHistory(conversation.client_id);
+        }
+      }, 1500);
+    } catch (error: any) {
+      console.error('Erro ao processar venda:', error);
+      toast.error(`Erro ao processar venda: ${error.message}`);
+    }
   };
 
   return (
@@ -146,10 +287,12 @@ const PurchaseHistory: React.FC = () => {
         <ShoppingCart className="h-4 w-4 text-pharmacy-whatsapp-primary" />
         <h3 className="font-medium text-pharmacy-text1">Histórico de Compras</h3>
       </div>
-      {mockPurchases.length === 0 && (
+      {isLoading ? (
+        <div className="text-sm text-pharmacy-text2 mb-2">Carregando histórico de compras...</div>
+      ) : purchases.length === 0 ? (
         <div className="text-sm text-pharmacy-text2 mb-2">Nenhuma compra registrada.</div>
-      )}
-      {mockPurchases.map((purchase) => (
+      ) : null}
+      {!isLoading && purchases.map((purchase) => (
         <div key={purchase.id} className="mb-3 p-2 bg-pharmacy-light2 rounded-xl">
           <div className="flex justify-between mb-1">
             <span className="text-xs text-pharmacy-text2">{purchase.date}</span>
@@ -269,4 +412,4 @@ const PurchaseHistory: React.FC = () => {
   );
 };
 
-export default PurchaseHistory; 
+export default PurchaseHistory;
