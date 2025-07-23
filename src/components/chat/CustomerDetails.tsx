@@ -19,6 +19,7 @@ import PurchaseHistory from './customer-details/PurchaseHistory';
 
 interface CustomerDetailsProps {
   activeConversation: string | null;
+  onSaleMessage?: (message: string) => void; // Nova prop para comunicar mensagem de venda
 }
 
 // Definindo um objeto CustomerDetailsType padrão para inicialização
@@ -47,7 +48,7 @@ interface NewCampaignFormDataType {
   messageTemplate: string;
 }
 
-const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation }) => {
+const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation, onSaleMessage }) => {
   const [customerData, setCustomerData] = useState<CustomerDetailsType>(defaultCustomerDetails); // Inicializa com objeto padrão
   const [loading, setLoading] = useState(false);
   const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
@@ -322,7 +323,10 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
       </div>
       
       <div className="p-4 border-b border-pharmacy-border1">
-        <PurchaseHistory activeConversationId={activeConversation} />
+        <PurchaseHistory 
+          activeConversationId={activeConversation} 
+          onSaleMessage={onSaleMessage}
+        />
       </div>
       
       <div className="p-4 border-b border-pharmacy-border1">

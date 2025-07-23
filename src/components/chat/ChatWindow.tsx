@@ -13,6 +13,7 @@ interface ChatWindowProps {
   isMobile: boolean;
   conversations?: Conversation[];
   evolutionInstance?: string;
+  saleMessage?: string; // Nova prop para mensagem de venda
 }
 
 interface DbMessage {
@@ -37,12 +38,38 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   onBackClick,
   isMobile,
   conversations = [],
-  evolutionInstance
+  evolutionInstance,
+  saleMessage: externalSaleMessage
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageIds, setMessageIds] = useState<Set<string>>(new Set());
   const [realtimeStatus, setRealtimeStatus] = useState<'connected' | 'disconnected'>('disconnected');
-  const [saleMessage, setSaleMessage] = useState<string>('');
+  const [saleMessage, setSaleMessage] = useState<string>(externalSaleMessage || ''); // Estado para mensagem de venda
+  // Função para capturar mensagem de venda
+  const handleSaleMessage = useCallback((message: string) => {
+    setSaleMessage(message);
+  }, []);
+
+  // Limpar mensagem de venda quando a conversa mudar
+  useEffect(() => {
+    setSaleMessage('');
+  }, [activeConversation]);
+
+  // Atualizar mensagem de venda quando a prop externa mudar
+  useEffect(() => {
+    if (externalSaleMessage) {
+      console.log('📥 ChatWindow recebeu mensagem de venda externa:', externalSaleMessage);
+      setSaleMessage(externalSaleMessage);
+    }
+  }, [externalSaleMessage]);
+
+  // Log quando a mensagem está sendo passada para o MessageInput
+  useEffect(() => {
+    if (saleMessage) {
+      console.log('📤 ChatWindow passando mensagem para MessageInput:', saleMessage);
+    }
+  }, [saleMessage]);
+
   const { user } = useSupabase();
   
   // Listener Supabase Realtime para mensagens

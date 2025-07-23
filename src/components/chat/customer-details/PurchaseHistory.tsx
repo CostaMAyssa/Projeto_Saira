@@ -40,9 +40,10 @@ interface Product {
 
 interface PurchaseHistoryProps {
   activeConversationId?: string;
+  onSaleMessage?: (message: string) => void; // Nova prop para comunicar a mensagem de venda
 }
 
-const PurchaseHistory: React.FC<PurchaseHistoryProps> = ({ activeConversationId }) => {
+const PurchaseHistory: React.FC<PurchaseHistoryProps> = ({ activeConversationId, onSaleMessage }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
@@ -214,12 +215,9 @@ const PurchaseHistory: React.FC<PurchaseHistoryProps> = ({ activeConversationId 
 
   const handleRegisterSale = async () => {
     try {
-      if (!activeConversationId) {
-        toast.error('Não foi possível identificar a conversa ativa.');
-        return;
-      }
+      console.log('🔥 INICIANDO REGISTRO DE VENDA');
       
-      // Obter o ID do cliente da conversa ativa
+      // Obter a conversa ativa para pegar o client_id
       const { data: conversation, error: convError } = await supabase
         .from('conversations')
         .select('client_id')
@@ -246,23 +244,69 @@ const PurchaseHistory: React.FC<PurchaseHistoryProps> = ({ activeConversationId 
         quantity: item.quantity
       }));
 
+      const payload = {
+        client_id: conversation.client_id,
+        user_id: user.id,
+        itens,
+        conversation_id: activeConversationId
+      };
+
+      console.log('🚀 PAYLOAD PARA EDGE FUNCTION:', payload);
+      console.log('🔗 onSaleMessage callback disponível:', !!onSaleMessage);
+
       // Chamar a Edge Function para registrar a venda
       const { data, error } = await supabase.functions.invoke('register-sale', {
-        body: JSON.stringify({
-          client_id: conversation.client_id,
-          user_id: user.id,
-          itens,
-          conversation_id: activeConversationId // Enviar o ID da conversa para exibir a mensagem no chat
-        })
+        body: payload
       });
 
+      console.log('📦 RESPOSTA COMPLETA DA EDGE FUNCTION:');
+      console.log('- data:', data);
+      console.log('- error:', error);
+      console.log('- tipo de data:', typeof data);
+      console.log('- data é null/undefined:', data == null);
+      
+      if (data) {
+        console.log('- propriedades de data:', Object.keys(data));
+        console.log('- data.success:', data.success);
+        console.log('- data.saleMessage:', data.saleMessage);
+        console.log('- tipo de saleMessage:', typeof data.saleMessage);
+      }
+
       if (error) {
-        console.error('Erro ao registrar venda:', error);
+        console.error('❌ ERRO DA EDGE FUNCTION:', error);
         toast.error(`Erro ao registrar venda: ${error.message}`);
         return;
       }
 
-      console.log('Venda registrada com sucesso:', data);
+      if (!data) {
+        console.error('❌ RESPOSTA VAZIA DA EDGE FUNCTION');
+        toast.error('Resposta vazia da Edge Function');
+        return;
+      }
+
+      if (!data.success) {
+        console.error('❌ EDGE FUNCTION RETORNOU ERRO:', data.error);
+        toast.error(`Erro ao registrar venda: ${data.error}`);
+        return;
+      }
+
+      console.log('✅ VENDA REGISTRADA COM SUCESSO');
+      
+      // Verificar se há mensagem de venda
+      if (data.saleMessage) {
+        console.log('💬 SALEMESSAGE ENCONTRADA:', data.saleMessage);
+        
+        if (onSaleMessage) {
+          console.log('📤 ENVIANDO MENSAGEM PARA COMPONENTE PAI');
+          onSaleMessage(data.saleMessage);
+          console.log('✅ MENSAGEM ENVIADA COM SUCESSO');
+        } else {
+          console.log('❌ CALLBACK onSaleMessage NÃO DISPONÍVEL');
+        }
+      } else {
+        console.log('❌ SALEMESSAGE NÃO ENCONTRADA NA RESPOSTA');
+      }
+      
       toast.success('Venda registrada com sucesso!');
       setIsSuccess(true);
       
@@ -277,7 +321,7 @@ const PurchaseHistory: React.FC<PurchaseHistoryProps> = ({ activeConversationId 
         }
       }, 1500);
     } catch (error: any) {
-      console.error('Erro ao processar venda:', error);
+      console.error('💥 ERRO CRÍTICO AO PROCESSAR VENDA:', error);
       toast.error(`Erro ao processar venda: ${error.message}`);
     }
   };

@@ -165,41 +165,66 @@ Deno.serve(async (req) => {
       }, { onConflict: ['client_id', 'product_id'] });
     }
     // Preparar mensagem de confirmação da venda para o chat
+    console.log('🔥 INICIANDO CONSTRUÇÃO DA SALEMESSAGE');
     let saleMessage = "✅ *Venda registrada com sucesso!* \n\n";
     saleMessage += "📋 *Itens:* \n";
     
+    console.log('🔍 BUSCANDO INFORMAÇÕES DOS PRODUTOS VENDIDOS');
     // Buscar informações dos produtos vendidos para incluir na mensagem
     for (const item of itens) {
-      const { data: produto } = await supabase
+      console.log(`📦 Buscando produto: ${item.product_id}`);
+      const { data: produto, error: produtoError } = await supabase
         .from('products')
         .select('name')
         .eq('id', item.product_id)
         .single();
       
+      console.log(`📦 Resultado da busca:`, { produto, produtoError });
+      
       if (produto) {
         saleMessage += `- ${produto.name} (${item.quantity} unid.)\n`;
+        console.log(`✅ Produto adicionado à mensagem: ${produto.name}`);
+      } else {
+        console.log(`❌ Produto não encontrado: ${item.product_id}`);
+        saleMessage += `- Produto ID: ${item.product_id} (${item.quantity} unid.)\n`;
       }
     }
     
-    // Inserir mensagem no chat se o ID da conversa foi fornecido
-    if (conversation_id) {
-      await supabase.from('messages').insert({
-        conversation_id: conversation_id,
-        content: saleMessage,
-        sender: 'user',
-        sent_at: now,
-        message_type: 'text'
-      });
-      console.log('Mensagem de confirmação da venda inserida no chat');
-    } else {
-      console.log('ID da conversa não fornecido, mensagem de confirmação não será enviada');
-    }
+    console.log('💬 SALEMESSAGE FINAL CONSTRUÍDA:', saleMessage);
+    console.log('📏 TAMANHO DA SALEMESSAGE:', saleMessage.length);
+    
+    // NÃO inserir mensagem automaticamente no chat
+    // A mensagem será retornada para ser exibida no campo de entrada
+    console.log('Mensagem de confirmação da venda preparada para exibição no campo de entrada');
 
-    return new Response(JSON.stringify({ 
+    const responseData = { 
       success: true, 
       sale_id,
-      message: saleMessage 
-    }), { 
+      saleMessage: saleMessage 
+    };
+    
+    console.log('🚀 RESPOSTA FINAL DA EDGE FUNCTION:', JSON.stringify(responseData));
+    console.log('🔍 VERIFICANDO PROPRIEDADES DO RESPONSE DATA:');
+    console.log('- responseData.success:', responseData.success);
+    console.log('- responseData.sale_id:', responseData.sale_id);
+    console.log('- responseData.saleMessage:', responseData.saleMessage);
+    console.log('- typeof responseData.saleMessage:', typeof responseData.saleMessage);
+    console.log('- responseData.saleMessage length:', responseData.saleMessage?.length);
+
+    const jsonString = JSON.stringify(responseData);
+    console.log('📝 JSON STRING FINAL:', jsonString);
+    console.log('📏 JSON STRING LENGTH:', jsonString.length);
+    
+    // Testar se consegue fazer parse do JSON
+    try {
+      const parsed = JSON.parse(jsonString);
+      console.log('✅ JSON PARSE SUCESSO:', parsed);
+      console.log('✅ PARSED saleMessage:', parsed.saleMessage);
+    } catch (parseError) {
+      console.error('❌ ERRO NO JSON PARSE:', parseError);
+    }
+
+    return new Response(jsonString, { 
       status: 200,
       headers: {
         'Access-Control-Allow-Origin': '*',

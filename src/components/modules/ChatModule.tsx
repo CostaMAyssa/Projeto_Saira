@@ -19,6 +19,7 @@ const ChatModule: React.FC<ChatModuleProps> = ({
 }) => {
   const isMobile = useIsMobile();
   const [showDetails, setShowDetails] = useState(false);
+  const [saleMessage, setSaleMessage] = useState<string>(''); // Estado para mensagem de venda
   
   // Reset details panel state when changing conversations on mobile
   useEffect(() => {
@@ -26,6 +27,17 @@ const ChatModule: React.FC<ChatModuleProps> = ({
       setShowDetails(false);
     }
   }, [activeConversation, isMobile]);
+
+  // Função para capturar mensagem de venda
+  const handleSaleMessage = (message: string) => {
+    console.log('📥 ChatModule recebeu mensagem de venda:', message);
+    setSaleMessage(message);
+  };
+
+  // Limpar mensagem de venda quando a conversa mudar
+  useEffect(() => {
+    setSaleMessage('');
+  }, [activeConversation]);
 
   // FORÇAR LAYOUT DESKTOP SE NÃO FOR MOBILE
   if (!isMobile) {
@@ -43,11 +55,15 @@ const ChatModule: React.FC<ChatModuleProps> = ({
           <ChatWindow 
             activeConversation={activeConversation} 
             isMobile={false}
+            saleMessage={saleMessage}
           />
         </div>
         
         <div className="basis-1/4 min-w-0 h-full">
-          <CustomerDetails activeConversation={activeConversation} />
+          <CustomerDetails 
+            activeConversation={activeConversation} 
+            onSaleMessage={handleSaleMessage}
+          />
         </div>
       </div>
     );
@@ -71,6 +87,7 @@ const ChatModule: React.FC<ChatModuleProps> = ({
             activeConversation={activeConversation} 
             onBackClick={() => setActiveConversation(null)}
             isMobile={true}
+            saleMessage={saleMessage}
           />
           
           <Sheet>
@@ -83,7 +100,10 @@ const ChatModule: React.FC<ChatModuleProps> = ({
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="p-0 w-[85vw] sm:max-w-md">
-              <CustomerDetails activeConversation={activeConversation} />
+              <CustomerDetails 
+                activeConversation={activeConversation} 
+                onSaleMessage={handleSaleMessage}
+              />
             </SheetContent>
           </Sheet>
         </div>

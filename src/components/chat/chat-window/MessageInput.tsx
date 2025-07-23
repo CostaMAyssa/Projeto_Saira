@@ -24,7 +24,9 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onSendAudio,
   
   // Atualizar o campo de entrada quando a propriedade initialMessage mudar
   useEffect(() => {
+    console.log('📥 MessageInput recebeu initialMessage:', initialMessage);
     if (initialMessage) {
+      console.log('📝 MessageInput definindo mensagem no campo:', initialMessage);
       setNewMessage(initialMessage);
     }
   }, [initialMessage]);
