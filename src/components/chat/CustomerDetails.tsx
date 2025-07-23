@@ -15,6 +15,7 @@ import { dashboardService } from '@/services/dashboardService';
 import NewCampaignModal from '@/components/campaigns/modals/NewCampaignModal';
 import { NewCampaignData } from '@/services/dashboardService';
 import ClientFormModal from '@/components/clients/ClientFormModal';
+import PurchaseHistory from './customer-details/PurchaseHistory';
 
 interface CustomerDetailsProps {
   activeConversation: string | null;
@@ -321,10 +322,7 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
       </div>
       
       <div className="p-4 border-b border-pharmacy-border1">
-        <CustomerProducts 
-          products={customerData.products} 
-          onAddProduct={() => setIsAddProductModalOpen(true)} // Agora sim, abre o ProductCreateForm
-        />
+        <PurchaseHistory />
       </div>
       
       <div className="p-4 border-b border-pharmacy-border1">
@@ -340,12 +338,6 @@ const CustomerDetails: React.FC<CustomerDetailsProps> = ({ activeConversation })
           onSaveNotes={handleSaveNotes} 
         />
       </div>
-
-      <ProductCreateForm
-        isOpen={isAddProductModalOpen}
-        onClose={() => setIsAddProductModalOpen(false)}
-        onSave={handleAddProduct} // handleAddProduct é passado aqui
-      />
 
       <NewCampaignModal
         open={isNewAutomationModalOpen}

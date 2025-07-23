@@ -14,6 +14,13 @@
 
 ---
 
+### 3. **register-sale**
+- **Função:** Responsável por **registrar vendas** de produtos para qualquer cliente do sistema, de forma centralizada e auditável.
+- **Como funciona:** Recebe uma requisição HTTP POST com os dados da venda (cliente, usuário, itens, total), registra a venda na tabela `sales`, insere os itens em `sale_items`, atualiza o estoque dos produtos vendidos e atualiza/cria o relacionamento cliente-produto (`last_purchase`).
+- **Fluxo:** Qualquer interface (chat, painel, API) → `register-sale` → Supabase (`sales`, `sale_items`, `products`, `client_product_associations`).
+- **Vantagens:** Garante integridade dos dados, evita duplicidade de lógica, funciona para todos os clientes e produtos do sistema, pronto para integrações futuras (relatórios, automações, etc).
+
+---
 
 
 ### 4. **webhook-receiver**

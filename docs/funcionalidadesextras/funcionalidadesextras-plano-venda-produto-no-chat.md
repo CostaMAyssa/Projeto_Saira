@@ -62,3 +62,69 @@ Permitir que o usuário registre vendas de produtos diretamente pelo chat, busca
 2. Implementar modal de venda no chat.
 3. Integrar backend para registrar vendas.
 4. Atualizar UI/histórico do cliente. 
+
+
+
+- Registro da venda (quem vendeu, para quem, quando, valor total)
+- Itens da venda (quais produtos, quantidade, preço unitário)
+- Atualização de estoque
+- Associação cliente-produto (última compra)
+- Pronto para integração com histórico, automação e futuras extensões
+
+---
+
+## **Schema SQL Sugerido**
+
+### 1. Tabela de Vendas (`sales`)
+```sql
+CREATE TABLE sales (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  client_id UUID NOT NULL REFERENCES clients(id),
+  created_by UUID NOT NULL REFERENCES auth.users(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  total NUMERIC(12,2) DEFAULT 0 -- opcional, pode ser calculado
+);
+```
+
+### 2. Itens da Venda (`sale_items`)
+```sql
+CREATE TABLE sale_items (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  sale_id UUID NOT NULL REFERENCES sales(id) ON DELETE CASCADE,
+  product_id UUID NOT NULL REFERENCES products(id),
+  quantity INT NOT NULL CHECK (quantity > 0),
+  unit_price NUMERIC(12,2), -- opcional, pode ser nulo se não usar preço
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
+
+### 3. Associação Cliente-Produto (opcional, para última compra)
+```sql
+CREATE TABLE client_product_associations (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  client_id UUID NOT NULL REFERENCES clients(id),
+  product_id UUID NOT NULL REFERENCES products(id),
+  last_purchase TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE (client_id, product_id)
+);
+```
+
+### 4. Atualização de Estoque (na tabela `products`)
+- O campo `stock` já existe. Ao registrar a venda, subtrair a quantidade vendida.
+
+---
+
+## **Fluxo de Registro de Venda**
+1. Criar registro em `sales` (cliente, usuário, data).
+2. Para cada produto vendido, criar linha em `sale_items` (produto, quantidade, preço).
+3. Atualizar o estoque do produto.
+4. Atualizar/registrar associação cliente-produto com a data da venda.
+5. (Opcional) Calcular e salvar o total da venda.
+
+---
+
+##  Vantagens desse modelo
+Permite histórico detalhado de vendas por cliente e produto.
+Suporta múltiplos produtos por venda.
+Pronto para integrações futuras (pagamento, recibo, automação).
+Fácil de consultar vendas, produtos mais vendidos, clientes recorrentes, etc.
