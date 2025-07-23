@@ -5,9 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 interface MessageInputProps {
-  onSendMessage: (content: string) => void;
+  onSendMessage: (content: string, filePayload?: { name: string; base64: string; type: string }) => void;
   onSendAudio?: (audioBlob: Blob, fileName: string) => void;
-  initialMessage?: string; // Mensagem inicial para preencher o campo de entrada
+  initialMessage?: string;
 }
 
 const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onSendAudio, initialMessage = '' }) => {

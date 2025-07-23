@@ -33,7 +33,7 @@ serve(async (req) => {
     
     // 1. Validar payload
     const { conversationId, text, file, audio, userId, evolutionInstance, clientPhone, clientName, clientId } = body;
-    if (!conversationId || !userId || !text && !file && !audio) {
+    if (!conversationId || !userId || (!text && !file && !audio)) {
       return new Response(JSON.stringify({
         error: 'Dados obrigatórios faltando'
       }), {
@@ -84,22 +84,31 @@ serve(async (req) => {
       });
     }
 
-    // 3. Se houver arquivo/áudio, salvar no Storage
+    // 3. Função para detectar tipo de mídia melhorada
+    const getMediaType = (mimeType: string) => {
+      if (mimeType.startsWith('image/')) return 'image';
+      if (mimeType.startsWith('video/')) return 'video';
+      if (mimeType.startsWith('audio/')) return 'audio';
+      return 'document';
+    };
+
+    // 4. Se houver arquivo/áudio, salvar no Storage
     let mediaUrl = null, mediaType = null, fileName = null, fileSize = null;
     if (file || audio) {
       const media = file || audio;
       try {
         // --- SANITIZAÇÃO DO NOME DO ARQUIVO ---
-        function sanitizeFileName(name) {
+        function sanitizeFileName(name: string) {
           return name
-            .normalize('NFD').replace(/[ -]/g, '') // remove acentos
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove acentos
             .replace(/[^a-zA-Z0-9.\-_]/g, '_') // só letras, números, ponto, hífen, underscore
             .replace(/\s+/g, '_') // espaços por underscore
             .replace(/_+/g, '_') // múltiplos underscores por um só
             .toLowerCase();
         }
+        
         // --- CONVERSÃO ROBUSTA BASE64 PARA BINÁRIO ---
-        function base64ToUint8Array(base64) {
+        function base64ToUint8Array(base64: string) {
           const cleaned = base64.replace(/^data:[^;]+;base64,/, '');
           const binaryString = atob(cleaned);
           const len = binaryString.length;
@@ -109,24 +118,28 @@ serve(async (req) => {
           }
           return bytes;
         }
-        fileName = media.name ? sanitizeFileName(media.name) : `audio_${Date.now()}.webm`;
-        mediaType = media.type || 'audio/webm';
+        
+        fileName = media.name ? sanitizeFileName(media.name) : `media_${Date.now()}.${audio ? 'webm' : 'bin'}`;
+        mediaType = media.type || (audio ? 'audio/webm' : 'application/octet-stream');
+        
         // Usar função robusta para converter base64 em buffer
         const buffer = base64ToUint8Array(media.base64);
         fileSize = buffer.length;
+        
         console.log('Salvando mídia:', {
           fileName,
           mediaType,
           fileSize,
           base64Length: media.base64.length
         });
+        
         const { data: storageData, error: storageError } = await supabase.storage
           .from('whatsapp-media')
           .upload(`${userId}/${evolutionInstance}/${Date.now()}_${fileName}`, buffer, {
             contentType: mediaType,
             upsert: true
           });
-        console.log('storageData:', storageData);
+        
         if (storageError) {
           console.error('Erro no storage:', storageError);
           return new Response(JSON.stringify({
@@ -140,20 +153,19 @@ serve(async (req) => {
             },
           });
         }
-        // Corrigir obtenção da URL pública (compatível com diferentes versões da SDK)
-        let publicUrl = '';
-        let publicUrlObj = supabase.storage.from('whatsapp-media').getPublicUrl(storageData.path);
-        console.log('getPublicUrl result:', publicUrlObj);
-        publicUrl = publicUrlObj.data ? publicUrlObj.data.publicUrl : publicUrlObj.publicUrl;
+        
+        // Obter URL pública
+        const { data: { publicUrl } } = supabase.storage
+          .from('whatsapp-media')
+          .getPublicUrl(storageData.path);
+        
         mediaUrl = publicUrl;
         console.log('Mídia salva com sucesso:', mediaUrl);
-        if (!mediaUrl) {
-          console.error('URL pública da mídia não gerada corretamente! storageData:', storageData);
-        }
+        
       } catch (decodeError) {
-        console.error('Erro ao decodificar base64:', decodeError);
+        console.error('Erro ao processar mídia:', decodeError);
         return new Response(JSON.stringify({
-          error: 'Erro ao processar áudio',
+          error: 'Erro ao processar mídia',
           details: decodeError.message
         }), {
           status: 400,
@@ -165,31 +177,28 @@ serve(async (req) => {
       }
     }
 
-    // 4. Montar payload Evolution API
+    // 5. Montar payload Evolution API
     let evoRes;
     let endpoint;
     let evoPayload;
 
     if (audio) {
-      // Endpoint específico para áudio usando sendWhatsAppAudio
+      // Endpoint específico para áudio
       endpoint = `${settings.api_url}/message/sendWhatsAppAudio/${evolutionInstance}`;
-      // Remover prefixo data: do base64 para a Evolution API
       const cleanBase64 = audio.base64.replace(/^data:[^;]+;base64,/, '');
-      // Payload correto para áudio na Evolution API
       evoPayload = {
         number: clientPhone,
-        audio: cleanBase64 // Enviar base64 puro diretamente
+        audio: cleanBase64
       };
     } else if (file) {
-      // Detectar tipo de mídia
-      const isImage = typeof mediaType === 'string' && mediaType.startsWith('image');
-      const isDocument = typeof mediaType === 'string' && !mediaType.startsWith('image');
+      // Endpoint para mídia (imagens e documentos)
       endpoint = `${settings.api_url}/message/sendMedia/${evolutionInstance}`;
-      // Enviar base64 puro no campo media (sem prefixo)
       const cleanBase64 = file.base64.replace(/^data:[^;]+;base64,/, '');
+      const mediaCategory = getMediaType(mediaType);
+      
       evoPayload = {
         number: clientPhone,
-        mediatype: isImage ? 'image' : 'document',
+        mediatype: mediaCategory,
         mimetype: mediaType,
         caption: text || '',
         media: cleanBase64,
@@ -204,10 +213,9 @@ serve(async (req) => {
       };
     }
 
-    // LOG do payload e endpoint
-    console.log('Enviando para Evolution API:', { endpoint, evoPayload });
+    console.log('Enviando para Evolution API:', { endpoint, payload: { ...evoPayload, media: evoPayload.media ? '[BASE64_DATA]' : undefined } });
 
-    // 5. Enviar para Evolution API
+    // 6. Enviar para Evolution API
     let evoData;
     try {
       evoRes = await fetch(endpoint, {
@@ -218,13 +226,15 @@ serve(async (req) => {
         },
         body: JSON.stringify(evoPayload)
       });
+      
       evoData = await evoRes.json();
-      console.log('Resposta da Evolution API:', { status: evoRes.status, evoData });
+      console.log('Resposta da Evolution API:', { status: evoRes.status, data: evoData });
+      
     } catch (evoError) {
       console.error('Erro ao enviar para Evolution API:', evoError);
       return new Response(JSON.stringify({
         error: 'Erro ao enviar para Evolution API',
-        details: evoError && evoError.message ? evoError.message : evoError
+        details: evoError?.message || 'Erro desconhecido'
       }), {
         status: 500,
         headers: {
@@ -233,11 +243,13 @@ serve(async (req) => {
         },
       });
     }
+    
     if (!evoRes.ok) {
       console.error('Erro Evolution API:', evoData);
       return new Response(JSON.stringify({
         error: 'Erro Evolution API',
-        details: evoData
+        details: evoData,
+        status: evoRes.status
       }), {
         status: 500,
         headers: {
@@ -247,22 +259,30 @@ serve(async (req) => {
       });
     }
 
-    // 6. Salvar mensagem no banco
-    await supabase.from('messages').insert({
+    // 7. Salvar mensagem no banco
+    const messageContent = text || (audio ? '🎵 Áudio gravado' : `📎 ${fileName || 'Arquivo'}`);
+    const messageType = audio ? 'audio' : (file ? 'media' : 'text');
+    
+    const { error: insertError } = await supabase.from('messages').insert({
       conversation_id: conversationId,
-      content: text || (audio ? '🎵 Áudio gravado' : '[Mídia]'),
+      content: messageContent,
       sender: 'user',
       sent_at: new Date().toISOString(),
-      message_type: audio ? 'audio' : (mediaType ? 'media' : 'text'),
+      message_type: messageType,
       media_url: mediaUrl,
       media_type: mediaType,
       file_name: fileName,
       file_size: fileSize
     });
 
+    if (insertError) {
+      console.error('Erro ao salvar mensagem:', insertError);
+    }
+
     return new Response(JSON.stringify({
       success: true,
-      evoData
+      evolutionResponse: evoData,
+      mediaUrl: mediaUrl
     }), {
       status: 200,
       headers: {
@@ -284,4 +304,4 @@ serve(async (req) => {
       },
     });
   }
-}); 
+});
