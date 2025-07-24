@@ -196,6 +196,15 @@ serve(async (req) => {
       const cleanBase64 = file.base64.replace(/^data:[^;]+;base64,/, '');
       const mediaCategory = getMediaType(mediaType);
       
+      // Log detalhado para debugging de imagens
+      console.log('Processando arquivo:', {
+        fileName,
+        mediaType,
+        mediaCategory,
+        base64Length: cleanBase64.length,
+        isImage: mediaType.startsWith('image/')
+      });
+      
       evoPayload = {
         number: clientPhone,
         mediatype: mediaCategory,
@@ -204,6 +213,18 @@ serve(async (req) => {
         media: cleanBase64,
         fileName: fileName
       };
+      
+      // Log específico para imagens
+      if (mediaCategory === 'image') {
+        console.log('🖼️ ENVIANDO IMAGEM para Evolution API:', {
+          endpoint,
+          mediatype: mediaCategory,
+          mimetype: mediaType,
+          fileName,
+          captionLength: (text || '').length,
+          base64Preview: cleanBase64.substring(0, 50) + '...'
+        });
+      }
     } else {
       // Endpoint para texto
       endpoint = `${settings.api_url}/message/sendText/${evolutionInstance}`;
@@ -213,7 +234,13 @@ serve(async (req) => {
       };
     }
 
-    console.log('Enviando para Evolution API:', { endpoint, payload: { ...evoPayload, media: evoPayload.media ? '[BASE64_DATA]' : undefined } });
+    console.log('Enviando para Evolution API:', { 
+      endpoint, 
+      payload: { 
+        ...evoPayload, 
+        media: evoPayload.media ? `[BASE64_DATA_${evoPayload.media.length}_chars]` : undefined 
+      } 
+    });
 
     // 6. Enviar para Evolution API
     let evoData;
@@ -229,6 +256,20 @@ serve(async (req) => {
       
       evoData = await evoRes.json();
       console.log('Resposta da Evolution API:', { status: evoRes.status, data: evoData });
+      
+      // Log específico para erros de imagem
+      if (file && getMediaType(mediaType) === 'image' && !evoRes.ok) {
+        console.error('❌ ERRO ao enviar IMAGEM:', {
+          status: evoRes.status,
+          response: evoData,
+          payload: {
+            mediatype: getMediaType(mediaType),
+            mimetype: mediaType,
+            fileName,
+            base64Length: file.base64.replace(/^data:[^;]+;base64,/, '').length
+          }
+        });
+      }
       
     } catch (evoError) {
       console.error('Erro ao enviar para Evolution API:', evoError);
