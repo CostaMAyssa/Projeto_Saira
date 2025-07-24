@@ -261,7 +261,15 @@ serve(async (req) => {
 
     // 7. Salvar mensagem no banco
     const messageContent = text || (audio ? '🎵 Áudio gravado' : `📎 ${fileName || 'Arquivo'}`);
-    const messageType = audio ? 'audio' : (file ? 'media' : 'text');
+    
+    // Corrigir o message_type para usar os tipos específicos que o frontend espera
+    let messageType = 'text';
+    if (audio) {
+      messageType = 'audio';
+    } else if (file) {
+      // Usar a função getMediaType para determinar o tipo correto
+      messageType = getMediaType(mediaType);
+    }
     
     const { error: insertError } = await supabase.from('messages').insert({
       conversation_id: conversationId,
