@@ -3,6 +3,7 @@ import { Phone, Info, MoreVertical, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatPhoneNumber } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { AvatarWithProfile } from '@/components/ui/avatar-with-profile';
 import ConnectionStatus from './ConnectionStatus';
 
 interface ChatHeaderProps {
@@ -64,7 +65,6 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
 
   const name = conversationData?.clients?.name || 'Carregando...';
   const phone = conversationData?.clients?.phone || '';
-  const initial = name.charAt(0).toUpperCase();
   
   return (
     <div className="bg-[#F0F2F5] p-2 border-b border-gray-200">
@@ -80,9 +80,12 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
               <ChevronLeft size={20} />
             </Button>
           )}
-          <div className="w-10 h-10 rounded-full bg-[#DFE5E7] flex items-center justify-center text-gray-600 font-medium mr-3">
-            {initial}
-          </div>
+          <AvatarWithProfile 
+            contactNumber={phone}
+            contactName={name}
+            size="md"
+            className="mr-3"
+          />
           <div>
             <h3 className="font-medium text-gray-900">{name}</h3>
             {phone && <span className="text-xs text-gray-600">{formatPhoneNumber(phone)}</span>}

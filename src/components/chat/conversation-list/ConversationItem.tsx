@@ -3,6 +3,7 @@ import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import StatusIcon from './StatusIcon';
+import { AvatarWithProfile } from '@/components/ui/avatar-with-profile';
 import { Conversation } from '../types';
 
 interface ConversationItemProps {
@@ -16,8 +17,6 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
   isActive,
   onClick
 }) => {
-  const initial = conversation.name.charAt(0).toUpperCase();
-  
   return (
     <div
       className={cn(
@@ -28,9 +27,12 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
       data-conversation-id={conversation.id}
     >
       <div className="flex gap-3">
-        <div className="w-12 h-12 rounded-full bg-[#DFE5E7] flex-shrink-0 flex items-center justify-center text-gray-600 font-medium">
-          {initial}
-        </div>
+        <AvatarWithProfile 
+          contactNumber={conversation.phone || ''}
+          contactName={conversation.name}
+          size="lg"
+          className="flex-shrink-0"
+        />
         
         <div className="flex-1 min-w-0 overflow-hidden">
           <div className="flex justify-between mb-1">

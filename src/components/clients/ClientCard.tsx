@@ -6,6 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { MoreHorizontal, MessageSquare, UserCheck, UserX, Edit, Trash2 } from 'lucide-react';
 import { EditClientModal } from './modals/EditClientModal';
 import SendMessageModal from './modals/SendMessageModal';
+import { AvatarWithProfile } from '@/components/ui/avatar-with-profile';
 import { useNavigate } from 'react-router-dom';
 
 interface Client {
@@ -108,17 +109,24 @@ const ClientCard = ({
     <>
       <Card className="bg-white border border-pharmacy-border1 hover:shadow-md transition-shadow">
         <CardContent className="p-4">
-        <div className="flex justify-between items-start mb-3">
-            <div className="flex-1">
-              <h3 className="font-semibold text-pharmacy-text1 text-lg">{client.name}</h3>
-              <div className="space-y-1 mt-2">
-                <p className="text-sm text-pharmacy-text2">{client.phone}</p>
-                <p className="text-sm text-pharmacy-text2">{client.email}</p>
+          <div className="flex justify-between items-start mb-3">
+            <div className="flex items-start gap-3 flex-1">
+              <AvatarWithProfile 
+                contactNumber={client.phone}
+                contactName={client.name}
+                size="md"
+              />
+              <div className="flex-1">
+                <h3 className="font-semibold text-pharmacy-text1 text-lg">{client.name}</h3>
+                <div className="space-y-1 mt-2">
+                  <p className="text-sm text-pharmacy-text2">{client.phone}</p>
+                  <p className="text-sm text-pharmacy-text2">{client.email}</p>
+                </div>
               </div>
             </div>
             <div className="flex flex-col items-end gap-2">
-          {getStatusBadge(client.status)}
-        </div>
+              {getStatusBadge(client.status)}
+            </div>
           </div>
 
           {client.last_purchase && (
@@ -126,70 +134,70 @@ const ClientCard = ({
               <p className="text-xs text-pharmacy-text2">
                 Última compra: {client.last_purchase}
               </p>
-          </div>
+            </div>
           )}
 
           <div className="flex flex-wrap gap-1 mb-3">
             {client.tags.map((tag) => (
               <div key={tag}>
                 {getTagBadge(tag)}
-          </div>
+              </div>
             ))}
-        </div>
+          </div>
 
-        <div className="flex justify-end mt-3 pt-3 border-t border-pharmacy-border1 z-10">
-          <Button 
-            variant="ghost" 
-            size="sm"
-            className="text-pharmacy-text2 hover:text-pharmacy-accent p-2"
-            onClick={handleEditClick}
-          >
-            <Edit className="h-4 w-4" />
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="text-pharmacy-text2 hover:text-pharmacy-accent p-2"
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-white border border-pharmacy-border1 text-pharmacy-text1 shadow-md">
-              <DropdownMenuItem 
-                onClick={handleToggleStatus}
-                className="hover:bg-pharmacy-light2 cursor-pointer"
-              >
-                {client.status === 'active' ? (
-                  <>
-                    <UserX className="h-4 w-4 mr-2" />
-                    <span>Desativar</span>
-                  </>
-                ) : (
-                  <>
-                    <UserCheck className="h-4 w-4 mr-2" />
-                    <span>Ativar</span>
-                  </>
-                )}
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={handleSendMessage}
-                className="hover:bg-pharmacy-light2 cursor-pointer"
-              >
-                <MessageSquare className="h-4 w-4 mr-2" />
-                <span>Enviar Mensagem</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={handleDeleteClient}
-                className="text-red-500 hover:bg-pharmacy-light2 cursor-pointer"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                <span>Excluir</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+          <div className="flex justify-end mt-3 pt-3 border-t border-pharmacy-border1 z-10">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              className="text-pharmacy-text2 hover:text-pharmacy-accent p-2"
+              onClick={handleEditClick}
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-pharmacy-text2 hover:text-pharmacy-accent p-2"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-white border border-pharmacy-border1 text-pharmacy-text1 shadow-md">
+                <DropdownMenuItem 
+                  onClick={handleToggleStatus}
+                  className="hover:bg-pharmacy-light2 cursor-pointer"
+                >
+                  {client.status === 'active' ? (
+                    <>
+                      <UserX className="h-4 w-4 mr-2" />
+                      <span>Desativar</span>
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck className="h-4 w-4 mr-2" />
+                      <span>Ativar</span>
+                    </>
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={handleSendMessage}
+                  className="hover:bg-pharmacy-light2 cursor-pointer"
+                >
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  <span>Enviar Mensagem</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={handleDeleteClient}
+                  className="text-red-500 hover:bg-pharmacy-light2 cursor-pointer"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  <span>Excluir</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </CardContent>
       </Card>
 

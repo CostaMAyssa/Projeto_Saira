@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { MessageSquare, Send, Loader2 } from 'lucide-react';
 import { useSupabase } from '@/contexts/SupabaseContext';
 import { supabase } from '@/lib/supabase';
+import { AvatarWithProfile } from '@/components/ui/avatar-with-profile';
 
 interface Client {
   id: string;
@@ -36,50 +37,34 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({
     setSending(true);
     
     try {
-      // 1. Verificar se já existe uma conversa ativa com este cliente
-      const { data: existingConversation, error: conversationError } = await supabase
-        .from('conversations')
-        .select('id')
-        .eq('client_id', client.id)
-        .eq('status', 'active')
-        .eq('assigned_to', user.id)
-        .maybeSingle(); // Usar maybeSingle em vez de single para evitar erro quando não encontrar
-
-      let conversationId = existingConversation?.id;
-
-      // 2. Se não existe conversa, criar uma nova
-      if (!conversationId) {
-        const { data: newConversation, error: createError } = await supabase
-          .from('conversations')
-          .insert({
-            client_id: client.id,
-            assigned_to: user.id,
-            status: 'active',
-            started_at: new Date().toISOString(),
-            last_message_at: new Date().toISOString()
-          })
-          .select('id')
-          .single();
-
-        if (createError) {
-          console.error('Erro ao criar conversa:', createError);
-          throw new Error('Erro ao criar conversa');
-        }
-
-        conversationId = newConversation.id;
+      console.log('🚀 Iniciando envio de mensagem para:', client.name);
+      
+      // 1. Buscar ou criar conversa usando a função RPC corrigida
+      const { data: conversationId, error: conversationError } = await supabase
+        .rpc('get_or_create_conversation_corrected', {
+          p_client_id: client.id,
+          p_assigned_to: user?.id || null
+        });
+    
+      if (conversationError) {
+        console.error('❌ Erro ao buscar/criar conversa:', conversationError);
+        throw new Error('Erro ao buscar/criar conversa');
       }
-
-      // 3. Buscar configurações do usuário para pegar a instância Evolution
+    
+      console.log('✅ Conversa ID:', conversationId);
+    
+      // 2. Buscar configurações do usuário para pegar a instância Evolution
       const { data: settings, error: settingsError } = await supabase
         .from('settings')
         .select('evolution_instance_name')
         .eq('user_id', user.id)
         .maybeSingle();
-
+    
       const evolutionInstanceName = settings?.evolution_instance_name || '';
-
-      // 4. Salvar mensagem no banco primeiro (atualização otimista)
-      await supabase
+      console.log('🔧 Instância Evolution:', evolutionInstanceName);
+    
+      // 3. Salvar mensagem no banco primeiro (atualização otimista)
+      const { error: messageError } = await supabase
         .from('messages')
         .insert({
           conversation_id: conversationId,
@@ -88,13 +73,21 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({
           sent_at: new Date().toISOString(),
           message_type: 'text'
         });
-
-      // 5. Enviar mensagem através do webhook do n8n
+    
+      if (messageError) {
+        console.error('❌ Erro ao salvar mensagem:', messageError);
+        throw new Error('Erro ao salvar mensagem');
+      }
+    
+      console.log('✅ Mensagem salva no banco');
+    
+      // 4. Enviar mensagem através do webhook
       const webhookUrl = `${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/send-message`;
       
       if (webhookUrl) {
         try {
-          await fetch(webhookUrl, {
+          console.log('📤 Enviando via webhook...');
+          const response = await fetch(webhookUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -110,24 +103,31 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({
               clientId: client.id
             })
           });
+    
+          if (!response.ok) {
+            console.warn('⚠️ Webhook falhou, mas mensagem foi salva no banco');
+          } else {
+            console.log('✅ Mensagem enviada via webhook');
+          }
         } catch (webhookError) {
-          console.error('Erro ao enviar via webhook:', webhookError);
+          console.error('❌ Erro ao enviar via webhook:', webhookError);
           // Não falhar completamente se o webhook falhar
         }
       }
-
-      // 6. Limpar formulário e fechar modal
+    
+      // 5. Limpar formulário e fechar modal
       setMessage('');
       onOpenChange(false);
       
-      // 7. Callback de sucesso com o ID da conversa
+      // 6. Callback de sucesso com o ID da conversa
       if (onSuccess) {
         onSuccess(conversationId);
       }
-
+    
+      console.log('🎉 Envio de mensagem concluído com sucesso');
+    
     } catch (error) {
-      console.error('Erro ao enviar mensagem:', error);
-      // Aqui você pode adicionar uma notificação de erro
+      console.error('💥 Erro ao enviar mensagem:', error);
       alert('Erro ao enviar mensagem. Tente novamente.');
     } finally {
       setSending(false);
@@ -138,14 +138,22 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-white sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle className="text-xl font-semibold text-pharmacy-text1 flex items-center gap-2">
+          <DialogTitle className="text-xl font-semibold text-pharmacy-text1 flex items-center gap-3">
             <MessageSquare className="h-5 w-5 text-pharmacy-accent" />
             Enviar Mensagem
           </DialogTitle>
           {client && (
-            <p className="text-sm text-pharmacy-text2 mt-1">
-              Para: <span className="font-medium">{client.name}</span> ({client.phone})
-            </p>
+            <div className="flex items-center gap-3 mt-3 p-3 bg-gray-50 rounded-lg">
+              <AvatarWithProfile 
+                contactNumber={client.phone}
+                contactName={client.name}
+                size="md"
+              />
+              <div className="flex-1">
+                <p className="font-medium text-pharmacy-text1">{client.name}</p>
+                <p className="text-sm text-pharmacy-text2">{client.phone}</p>
+              </div>
+            </div>
           )}
         </DialogHeader>
 
@@ -196,4 +204,4 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({
   );
 };
 
-export default SendMessageModal; 
+export default SendMessageModal;

@@ -31,6 +31,12 @@ interface InstanceInfo {
   events: string[];
 }
 
+// Nova interface para resposta da foto de perfil
+interface ProfilePictureResponse {
+  profilePictureUrl?: string;
+  error?: string;
+}
+
 export class EvolutionApiService {
   private config: EvolutionConfig;
 
@@ -167,6 +173,23 @@ export class EvolutionApiService {
     });
   }
 
+  // Buscar foto de perfil do contato
+  async fetchProfilePicture(number: string): Promise<ProfilePictureResponse> {
+    const endpoint = `/chat/fetchProfilePictureUrl/${this.config.instanceName}`;
+    try {
+      const response = await this.makeRequest(endpoint, {
+        method: 'POST',
+        body: JSON.stringify({
+          number: number,
+        }),
+      });
+      return response;
+    } catch (error) {
+      console.error(`Erro ao buscar foto de perfil para ${number}:`, error);
+      return { error: 'Erro ao buscar foto de perfil' };
+    }
+  }
+
   // Verificar se número existe no WhatsApp
   async checkNumberExists(number: string): Promise<{ exists: boolean; jid: string }> {
     const endpoint = `/chat/whatsappNumbers/${this.config.instanceName}`;
@@ -203,4 +226,4 @@ export const createEvolutionApiService = (config: EvolutionConfig): EvolutionApi
 // Hook para usar o serviço no React
 export const useEvolutionApi = (config: EvolutionConfig) => {
   return createEvolutionApiService(config);
-}; 
+};
