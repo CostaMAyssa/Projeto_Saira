@@ -4,6 +4,7 @@ import ConversationList from '@/components/chat/ConversationList';
 import ChatWindow from '@/components/chat/ChatWindow';
 import CustomerDetails from '@/components/chat/CustomerDetails';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { ChevronRight, UserCircle } from 'lucide-react';
@@ -20,6 +21,7 @@ const ChatModule: React.FC<ChatModuleProps> = ({
   const isMobile = useIsMobile();
   const [showDetails, setShowDetails] = useState(false);
   const [saleMessage, setSaleMessage] = useState<string>(''); // Estado para mensagem de venda
+  const { totalUnread, markConversationAsRead } = useUnreadMessages();
   
   // Reset details panel state when changing conversations on mobile
   useEffect(() => {
@@ -39,6 +41,12 @@ const ChatModule: React.FC<ChatModuleProps> = ({
     setSaleMessage('');
   }, [activeConversation]);
 
+  // Marcar conversa como lida quando selecionada
+  const handleConversationSelect = (conversationId: string) => {
+    setActiveConversation(conversationId);
+    markConversationAsRead(conversationId);
+  };
+
   // FORÇAR LAYOUT DESKTOP SE NÃO FOR MOBILE
   if (!isMobile) {
     // Desktop layout with três colunas fixas
@@ -47,7 +55,7 @@ const ChatModule: React.FC<ChatModuleProps> = ({
         <div className="basis-1/4 min-w-0 h-full">
           <ConversationList 
             activeConversation={activeConversation} 
-            setActiveConversation={setActiveConversation} 
+            setActiveConversation={handleConversationSelect} 
           />
         </div>
         
@@ -77,7 +85,7 @@ const ChatModule: React.FC<ChatModuleProps> = ({
         <div className="flex-1 flex flex-col h-full">
           <ConversationList 
             activeConversation={activeConversation} 
-            setActiveConversation={setActiveConversation} 
+            setActiveConversation={handleConversationSelect} 
           />
         </div>
       ) : (

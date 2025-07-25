@@ -312,11 +312,18 @@ serve(async (req) => {
       messageType = getMediaType(mediaType);
     }
     
+    // Função para criar timestamp no fuso horário brasileiro
+    const createBrazilianTimestamp = () => {
+      return new Date().toLocaleString('sv-SE', {
+        timeZone: 'America/Sao_Paulo'
+      }).replace(' ', 'T') + '.000Z';
+    };
+
     const { error: insertError } = await supabase.from('messages').insert({
       conversation_id: conversationId,
       content: messageContent,
       sender: 'user',
-      sent_at: new Date().toISOString(),
+      sent_at: createBrazilianTimestamp(),
       message_type: messageType,
       media_url: mediaUrl,
       media_type: mediaType,

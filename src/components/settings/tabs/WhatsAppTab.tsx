@@ -10,6 +10,7 @@ import { MessageSquare, Settings, Plus, Trash2, Wifi, WifiOff, Star, Edit } from
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabase';
 import { useSupabase } from '@/contexts/SupabaseContext';
+import { createEvolutionApiService } from '@/services/evolutionApi';
 
 interface WhatsAppInstance {
   id: string;
@@ -105,20 +106,18 @@ const WhatsAppTab = () => {
         api_key: formData.evolutionApiKey,
         evolution_instance_name: formData.instanceName,
         global_mode: formData.globalMode,
-        is_primary: true, // Esta será sempre a instância principal
+        is_primary: true,
         instance_status: 'disconnected'
       };
 
       if (primaryInstance) {
-        // Atualizar instância principal existente
-      const { error } = await supabase
-        .from('settings')
+        const { error } = await supabase
+          .from('settings')
           .update(settingsData)
           .eq('id', primaryInstance.id);
-      
-      if (error) throw error;
+        
+        if (error) throw error;
       } else {
-        // Criar nova instância principal
         const { error } = await supabase
           .from('settings')
           .insert(settingsData);
@@ -126,11 +125,55 @@ const WhatsAppTab = () => {
         if (error) throw error;
       }
 
-      toast({
-        title: "Sucesso!",
-        description: "Configurações do WhatsApp salvas com sucesso.",
-        variant: "default"
-      });
+      // 🔧 CONFIGURAR WEBHOOK AUTOMATICAMENTE
+      try {
+        console.log('🔗 Configurando webhook automaticamente...');
+        
+        // URL correta do webhook receiver
+        const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webhook-receiver`;
+        
+        // Configurar via API REST diretamente (mais confiável)
+        const webhookResponse = await fetch(`${formData.evolutionApiUrl}/webhook/set/${formData.instanceName}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': formData.evolutionApiKey
+          },
+          body: JSON.stringify({
+            webhook: {
+              enabled: true,
+              url: webhookUrl,
+              byEvents: true,
+              base64: false,
+              events: [
+                'MESSAGES_UPSERT',
+                'MESSAGES_UPDATE',
+                'MESSAGES_DELETE',
+                'CONNECTION_UPDATE',
+                'QRCODE_UPDATED'
+              ]
+            }
+          })
+        });
+
+        if (webhookResponse.ok) {
+          console.log('✅ Webhook configurado com sucesso!');
+          toast({
+            title: "Sucesso!",
+            description: "Configurações salvas e webhook configurado automaticamente. Agora você receberá mensagens!",
+            variant: "default"
+          });
+        } else {
+          throw new Error(`HTTP ${webhookResponse.status}`);
+        }
+      } catch (webhookError) {
+        console.error('⚠️ Erro ao configurar webhook:', webhookError);
+        toast({
+          title: "Configurações salvas",
+          description: "Configurações salvas, mas houve um problema ao configurar o webhook. Use o botão 'Webhook' para configurar manualmente.",
+          variant: "default"
+        });
+      }
       
       // Recarregar instâncias
       window.location.reload();
@@ -139,6 +182,46 @@ const WhatsAppTab = () => {
       toast({
         title: "Erro",
         description: "Não foi possível salvar as configurações.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Função para configurar webhook manualmente
+  const configureWebhook = async (instance: WhatsAppInstance) => {
+    setLoading(true);
+    try {
+      const evolutionApi = createEvolutionApiService({
+        apiUrl: instance.api_url,
+        apiKey: instance.api_key,
+        instanceName: instance.evolution_instance_name,
+        globalMode: instance.global_mode,
+        webhookUrl: '',
+        events: []
+      });
+
+      const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webhook-receiver`;
+      const events = [
+        'MESSAGES_UPSERT',
+        'MESSAGES_UPDATE', 
+        'MESSAGES_DELETE',
+        'CONNECTION_UPDATE',
+        'QRCODE_UPDATED'
+      ];
+
+      await evolutionApi.setWebhook(webhookUrl, events);
+      
+      toast({
+        title: "Sucesso!",
+        description: "Webhook configurado com sucesso!",
+      });
+    } catch (error) {
+      console.error('Erro ao configurar webhook:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível configurar o webhook.",
         variant: "destructive"
       });
     } finally {
@@ -242,6 +325,32 @@ const WhatsAppTab = () => {
           title: "Sucesso!",
           description: "Nova instância criada com sucesso.",
         });
+      }
+
+      // 🔧 CONFIGURAR WEBHOOK PARA A NOVA INSTÂNCIA
+      try {
+        const evolutionApi = createEvolutionApiService({
+          apiUrl: modalFormData.apiUrl,
+          apiKey: modalFormData.apiKey,
+          instanceName: modalFormData.instanceName,
+          globalMode: modalFormData.globalMode,
+          webhookUrl: '',
+          events: []
+        });
+
+        const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webhook-receiver`;
+        const events = [
+          'MESSAGES_UPSERT',
+          'MESSAGES_UPDATE', 
+          'MESSAGES_DELETE',
+          'CONNECTION_UPDATE',
+          'QRCODE_UPDATED'
+        ];
+
+        await evolutionApi.setWebhook(webhookUrl, events);
+        console.log('✅ Webhook configurado para nova instância!');
+      } catch (webhookError) {
+        console.error('⚠️ Erro ao configurar webhook para nova instância:', webhookError);
       }
 
       // Limpar formulário e fechar modal

@@ -6,6 +6,7 @@ import { MessageSquare, Send, Loader2 } from 'lucide-react';
 import { useSupabase } from '@/contexts/SupabaseContext';
 import { supabase } from '@/lib/supabase';
 import { AvatarWithProfile } from '@/components/ui/avatar-with-profile';
+import { createBrazilianTimestamp } from '@/lib/utils';
 
 interface Client {
   id: string;
@@ -70,10 +71,10 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({
           conversation_id: conversationId,
           content: message,
           sender: 'user',
-          sent_at: new Date().toISOString(),
+          sent_at: createBrazilianTimestamp(),
           message_type: 'text'
         });
-    
+
       if (messageError) {
         console.error('❌ Erro ao salvar mensagem:', messageError);
         throw new Error('Erro ao salvar mensagem');

@@ -6,28 +6,11 @@ import EmptyState from './conversation-list/EmptyState';
 import { Conversation } from './types';
 import { supabase } from '@/lib/supabase';
 import { useSupabase } from '@/contexts/SupabaseContext';
+import { formatMessageTimestamp } from '@/lib/utils';
 
 interface ConversationListProps {
   activeConversation: string | null;
   setActiveConversation: (id: string) => void;
-}
-
-// Interfaces para tipar os dados vindos do Supabase
-interface DbConversation {
-  id: string;
-  client_id: string;
-  status: 'active' | 'closed' | 'waiting';
-  last_message_at: string;
-  // Assumindo que podemos fazer um JOIN para pegar o nome do cliente
-  clients: {
-    name: string;
-    phone: string;
-  } | null;
-}
-
-interface LastMessageData {
-  content: string;
-  sent_at: string;
 }
 
 const ConversationList: React.FC<ConversationListProps> = ({ 
@@ -39,11 +22,13 @@ const ConversationList: React.FC<ConversationListProps> = ({
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [filteredConversations, setFilteredConversations] = useState<Conversation[]>([]);
   const { user } = useSupabase();
-  const userRole = user?.user_metadata?.role || 'atendente';
 
   useEffect(() => {
     const fetchConversations = async () => {
       try {
+        if (!user) return;
+
+        // Voltar para a estrutura original que funcionava
         let query = supabase
           .from('conversations')
           .select(`
@@ -51,47 +36,52 @@ const ConversationList: React.FC<ConversationListProps> = ({
             last_message_at,
             assigned_to,
             clients (
+              id,
               name,
               phone
             )
           `)
+          .eq('assigned_to', user.id)
           .order('last_message_at', { ascending: false });
 
-        if (userRole !== 'admin' && user) {
-          query = query.eq('assigned_to', user.id);
-        }
+        const { data: conversationsData, error } = await query;
 
-        const { data: conversationsData, error: conversationsError } = await query;
-
-        if (conversationsError) {
-          console.error('Erro ao buscar conversas:', conversationsError);
+        if (error) {
+          console.error('Erro ao buscar conversas:', error);
           return;
         }
 
         if (conversationsData) {
-          // 2. Mapear os dados para o formato do frontend
+          // Buscar última mensagem e contagem de não lidas para cada conversa
           const conversationsWithDetails = await Promise.all(
-            (conversationsData as unknown as DbConversation[]).map(async (conv) => {
-              // 3. Buscar a última mensagem para cada conversa
+            conversationsData.map(async (conv: any) => {
+              // Buscar última mensagem
               const { data: lastMessage } = await supabase
                 .from('messages')
-                .select('content, sent_at')
+                .select('content, sent_at, sender')
                 .eq('conversation_id', conv.id)
                 .order('sent_at', { ascending: false })
-                .limit(1);
+                .limit(1)
+                .single();
 
-              const lastMsg = lastMessage && lastMessage[0] as LastMessageData | undefined;
+              // Contar mensagens não lidas (apenas de clientes)
+              const { count: unreadCount } = await supabase
+                .from('messages')
+                .select('*', { count: 'exact', head: true })
+                .eq('conversation_id', conv.id)
+                .eq('sender', 'client')
+                .is('read_at', null);
 
               return {
                 id: conv.id,
                 name: conv.clients?.name || 'Cliente sem nome',
                 phone: conv.clients?.phone || 'N/A',
-                lastMessage: lastMsg?.content || 'Nenhuma mensagem ainda',
-                time: lastMsg
-                  ? new Date(lastMsg.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                  : new Date(conv.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                unread: 0, // Lógica de não lidas pode ser implementada depois
-                status: 'read' as const,
+                lastMessage: lastMessage?.content || 'Nenhuma mensagem ainda',
+                time: lastMessage?.sent_at 
+                  ? formatMessageTimestamp(lastMessage.sent_at)
+                  : '',
+                unread: unreadCount || 0,
+                status: (unreadCount || 0) > 0 ? 'unread' as const : 'read' as const,
                 tags: [],
               };
             })
@@ -106,7 +96,28 @@ const ConversationList: React.FC<ConversationListProps> = ({
     };
 
     fetchConversations();
-  }, [user, userRole]);
+
+    // Configurar subscription para atualizações em tempo real
+    const subscription = supabase
+      .channel('conversations-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+        },
+        () => {
+          // Recarregar conversas quando houver mudanças nas mensagens
+          fetchConversations();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [user]);
 
   // Apply filters when search term or filter type changes
   useEffect(() => {
@@ -129,6 +140,32 @@ const ConversationList: React.FC<ConversationListProps> = ({
     
     setFilteredConversations(filtered);
   }, [searchTerm, filterType, conversations]);
+
+  // Função para marcar mensagens como lidas quando uma conversa é selecionada
+  const handleConversationClick = async (conversationId: string) => {
+    setActiveConversation(conversationId);
+    
+    // Marcar mensagens como lidas se a função existir
+    try {
+      const { error } = await supabase.rpc('mark_messages_as_read', {
+        conversation_id_param: conversationId
+      });
+      
+      if (!error) {
+        // Atualizar o estado local para refletir a mudança imediatamente
+        setConversations(prev => 
+          prev.map(conv => 
+            conv.id === conversationId 
+              ? { ...conv, unread: 0, status: 'read' as const }
+              : conv
+          )
+        );
+      }
+    } catch (error) {
+      // Se a função não existir, apenas continuar sem marcar como lida
+      console.log('Função mark_messages_as_read não disponível ainda');
+    }
+  };
   
   return (
     <div className="h-full bg-white border-r border-gray-200 flex flex-col font-sans min-w-0 overflow-hidden">
@@ -147,7 +184,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
                 key={conversation.id}
                 conversation={conversation}
                 isActive={activeConversation === conversation.id}
-                onClick={() => setActiveConversation(conversation.id)}
+                onClick={() => handleConversationClick(conversation.id)}
               />
             ))
           ) : (

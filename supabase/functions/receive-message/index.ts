@@ -2,7 +2,6 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 204,
@@ -38,19 +37,28 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
     
-    // 2. Identificar cliente pelo remoteJid
+    // 2. Identificar cliente pelo remoteJid - LÓGICA CORRIGIDA
     const phone = (data.key?.remoteJid || '').replace(/\D/g, '');
     console.log('📱 Telefone extraído:', phone);
     
+    // 🔧 CORREÇÃO: Buscar cliente por telefone primeiro
     let client = await supabase.from('clients').select('*').eq('phone', phone).single();
     
     if (!client.data) {
       console.log('👤 Cliente não encontrado, criando novo...');
+      
+      // 🎯 MELHORIA: Usar pushName apenas se disponível e válido
+      const clientName = data.pushName && data.pushName.trim() && data.pushName !== phone 
+        ? data.pushName.trim() 
+        : `Contato ${phone}`;
+      
+      console.log(`📝 Nome do novo cliente: "${clientName}"`);
+      
       // Criar cliente se não existir
       const { data: newClient, error: createClientError } = await supabase
         .from('clients')
         .insert({
-          name: data.pushName || phone,
+          name: clientName,
           phone,
           status: 'ativo'
         })
@@ -65,7 +73,26 @@ serve(async (req) => {
       client = { data: newClient };
       console.log('✅ Cliente criado:', newClient.id);
     } else {
-      console.log('✅ Cliente encontrado:', client.data.id);
+      console.log(`✅ Cliente encontrado: ${client.data.name} (${client.data.id})`);
+      
+      // 🎯 OPCIONAL: Atualizar nome apenas se o atual for genérico e o pushName for melhor
+      if (data.pushName && 
+          data.pushName.trim() && 
+          data.pushName !== phone &&
+          (client.data.name.startsWith('Contato ') || client.data.name === phone)) {
+        
+        console.log(`🔄 Atualizando nome genérico "${client.data.name}" para "${data.pushName}"`);
+        
+        const { error: updateError } = await supabase
+          .from('clients')
+          .update({ name: data.pushName.trim() })
+          .eq('id', client.data.id);
+          
+        if (!updateError) {
+          client.data.name = data.pushName.trim();
+          console.log('✅ Nome do cliente atualizado');
+        }
+      }
     }
 
     // 3. Buscar ou criar conversa usando a função RPC corrigida
@@ -148,18 +175,33 @@ serve(async (req) => {
       content = '[Arquivo]';
     }
 
-    // 5. Salvar mensagem recebida
+    // Função para criar timestamp no fuso horário brasileiro
+    const createBrazilianTimestamp = (unixTimestamp?: number) => {
+      const date = unixTimestamp ? new Date(unixTimestamp * 1000) : new Date();
+      return date.toLocaleString('sv-SE', {
+        timeZone: 'America/Sao_Paulo'
+      }).replace(' ', 'T') + '.000Z';
+    };
+
+    // 5. Salvar mensagem recebida (sem read_at para marcar como não lida)
     console.log('💾 Salvando mensagem...');
     const { error: messageError } = await supabase.from('messages').insert({
       conversation_id: conversationId,
       content,
       sender: 'client',
-      sent_at: new Date((data.messageTimestamp || Date.now()) * 1000).toISOString(),
+      sent_at: createBrazilianTimestamp(data.messageTimestamp),
       message_type: messageType,
       media_url: mediaUrl,
       media_type: mediaType,
       file_name: fileName,
-      file_size: fileSize
+      file_size: fileSize,
+      from_me: false, // Mensagem recebida
+      message_id: data.key?.id || `msg_${Date.now()}`,
+      remote_jid: data.key?.remoteJid,
+      instance_name: data.instance,
+      push_name: data.pushName,
+      raw_data: data,
+      // read_at: null (não definir para marcar como não lida)
     });
 
     if (messageError) {

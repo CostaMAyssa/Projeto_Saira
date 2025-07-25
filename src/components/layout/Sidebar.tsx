@@ -10,6 +10,7 @@ import {
   FileText
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import LogoImage from '@/lib/assets/Logo.png';
 
 interface SidebarProps {
@@ -21,28 +22,39 @@ const SidebarItem = ({
   icon: Icon, 
   label, 
   active = false, 
-  onClick 
+  onClick,
+  badge
 }: { 
   icon: React.ElementType; 
   label: string; 
   active?: boolean; 
   onClick?: () => void;
+  badge?: number;
 }) => {
   return (
     <div 
       className={cn(
-        "flex flex-col items-center justify-center py-4 cursor-pointer text-pharmacy-green2 hover:text-pharmacy-accent transition-colors",
+        "flex flex-col items-center justify-center py-4 cursor-pointer text-pharmacy-green2 hover:text-pharmacy-accent transition-colors relative",
         active && "text-pharmacy-accent"
       )}
       onClick={onClick}
     >
-      <Icon size={24} />
+      <div className="relative">
+        <Icon size={24} />
+        {badge && badge > 0 && (
+          <span className="absolute -top-2 -right-2 bg-[#25D366] text-white text-xs rounded-full h-5 w-5 flex items-center justify-center min-w-[20px] text-[10px] font-medium">
+            {badge > 99 ? '99+' : badge}
+          </span>
+        )}
+      </div>
       <span className="text-xs mt-1">{label}</span>
     </div>
   );
 };
 
 const Sidebar = ({ activePage = 'dashboard', setActivePage }: SidebarProps) => {
+  const { totalUnread } = useUnreadMessages();
+  
   const handleSetPage = (page: string) => {
     if (setActivePage) {
       setActivePage(page);
@@ -79,6 +91,7 @@ const Sidebar = ({ activePage = 'dashboard', setActivePage }: SidebarProps) => {
           label="WhatsApp" 
           active={activePage === 'chats'} 
           onClick={() => handleSetPage('chats')}
+          badge={totalUnread}
         />
         <SidebarItem 
           icon={Users} 

@@ -6,6 +6,7 @@ import EmptyState from './chat-window/EmptyState';
 import { Message, Conversation } from './types';
 import { supabase } from '@/lib/supabase';
 import { useSupabase } from '@/contexts/SupabaseContext';
+import { formatMessageTimestamp } from '@/lib/utils';
 
 interface ChatWindowProps {
   activeConversation: string | null;
@@ -101,10 +102,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             id: messageId,
             content: msg.content,
             sender: msg.sender,
-            timestamp: new Date(msg.sent_at).toLocaleTimeString([], { 
-              hour: '2-digit', 
-              minute: '2-digit' 
-            }),
+            timestamp: formatMessageTimestamp(msg.sent_at),
             message_type: msg.message_type || 'text',
             media_url: msg.media_url,
             media_type: msg.media_type,
@@ -216,10 +214,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           id: msg.id, // Usar sempre o ID do banco
           content: msg.content,
           sender: msg.sender,
-          timestamp: new Date(msg.sent_at).toLocaleTimeString([], { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          }),
+          timestamp: formatMessageTimestamp(msg.sent_at),
           message_type: msg.message_type || 'text',
           media_url: msg.media_url,
           media_type: msg.media_type,

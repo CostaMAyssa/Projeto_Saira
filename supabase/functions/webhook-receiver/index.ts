@@ -59,10 +59,20 @@ serve(async (req) => {
     if (!client) {
       // Só cria cliente se a mensagem for RECEBIDA de um número novo.
       if (!fromMe) {
+          // 🔧 CORREÇÃO: Melhorar lógica de nome do cliente
+          const clientName = pushName && pushName.trim() && pushName !== clientPhone 
+            ? pushName.trim() 
+            : `Contato ${clientPhone}`;
+            
           console.log(`🤔 Cliente não encontrado. Criando novo: Nome='${clientName}', Tel='${clientPhone}'`);
           const { data: newClient, error: newClientError } = await supabase
             .from('clients')
-            .insert({ name: clientName, phone: clientPhone, status: 'ativo', created_by: assignedUserId })
+            .insert({ 
+              name: clientName, 
+              phone: clientPhone, 
+              status: 'ativo', 
+              created_by: assignedUserId 
+            })
             .select('id, name').single();
           
           if (newClientError) {
@@ -73,12 +83,29 @@ serve(async (req) => {
           console.log(`✅ Cliente criado com sucesso: ID=${client!.id}`);
       } else {
           console.log('➡️ Mensagem de saída para número não-cliente. Não criando cliente.');
-          // Para mensagens de saída para um número que não é cliente, podemos parar ou continuar
-          // dependendo da lógica de negócios. Por agora, vamos parar.
           return new Response("ok - mensagem de saída para não-cliente");
       }
     } else {
-      console.log(`✅ Cliente existente encontrado: ID=${client.id}`);
+      console.log(`✅ Cliente existente encontrado: ${client.name} (ID=${client.id})`);
+      
+      // 🎯 OPCIONAL: Atualizar nome apenas se o atual for genérico e o pushName for melhor
+      if (pushName && 
+          pushName.trim() && 
+          pushName !== clientPhone &&
+          (client.name.startsWith('Contato ') || client.name === clientPhone)) {
+        
+        console.log(`🔄 Atualizando nome genérico "${client.name}" para "${pushName}"`);
+        
+        const { error: updateError } = await supabase
+          .from('clients')
+          .update({ name: pushName.trim() })
+          .eq('id', client.id);
+          
+        if (!updateError) {
+          client.name = pushName.trim();
+          console.log('✅ Nome do cliente atualizado');
+        }
+      }
     }
 
     console.log(`🔄 Buscando conversa para o cliente ID: ${client!.id}`);
@@ -145,7 +172,17 @@ serve(async (req) => {
       media_type: media_type,
       file_name: file_name,
       file_size: file_size,
-      sent_at: new Date(messageTimestamp * 1000).toISOString()
+      sent_at: new Date(messageTimestamp * 1000).toISOString(),
+      user_id: assignedUserId, // Adicionar user_id para RLS
+      from_me: fromMe, // Adicionar campo from_me
+      message_id: key.id || `msg_${Date.now()}`, // ID único da mensagem
+      remote_jid: remoteJid,
+      instance_name: instance,
+      push_name: pushName,
+      raw_data: data,
+      // read_at: null (não definir para mensagens recebidas - marcará como não lida)
+      // Para mensagens enviadas por nós, marcar como lida imediatamente
+      read_at: fromMe ? new Date().toISOString() : null
     };
 
     console.log('💾 Inserindo mensagem no banco...', messageToInsert);
@@ -167,4 +204,4 @@ serve(async (req) => {
       headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' }
     });
   }
-}); 
+});
