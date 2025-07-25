@@ -31,10 +31,14 @@ interface InstanceInfo {
   events: string[];
 }
 
-// Nova interface para resposta da foto de perfil
+// Interface melhorada para resposta da foto de perfil
 interface ProfilePictureResponse {
   profilePictureUrl?: string;
+  url?: string;
+  picture?: string;
+  avatar?: string;
   error?: string;
+  [key: string]: any; // Para capturar outros campos possíveis
 }
 
 export class EvolutionApiService {
@@ -55,17 +59,47 @@ export class EvolutionApiService {
       ...options,
     };
 
+    console.log(`[EvolutionAPI] Request to: ${url}`, {
+      method: defaultOptions.method || 'GET',
+      headers: {
+        ...defaultOptions.headers,
+        'apikey': '***' + this.config.apiKey.slice(-4) // Mascarar API key nos logs
+      },
+      body: options.body ? JSON.parse(options.body as string) : undefined
+    });
+
     try {
       const response = await fetch(url, defaultOptions);
       
+      console.log(`[EvolutionAPI] Response status: ${response.status}`, {
+        url,
+        ok: response.ok,
+        statusText: response.statusText
+      });
+      
       if (!response.ok) {
         const errorText = await response.text();
+        console.error(`[EvolutionAPI] Error response:`, {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
         throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
-      return await response.json();
+      const responseData = await response.json();
+      console.log(`[EvolutionAPI] Success response:`, {
+        url,
+        data: responseData
+      });
+
+      return responseData;
     } catch (error) {
-      console.error(`Erro na requisição para ${url}:`, error);
+      console.error(`[EvolutionAPI] Request failed:`, {
+        url,
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined
+      });
       throw error;
     }
   }
@@ -173,9 +207,16 @@ export class EvolutionApiService {
     });
   }
 
-  // Buscar foto de perfil do contato
+  // Buscar foto de perfil do contato - VERSÃO MELHORADA COM LOGS
   async fetchProfilePicture(number: string): Promise<ProfilePictureResponse> {
     const endpoint = `/chat/fetchProfilePictureUrl/${this.config.instanceName}`;
+    
+    console.log(`[EvolutionAPI] Fetching profile picture:`, {
+      number,
+      endpoint,
+      instanceName: this.config.instanceName
+    });
+
     try {
       const response = await this.makeRequest(endpoint, {
         method: 'POST',
@@ -183,9 +224,24 @@ export class EvolutionApiService {
           number: number,
         }),
       });
+
+      console.log(`[EvolutionAPI] Profile picture response:`, {
+        number,
+        response,
+        hasProfilePictureUrl: !!response.profilePictureUrl,
+        hasUrl: !!response.url,
+        hasPicture: !!response.picture,
+        hasAvatar: !!response.avatar,
+        responseKeys: Object.keys(response)
+      });
+
       return response;
     } catch (error) {
-      console.error(`Erro ao buscar foto de perfil para ${number}:`, error);
+      console.error(`[EvolutionAPI] Profile picture error:`, {
+        number,
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined
+      });
       return { error: 'Erro ao buscar foto de perfil' };
     }
   }
