@@ -1,12 +1,16 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' }
-    });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
@@ -15,8 +19,9 @@ serve(async (req) => {
 
     console.log('--- 🚀 Iniciando Webhook Receiver ---');
     console.log(`Instância: ${instance}`);
+    
     // Não logar o body inteiro se contiver base64 (muito grande)
-    if (data.message?.imageMessage?.jpegThumbnail) {
+    if (data?.message?.imageMessage?.jpegThumbnail) {
         console.log('Payload recebido (imagem com thumbnail).');
     } else {
         console.log('Payload completo:', JSON.stringify(data, null, 2));
@@ -24,7 +29,7 @@ serve(async (req) => {
 
     if (!data || !data.key || !data.key.remoteJid) {
       console.log('🔚 Webhook sem dados essenciais (remoteJid). Ignorando.');
-      return new Response("ok - ignorado");
+      return new Response("ok - ignorado", { headers: corsHeaders });
     }
 
     const { key, pushName, message, messageTimestamp } = data;
@@ -33,28 +38,62 @@ serve(async (req) => {
 
     if (remoteJid.includes('@broadcast')) {
       console.log('🔚 Mensagem de broadcast. Ignorando.');
-      return new Response("ok - broadcast ignorado");
+      return new Response("ok - broadcast ignorado", { headers: corsHeaders });
     }
 
     const clientPhone = remoteJid.split('@')[0];
     const clientName = fromMe ? 'Eu' : (pushName || 'Novo Contato');
     console.log(`💬 Mensagem ${fromMe ? 'de' : 'para'} ${clientName} (${clientPhone})`);
 
-    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!, 
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
 
     console.log(`⚙️ Buscando usuário para a instância: ${instance}`);
     const { data: settings, error: settingsError } = await supabase
-      .from('settings').select('user_id').eq('evolution_instance_name', instance).single();
+      .from('settings')
+      .select('user_id')
+      .eq('evolution_instance_name', instance)
+      .single();
 
     if (settingsError || !settings?.user_id) {
       console.error(`❌ Erro: Configurações ou user_id não encontrados para a instância ${instance}.`, settingsError);
-      throw new Error(`Configurações não encontradas para a instância ${instance}.`);
+      
+      // Tentar buscar por instance_name como fallback
+      const { data: fallbackSettings, error: fallbackError } = await supabase
+        .from('settings')
+        .select('user_id')
+        .eq('instance_name', instance)
+        .single();
+        
+      if (fallbackError || !fallbackSettings?.user_id) {
+        console.error(`❌ Erro: Configurações não encontradas nem como evolution_instance_name nem como instance_name para ${instance}.`);
+        return new Response(
+          JSON.stringify({ 
+            error: `Configurações não encontradas para a instância ${instance}`,
+            details: settingsError?.message || 'Instância não configurada'
+          }), 
+          { 
+            status: 404, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+      
+      settings.user_id = fallbackSettings.user_id;
+      console.log(`✅ Usuário encontrado via fallback: ${settings.user_id}`);
     }
+    
     const assignedUserId = settings.user_id;
     console.log(`✅ Usuário da instância: ${assignedUserId}`);
 
     console.log(`🔍 Buscando cliente pelo telefone: ${clientPhone}`);
-    let { data: client } = await supabase.from('clients').select('id, name').eq('phone', clientPhone).single();
+    let { data: client } = await supabase
+      .from('clients')
+      .select('id, name')
+      .eq('phone', clientPhone)
+      .single();
 
     if (!client) {
       // Só cria cliente se a mensagem for RECEBIDA de um número novo.
@@ -73,7 +112,8 @@ serve(async (req) => {
               status: 'ativo', 
               created_by: assignedUserId 
             })
-            .select('id, name').single();
+            .select('id, name')
+            .single();
           
           if (newClientError) {
               console.error('❌ Erro ao criar novo cliente:', newClientError);
@@ -83,7 +123,7 @@ serve(async (req) => {
           console.log(`✅ Cliente criado com sucesso: ID=${client!.id}`);
       } else {
           console.log('➡️ Mensagem de saída para número não-cliente. Não criando cliente.');
-          return new Response("ok - mensagem de saída para não-cliente");
+          return new Response("ok - mensagem de saída para não-cliente", { headers: corsHeaders });
       }
     } else {
       console.log(`✅ Cliente existente encontrado: ${client.name} (ID=${client.id})`);
@@ -109,14 +149,23 @@ serve(async (req) => {
     }
 
     console.log(`🔄 Buscando conversa para o cliente ID: ${client!.id}`);
-    let { data: conversation } = await supabase.from('conversations').select('id').eq('client_id', client!.id).single();
+    let { data: conversation } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('client_id', client!.id)
+      .single();
 
     if (!conversation) {
       console.log(`🤔 Conversa não encontrada. Criando nova...`);
       const { data: newConv, error: newConvError } = await supabase
         .from('conversations')
-        .insert({ client_id: client!.id, status: 'active', assigned_to: assignedUserId })
-        .select('id').single();
+        .insert({ 
+          client_id: client!.id, 
+          status: 'active', 
+          assigned_to: assignedUserId 
+        })
+        .select('id')
+        .single();
 
       if (newConvError) {
         console.error('❌ Erro ao criar nova conversa:', newConvError);
@@ -146,8 +195,6 @@ serve(async (req) => {
         message_type = 'image';
         media_type = message.imageMessage.mimetype || 'image/jpeg';
         file_name = `image_${messageTimestamp}.jpg`;
-        // Aqui você pode adicionar lógica para baixar a imagem da URL (message.imageMessage.url)
-        // e salvar no seu storage, se necessário. Por simplicidade, vamos usar a URL direta se existir.
         media_url = message.imageMessage.url;
     } else if (message?.audioMessage) {
         content = 'Áudio';
@@ -167,41 +214,48 @@ serve(async (req) => {
       conversation_id: conversation.id,
       content: content,
       message_type: message_type,
-      sender: fromMe ? 'user' : 'client', // CORREÇÃO CRÍTICA
+      sender: fromMe ? 'user' : 'client',
       media_url: media_url,
       media_type: media_type,
       file_name: file_name,
       file_size: file_size,
       sent_at: new Date(messageTimestamp * 1000).toISOString(),
-      user_id: assignedUserId, // Adicionar user_id para RLS
-      from_me: fromMe, // Adicionar campo from_me
-      message_id: key.id || `msg_${Date.now()}`, // ID único da mensagem
+      user_id: assignedUserId,
+      from_me: fromMe,
+      message_id: key.id || `msg_${Date.now()}`,
       remote_jid: remoteJid,
       instance_name: instance,
       push_name: pushName,
       raw_data: data,
-      // read_at: null (não definir para mensagens recebidas - marcará como não lida)
-      // Para mensagens enviadas por nós, marcar como lida imediatamente
       read_at: fromMe ? new Date().toISOString() : null
     };
 
     console.log('💾 Inserindo mensagem no banco...', messageToInsert);
-    const { error: msgError } = await supabase.from('messages').insert(messageToInsert);
+    const { error: msgError } = await supabase
+      .from('messages')
+      .insert(messageToInsert);
 
     if (msgError) {
       console.error('❌ Erro ao inserir a mensagem no banco:', msgError);
       throw msgError;
     }
+    
     console.log('✅ Mensagem inserida com sucesso!');
     console.log('--- ✅ Webhook finalizado com sucesso ---');
 
-    return new Response("ok");
+    return new Response("ok", { headers: corsHeaders });
 
   } catch (error) {
     console.error('🔥 Erro fatal no processamento do webhook:', error);
-    return new Response(JSON.stringify({ error: 'Erro interno do servidor', details: error.message }), {
-      status: 500,
-      headers: { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' }
-    });
+    return new Response(
+      JSON.stringify({ 
+        error: 'Erro interno do servidor', 
+        details: error.message 
+      }), 
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
   }
 });
