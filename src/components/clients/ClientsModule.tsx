@@ -23,9 +23,11 @@ export type ClientModalFormData = {
   birth_date?: string; // YYYY-MM-DD for date input
 };
 
-const ClientsModule = () => {
-  // Removed the first set of state declarations and the first useEffect for mobile check,
-  // as they were duplicated by the second block.
+interface ClientsModuleProps {
+  navigateToChat?: (conversationId: string) => void;
+}
+
+const ClientsModule = ({ navigateToChat }: ClientsModuleProps) => {
   const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [clients, setClients] = useState<Client[]>([]);
   const [filteredClients, setFilteredClients] = useState<Client[]>([]);
@@ -277,6 +279,7 @@ const ClientsModule = () => {
       onOpenEditModal: handleOpenEditClientModal,
       onDeleteClient: handleDeleteClientFromModule,
       onToggleStatus: handleToggleClientStatusInModule,
+      navigateToChat, // Passar a função navigateToChat
     };
 
     if (loading) {

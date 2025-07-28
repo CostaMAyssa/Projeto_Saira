@@ -6,7 +6,6 @@ import { MessageSquare, Send, Loader2 } from 'lucide-react';
 import { useSupabase } from '@/contexts/SupabaseContext';
 import { supabase } from '@/lib/supabase';
 import { AvatarWithProfile } from '@/components/ui/avatar-with-profile';
-import { createBrazilianTimestamp } from '@/lib/utils';
 
 interface Client {
   id: string;
@@ -40,19 +39,37 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({
     try {
       console.log('🚀 Iniciando envio de mensagem para:', client.name);
       
-      // 1. Buscar ou criar conversa usando a função RPC corrigida
-      const { data: conversationId, error: conversationError } = await supabase
-        .rpc('get_or_create_conversation_corrected', {
-          p_client_id: client.id,
-          p_assigned_to: user?.id || null
-        });
-    
-      if (conversationError) {
-        console.error('❌ Erro ao buscar/criar conversa:', conversationError);
-        throw new Error('Erro ao buscar/criar conversa');
+      // 1. Buscar ou criar conversa usando a mesma lógica do webhook-receiver
+      console.log(`🔄 Buscando conversa para o cliente ID: ${client.id}`);
+      let { data: conversation } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('client_id', client.id)
+        .single();
+
+      if (!conversation) {
+        console.log(`🤔 Conversa não encontrada. Criando nova...`);
+        const { data: newConv, error: newConvError } = await supabase
+          .from('conversations')
+          .insert({ 
+            client_id: client.id, 
+            status: 'active', 
+            assigned_to: user.id 
+          })
+          .select('id')
+          .single();
+
+        if (newConvError) {
+          console.error('❌ Erro ao criar nova conversa:', newConvError);
+          throw new Error('Erro ao criar nova conversa');
+        }
+        conversation = newConv;
+        console.log(`✅ Nova conversa criada: ID=${conversation!.id}`);
+      } else {
+        console.log(`✅ Conversa existente encontrada: ID=${conversation.id}`);
       }
-    
-      console.log('✅ Conversa ID:', conversationId);
+
+      const conversationId = conversation.id;
     
       // 2. Buscar configurações do usuário para pegar a instância Evolution
       const { data: settings, error: settingsError } = await supabase
@@ -64,63 +81,45 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({
       const evolutionInstanceName = settings?.evolution_instance_name || '';
       console.log('🔧 Instância Evolution:', evolutionInstanceName);
     
-      // 3. Salvar mensagem no banco primeiro (atualização otimista)
-      const { error: messageError } = await supabase
-        .from('messages')
-        .insert({
-          conversation_id: conversationId,
-          content: message,
-          sender: 'user',
-          sent_at: createBrazilianTimestamp(),
-          message_type: 'text'
-        });
-
-      if (messageError) {
-        console.error('❌ Erro ao salvar mensagem:', messageError);
-        throw new Error('Erro ao salvar mensagem');
-      }
-    
-      console.log('✅ Mensagem salva no banco');
-    
-      // 4. Enviar mensagem através do webhook
+      // 3. Enviar mensagem usando a mesma lógica do ChatWindow
       const webhookUrl = `${import.meta.env.VITE_SUPABASE_FUNCTIONS_URL}/send-message`;
       
-      if (webhookUrl) {
-        try {
-          console.log('📤 Enviando via webhook...');
-          const response = await fetch(webhookUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-            },
-            body: JSON.stringify({
-              conversationId,
-              text: message,
-              userId: user.id,
-              evolutionInstance: evolutionInstanceName,
-              clientPhone: client.phone,
-              clientName: client.name,
-              clientId: client.id
-            })
-          });
-    
-          if (!response.ok) {
-            console.warn('⚠️ Webhook falhou, mas mensagem foi salva no banco');
-          } else {
-            console.log('✅ Mensagem enviada via webhook');
-          }
-        } catch (webhookError) {
-          console.error('❌ Erro ao enviar via webhook:', webhookError);
-          // Não falhar completamente se o webhook falhar
-        }
+      if (!webhookUrl) {
+        console.error("URL da função 'send-message' não configurada.");
+        throw new Error("URL da função 'send-message' não configurada.");
       }
+
+      console.log('📤 Enviando via webhook...');
+      const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          conversationId,
+          text: message,
+          userId: user.id,
+          evolutionInstance: evolutionInstanceName,
+          clientPhone: client.phone,
+          clientName: client.name,
+          clientId: client.id
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Erro na resposta do webhook:', errorData);
+        throw new Error(`Erro ao enviar mensagem: ${response.status}`);
+      }
+
+      console.log('✅ Mensagem enviada via webhook');
     
-      // 5. Limpar formulário e fechar modal
+      // 4. Limpar formulário e fechar modal
       setMessage('');
       onOpenChange(false);
       
-      // 6. Callback de sucesso com o ID da conversa
+      // 5. Callback de sucesso com o ID da conversa
       if (onSuccess) {
         onSuccess(conversationId);
       }

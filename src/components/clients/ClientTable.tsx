@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, MessageSquare, UserCheck, UserX, Edit, Trash2 } from 'lucide-react';
 import SendMessageModal from './modals/SendMessageModal';
-import { useNavigate } from 'react-router-dom';
 
 interface Client {
   id: string;
@@ -23,6 +22,7 @@ interface ClientTableProps {
   onOpenEditModal: (client: Client) => void;
   onDeleteClient: (clientId: string) => void;
   onToggleStatus: (client: Client) => void;
+  navigateToChat?: (conversationId: string) => void;
 }
 
 const ClientTable = ({ 
@@ -31,11 +31,11 @@ const ClientTable = ({
   getTagBadge,
   onOpenEditModal,
   onDeleteClient,
-  onToggleStatus 
+  onToggleStatus,
+  navigateToChat
 }: ClientTableProps) => {
   const [sendMessageModalOpen, setSendMessageModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const navigate = useNavigate();
 
   const handleSendMessage = (client: Client) => {
     setSelectedClient(client);
@@ -43,8 +43,10 @@ const ClientTable = ({
   };
 
   const handleSendMessageSuccess = (conversationId: string) => {
-    // Navegar para o chat com a conversa criada
-    navigate(`/chat?conversation=${conversationId}`);
+    // Usar a função navigateToChat em vez de navigate
+    if (navigateToChat) {
+      navigateToChat(conversationId);
+    }
   };
 
   return (

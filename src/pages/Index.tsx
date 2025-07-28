@@ -6,6 +6,7 @@ import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 
 const Index = () => {
   const [activePage, setActivePage] = useState('dashboard');
+  const [activeConversation, setActiveConversation] = useState<string | null>(null);
   const { totalUnread } = useUnreadMessages();
   
   // Atualizar título da página com contagem de mensagens não lidas
@@ -17,6 +18,12 @@ const Index = () => {
       document.title = baseTitle;
     }
   }, [totalUnread]);
+
+  // Função para navegar para o chat com uma conversa específica
+  const navigateToChat = (conversationId: string) => {
+    setActiveConversation(conversationId);
+    setActivePage('chats');
+  };
   
   return (
     <div className="h-screen flex overflow-hidden">
@@ -25,7 +32,12 @@ const Index = () => {
       <div className="flex-1 flex flex-col">
         <TopBar />
         <div className="flex-1 flex overflow-hidden">
-          <ModuleManager activePage={activePage} />
+          <ModuleManager 
+            activePage={activePage} 
+            activeConversation={activeConversation}
+            setActiveConversation={setActiveConversation}
+            navigateToChat={navigateToChat}
+          />
         </div>
       </div>
     </div>

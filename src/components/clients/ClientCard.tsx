@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, MessageSquare, UserCheck, UserX, Edit, Trash2 } from 'lucide-react';
-import { EditClientModal } from './modals/EditClientModal';
-import SendMessageModal from './modals/SendMessageModal';
 import { AvatarWithProfile } from '@/components/ui/avatar-with-profile';
+import EditClientModal from './modals/EditClientModal';
+import SendMessageModal from './modals/SendMessageModal';
 import { useNavigate } from 'react-router-dom';
 
 interface Client {
@@ -26,6 +25,7 @@ interface ClientCardProps {
   onOpenEditModal?: (client: Client) => void;
   onDeleteClient?: (clientId: string) => void;
   onToggleStatus?: (client: Client) => void;
+  navigateToChat?: (conversationId: string) => void;
 }
 
 const ClientCard = ({ 
@@ -34,7 +34,8 @@ const ClientCard = ({
   getTagBadge,
   onOpenEditModal,
   onDeleteClient,
-  onToggleStatus 
+  onToggleStatus,
+  navigateToChat
 }: ClientCardProps) => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isSendMessageModalOpen, setIsSendMessageModalOpen] = useState(false);
@@ -43,7 +44,6 @@ const ClientCard = ({
   const [email, setEmail] = useState(client.email);
   const [status, setStatus] = useState<'active' | 'inactive'>(client.status);
   const [tags, setTags] = useState<string[]>([...client.tags]);
-  const navigate = useNavigate();
 
   const handleEditClick = () => {
     if (onOpenEditModal) {
@@ -85,8 +85,10 @@ const ClientCard = ({
   };
 
   const handleSendMessageSuccess = (conversationId: string) => {
-    // Navegar para o chat com a conversa criada
-    navigate(`/chat?conversation=${conversationId}`);
+    // Usar a função navigateToChat em vez de navigate
+    if (navigateToChat) {
+      navigateToChat(conversationId);
+    }
   };
 
   const handleToggleStatus = () => {

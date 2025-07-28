@@ -11,10 +11,17 @@ import SettingsModule from '@/components/settings/SettingsModule';
 
 interface ModuleManagerProps {
   activePage: string;
+  activeConversation: string | null;
+  setActiveConversation: (id: string | null) => void;
+  navigateToChat: (conversationId: string) => void;
 }
 
-const ModuleManager: React.FC<ModuleManagerProps> = ({ activePage }) => {
-  const [activeConversation, setActiveConversation] = useState<string | null>(null);
+const ModuleManager: React.FC<ModuleManagerProps> = ({ 
+  activePage, 
+  activeConversation, 
+  setActiveConversation, 
+  navigateToChat 
+}) => {
   
   const renderActiveModule = () => {
     switch (activePage) {
@@ -28,7 +35,7 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ activePage }) => {
           />
         );
       case 'clients':
-        return <ClientsModule />;
+        return <ClientsModule navigateToChat={navigateToChat} />;
       case 'products':
         return <ProductsModule />;
       case 'campaigns':
