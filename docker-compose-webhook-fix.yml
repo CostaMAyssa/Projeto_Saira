@@ -196,9 +196,9 @@ volumes:
     name: evolution_instances
 
 networks:
-  insignemarketingnet: ## Nome da rede interna
+  ErickNet: ## Nome da rede interna
     external: true
-    name: insignemarketingnet ## Nome da rede interna
+    name: ErickNet ## Nome da rede interna
 
 # 🔧 INSTRUÇÕES PARA APLICAR AS CORREÇÕES:
 #

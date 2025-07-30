@@ -1,5 +1,5 @@
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -58,6 +58,12 @@ serve(async (req) => {
     if (remoteJid.includes('@broadcast')) {
       console.log(`🔥 [${requestId}] 🔚 Mensagem de broadcast. Ignorando.`);
       return new Response("ok - broadcast ignorado", { headers: corsHeaders });
+    }
+
+    // 🐛 CORREÇÃO: Ignorar mensagens enviadas por mim para evitar duplicação
+    if (fromMe) {
+      console.log(`🔥 [${requestId}] ➡️ Mensagem enviada por mim (fromMe: true). Ignorando para evitar duplicação.`);
+      return new Response("ok - mensagem própria ignorada", { headers: corsHeaders });
     }
 
     const clientPhone = remoteJid.split('@')[0];
@@ -205,6 +211,58 @@ serve(async (req) => {
       console.log(`✅ Conversa existente encontrada: ID=${conversation.id}`);
     }
 
+    // 🎯 Função para baixar mídia e fazer upload para Supabase Storage
+    const downloadAndUploadMedia = async (url: string, fileName: string, mimeType: string, clientId: string) => {
+      try {
+        console.log(`📥 Baixando mídia de: ${url}`);
+        
+        // Baixar a mídia da Evolution API
+        const response = await fetch(url);
+        if (!response.ok) {
+          console.error(`❌ Erro ao baixar mídia: ${response.status} ${response.statusText}`);
+          return null;
+        }
+        
+        const arrayBuffer = await response.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        
+        // Gerar nome único para o arquivo
+        const timestamp = Date.now();
+        const extension = fileName.split('.').pop() || 'bin';
+        const uniqueFileName = `${clientId}/${timestamp}_${fileName}`;
+        
+        console.log(`📤 Fazendo upload para Supabase Storage: ${uniqueFileName}`);
+        
+        // Upload para Supabase Storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('whatsapp-media')
+          .upload(uniqueFileName, uint8Array, {
+            contentType: mimeType,
+            upsert: true
+          });
+        
+        if (uploadError) {
+          console.error('❌ Erro no upload para Supabase Storage:', uploadError);
+          return null;
+        }
+        
+        // Obter URL pública
+        const { data: publicUrlData } = supabase.storage
+          .from('whatsapp-media')
+          .getPublicUrl(uploadData.path);
+        
+        console.log(`✅ Mídia salva com sucesso: ${publicUrlData.publicUrl}`);
+        return {
+          publicUrl: publicUrlData.publicUrl,
+          fileSize: uint8Array.length
+        };
+        
+      } catch (error) {
+        console.error('❌ Erro ao processar mídia:', error);
+        return null;
+      }
+    };
+
     let content = 'Mídia recebida';
     let message_type = 'media';
     let media_url = null;
@@ -223,19 +281,67 @@ serve(async (req) => {
         message_type = 'image';
         media_type = message.imageMessage.mimetype || 'image/jpeg';
         file_name = `image_${messageTimestamp}.jpg`;
-        media_url = message.imageMessage.url;
+        
+        // 🔧 CORREÇÃO: Baixar e fazer re-upload da imagem
+        if (message.imageMessage.url) {
+          const mediaResult = await downloadAndUploadMedia(
+            message.imageMessage.url, 
+            file_name, 
+            media_type, 
+            client!.id
+          );
+          if (mediaResult) {
+            media_url = mediaResult.publicUrl;
+            file_size = mediaResult.fileSize;
+          } else {
+            // Fallback para URL original se o download falhar
+            media_url = message.imageMessage.url;
+          }
+        }
     } else if (message?.audioMessage) {
         content = 'Áudio';
         message_type = 'audio';
         media_type = message.audioMessage.mimetype || 'audio/ogg';
         file_name = `audio_${messageTimestamp}.ogg`;
-        media_url = message.audioMessage.url;
+        
+        // 🔧 CORREÇÃO: Baixar e fazer re-upload do áudio
+        if (message.audioMessage.url) {
+          const mediaResult = await downloadAndUploadMedia(
+            message.audioMessage.url, 
+            file_name, 
+            media_type, 
+            client!.id
+          );
+          if (mediaResult) {
+            media_url = mediaResult.publicUrl;
+            file_size = mediaResult.fileSize;
+          } else {
+            // Fallback para URL original se o download falhar
+            media_url = message.audioMessage.url;
+          }
+        }
     } else if (message?.documentMessage) {
         content = message.documentMessage.caption || message.documentMessage.fileName || 'Documento';
         message_type = 'document';
         media_type = message.documentMessage.mimetype;
-        file_name = message.documentMessage.fileName;
-        media_url = message.documentMessage.url;
+        file_name = message.documentMessage.fileName || `document_${messageTimestamp}`;
+        
+        // 🔧 CORREÇÃO: Baixar e fazer re-upload do documento
+        if (message.documentMessage.url) {
+          const mediaResult = await downloadAndUploadMedia(
+            message.documentMessage.url, 
+            file_name, 
+            media_type, 
+            client!.id
+          );
+          if (mediaResult) {
+            media_url = mediaResult.publicUrl;
+            file_size = mediaResult.fileSize;
+          } else {
+            // Fallback para URL original se o download falhar
+            media_url = message.documentMessage.url;
+          }
+        }
     }
 
     const messageToInsert = {
