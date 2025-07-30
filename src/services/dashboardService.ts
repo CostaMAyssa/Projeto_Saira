@@ -352,33 +352,50 @@ class DashboardService {
 
   async getMessagesByType(): Promise<ChartData[]> {
     try {
-      console.log('DashboardService.getMessagesByType: Buscando mensagens');
+      console.log('📊 DashboardService.getMessagesByType: Iniciando busca de mensagens por tipo');
 
       // Simplificar query - remover filtro por usuário que pode estar causando problemas
       const { data: allMessages, error: messagesError } = await supabase
         .from('messages')
-        .select('sender')
+        .select('sender, content, created_at, conversation_id')
         .limit(1000); // Limitar para evitar queries muito grandes
 
       if (messagesError) {
-        console.error('Error fetching messages by type:', messagesError);
-        console.error('Detalhes do erro de mensagens:', JSON.stringify(messagesError, null, 2));
+        console.error('❌ DashboardService.getMessagesByType: Erro ao buscar mensagens:', messagesError);
+        console.error('🔍 DashboardService.getMessagesByType: Detalhes do erro:', JSON.stringify(messagesError, null, 2));
         return [];
       }
       
-      if (!allMessages) return [];
+      if (!allMessages) {
+        console.log('⚠️ DashboardService.getMessagesByType: Nenhuma mensagem encontrada');
+        return [];
+      }
 
-      console.log('Mensagens encontradas:', allMessages.length);
+      console.log(`📈 DashboardService.getMessagesByType: ${allMessages.length} mensagens encontradas`);
+      console.log('📋 DashboardService.getMessagesByType: Amostra das mensagens:', 
+        allMessages.slice(0, 5).map(m => ({
+          sender: m.sender,
+          content: m.content?.substring(0, 50),
+          created_at: m.created_at,
+          conversation_id: m.conversation_id
+        }))
+      );
 
       const counts: { [key: string]: number } = {};
       for (const message of allMessages) {
         const type = message.sender || 'unknown';
         counts[type] = (counts[type] || 0) + 1;
       }
-      return Object.entries(counts).map(([name, value]) => ({ name, value }));
+      
+      console.log('📊 DashboardService.getMessagesByType: Contagem por tipo:', counts);
+      
+      const result = Object.entries(counts).map(([name, value]) => ({ name, value }));
+      console.log('✅ DashboardService.getMessagesByType: Resultado final:', result);
+      
+      return result;
 
     } catch (error) {
-      console.error('Error fetching messages by type:', error);
+      console.error('❌ DashboardService.getMessagesByType: Erro geral:', error);
       return [];
     }
   }
@@ -1049,4 +1066,4 @@ export const getFormResponses = async (formId: string) => {
 
   if (error) throw error;
   return data;
-}; 
+};

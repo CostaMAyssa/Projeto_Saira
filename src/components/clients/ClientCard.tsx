@@ -4,9 +4,8 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, MessageSquare, UserCheck, UserX, Edit, Trash2 } from 'lucide-react';
 import { AvatarWithProfile } from '@/components/ui/avatar-with-profile';
-import EditClientModal from './modals/EditClientModal';
+import { EditClientModal } from './modals/EditClientModal';
 import SendMessageModal from './modals/SendMessageModal';
-import { useNavigate } from 'react-router-dom';
 
 interface Client {
   id: string;

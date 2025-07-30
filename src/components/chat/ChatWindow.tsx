@@ -156,6 +156,108 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     };
   }, [activeConversation, messageIds]);
 
+  // Escutar novas mensagens via Supabase Realtime
+  useEffect(() => {
+    if (!activeConversation) return;
+
+    console.log(`🔥 [FRONTEND] Configurando listener Realtime para conversa: ${activeConversation}`);
+    console.log(`🔥 [FRONTEND] MessageIds atuais:`, Array.from(messageIds));
+
+    const channel = supabase
+      .channel(`messages-${activeConversation}`)
+      .on(
+        'postgres_changes',
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'messages',
+          filter: `conversation_id=eq.${activeConversation}`
+        },
+        (payload) => {
+          console.log(`🔥 [FRONTEND] 🆕 Nova mensagem recebida via Realtime:`, payload);
+          console.log(`🔥 [FRONTEND] Payload completo:`, JSON.stringify(payload, null, 2));
+          
+          const msg = payload.new as DbMessage;
+          const messageId = msg.id;
+          
+          console.log(`🔥 [FRONTEND] Processando mensagem ID: ${messageId}`);
+          console.log(`🔥 [FRONTEND] Conteúdo: ${msg.content}`);
+          console.log(`🔥 [FRONTEND] Remetente: ${msg.sender}`);
+          console.log(`🔥 [FRONTEND] Timestamp: ${msg.sent_at}`);
+
+          const newMessage: Message = {
+            id: messageId,
+            content: msg.content,
+            sender: msg.sender,
+            timestamp: formatMessageTimestamp(msg.sent_at),
+            message_type: msg.message_type || 'text',
+            media_url: msg.media_url,
+            media_type: msg.media_type,
+            file_name: msg.file_name,
+            file_size: msg.file_size,
+            transcription: msg.transcription,
+            caption: msg.caption
+          };
+
+          console.log(`🔥 [FRONTEND] Mensagem formatada:`, newMessage);
+
+          setMessages(prev => {
+            // Evita adicionar se já existir
+            if (prev.some(m => m.id === newMessage.id)) {
+              console.log(`🔥 [FRONTEND] ⚠️ Mensagem ${newMessage.id} já existe, ignorando`);
+              return prev;
+            }
+            console.log(`🔥 [FRONTEND] ✅ Adicionando nova mensagem ao estado`);
+            console.log(`🔥 [FRONTEND] Estado anterior tinha ${prev.length} mensagens`);
+            const newState = [...prev, newMessage];
+            console.log(`🔥 [FRONTEND] Estado novo tem ${newState.length} mensagens`);
+            return newState;
+          });
+          
+          setMessageIds(prev => {
+            const newSet = new Set(prev).add(messageId);
+            console.log(`🔥 [FRONTEND] MessageIds atualizado:`, Array.from(newSet));
+            return newSet;
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'messages',
+          filter: `conversation_id=eq.${activeConversation}`
+        },
+        (payload) => {
+          console.log(`🔥 [FRONTEND] 🔄 Mensagem atualizada via Supabase Realtime:`, payload.new);
+          const msg = payload.new as DbMessage;
+          const messageId = msg.id;
+          
+          setMessages(prev => prev.map(m => 
+            m.id === messageId 
+              ? { ...m, content: msg.content, media_url: msg.media_url, file_name: msg.file_name }
+              : m
+          ));
+        }
+      )
+      .subscribe((status) => {
+        console.log(`🔥 [FRONTEND] Status da subscription Realtime:`, status);
+        if (status === 'SUBSCRIBED') {
+          console.log(`🔥 [FRONTEND] 🔔 Canal Realtime conectado para conversa: ${activeConversation}`);
+          setRealtimeStatus('connected');
+        } else {
+          console.warn(`🔥 [FRONTEND] ⚠️ Canal Realtime não conectado. Status: ${status}`);
+          setRealtimeStatus('disconnected');
+        }
+      });
+
+    return () => {
+      console.log(`🔥 [FRONTEND] 🔌 Desconectando listener da conversa: ${activeConversation}`);
+      supabase.removeChannel(channel);
+    };
+  }, [activeConversation, messageIds]);
+
   // Escutar eventos de venda
   useEffect(() => {
     if (!activeConversation) return;
@@ -192,12 +294,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
   useEffect(() => {
     const fetchMessages = async () => {
       if (!activeConversation) {
+        console.log(`🔥 [FRONTEND] Nenhuma conversa ativa, limpando mensagens`);
         setMessages([]);
         setMessageIds(new Set());
         return;
       }
 
-      console.log(`📚 Carregando histórico para conversa: ${activeConversation}`);
+      console.log(`🔥 [FRONTEND] 📚 Carregando histórico para conversa: ${activeConversation}`);
 
       const { data, error } = await supabase
         .from('messages')
@@ -205,11 +308,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         .eq('conversation_id', activeConversation)
         .order('sent_at', { ascending: true });
 
+      console.log(`🔥 [FRONTEND] Resultado da query de mensagens:`, { data, error });
+
       if (error) {
-        console.error('Erro ao buscar mensagens:', error);
+        console.error(`🔥 [FRONTEND] ❌ Erro ao buscar mensagens:`, error);
         setMessages([]);
         setMessageIds(new Set());
       } else if (data) {
+        console.log(`🔥 [FRONTEND] ✅ ${data.length} mensagens encontradas no banco`);
+        
         const fetchedMessages: Message[] = (data as DbMessage[]).map(msg => ({
           id: msg.id, // Usar sempre o ID do banco
           content: msg.content,
@@ -227,9 +334,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         const ids = new Set(fetchedMessages.map(m => m.id));
         setMessages(fetchedMessages);
         setMessageIds(ids);
-        console.log(`✅ ${fetchedMessages.length} mensagens históricas carregadas. Remetentes:`, 
-          JSON.stringify(fetchedMessages.map(m => m.sender))
+        console.log(`🔥 [FRONTEND] ✅ ${fetchedMessages.length} mensagens históricas carregadas. Remetentes:`, 
+          JSON.stringify(fetchedMessages.map(m => ({ id: m.id, sender: m.sender, content: m.content.substring(0, 50) })))
         );
+        console.log(`🔥 [FRONTEND] IDs das mensagens carregadas:`, Array.from(ids));
       }
     };
 

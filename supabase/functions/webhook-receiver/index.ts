@@ -8,27 +8,40 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  const startTime = Date.now();
+  const requestId = `req_${startTime}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  console.log(`🔥 [${requestId}] === WEBHOOK RECEIVER INICIADO ===`);
+  console.log(`🔥 [${requestId}] Método: ${req.method}`);
+  console.log(`🔥 [${requestId}] URL: ${req.url}`);
+  console.log(`🔥 [${requestId}] Headers:`, Object.fromEntries(req.headers.entries()));
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log(`🔥 [${requestId}] CORS preflight - retornando OK`);
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
+    console.log(`🔥 [${requestId}] Lendo body da requisição...`);
     const body = await req.json();
+    console.log(`🔥 [${requestId}] Body lido com sucesso`);
+    
     const { instance, data } = body;
 
-    console.log('--- 🚀 Iniciando Webhook Receiver ---');
-    console.log(`Instância: ${instance}`);
+    console.log(`🔥 [${requestId}] --- 🚀 Iniciando Webhook Receiver ---`);
+    console.log(`🔥 [${requestId}] Instância recebida: ${instance}`);
+    console.log(`🔥 [${requestId}] Dados presentes: ${data ? 'SIM' : 'NÃO'}`);
     
     // Não logar o body inteiro se contiver base64 (muito grande)
     if (data?.message?.imageMessage?.jpegThumbnail) {
-        console.log('Payload recebido (imagem com thumbnail).');
+        console.log(`🔥 [${requestId}] Payload recebido (imagem com thumbnail).`);
     } else {
-        console.log('Payload completo:', JSON.stringify(data, null, 2));
+        console.log(`🔥 [${requestId}] Payload completo:`, JSON.stringify(data, null, 2));
     }
 
     if (!data || !data.key || !data.key.remoteJid) {
-      console.log('🔚 Webhook sem dados essenciais (remoteJid). Ignorando.');
+      console.log(`🔥 [${requestId}] 🔚 Webhook sem dados essenciais (remoteJid). Ignorando.`);
       return new Response("ok - ignorado", { headers: corsHeaders });
     }
 
@@ -36,39 +49,54 @@ serve(async (req) => {
     const fromMe = key.fromMe;
     const remoteJid = key.remoteJid;
 
+    console.log(`🔥 [${requestId}] Key extraída:`, key);
+    console.log(`🔥 [${requestId}] PushName: ${pushName}`);
+    console.log(`🔥 [${requestId}] FromMe: ${fromMe}`);
+    console.log(`🔥 [${requestId}] RemoteJid: ${remoteJid}`);
+    console.log(`🔥 [${requestId}] MessageTimestamp: ${messageTimestamp}`);
+
     if (remoteJid.includes('@broadcast')) {
-      console.log('🔚 Mensagem de broadcast. Ignorando.');
+      console.log(`🔥 [${requestId}] 🔚 Mensagem de broadcast. Ignorando.`);
       return new Response("ok - broadcast ignorado", { headers: corsHeaders });
     }
 
     const clientPhone = remoteJid.split('@')[0];
     const clientName = fromMe ? 'Eu' : (pushName || 'Novo Contato');
-    console.log(`💬 Mensagem ${fromMe ? 'de' : 'para'} ${clientName} (${clientPhone})`);
+    console.log(`🔥 [${requestId}] 💬 Mensagem ${fromMe ? 'de' : 'para'} ${clientName} (${clientPhone})`);
 
+    console.log(`🔥 [${requestId}] Criando cliente Supabase...`);
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!, 
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
+    console.log(`🔥 [${requestId}] Cliente Supabase criado`);
 
-    console.log(`⚙️ Buscando usuário para a instância: ${instance}`);
+    console.log(`🔥 [${requestId}] ⚙️ Buscando usuário para a instância: ${instance}`);
+
+    console.log(`🔥 [${requestId}] Executando query na tabela settings...`);
     const { data: settings, error: settingsError } = await supabase
       .from('settings')
       .select('user_id')
       .eq('evolution_instance_name', instance)
       .single();
 
+    console.log(`🔥 [${requestId}] Resultado da query settings:`, { settings, settingsError });
+
     if (settingsError || !settings?.user_id) {
-      console.error(`❌ Erro: Configurações ou user_id não encontrados para a instância ${instance}.`, settingsError);
+      console.error(`🔥 [${requestId}] ❌ Erro: Configurações ou user_id não encontrados para a instância ${instance}.`, settingsError);
       
       // Tentar buscar por instance_name como fallback
+      console.log(`🔥 [${requestId}] Tentando fallback com instance_name...`);
       const { data: fallbackSettings, error: fallbackError } = await supabase
         .from('settings')
         .select('user_id')
         .eq('instance_name', instance)
         .single();
         
+      console.log(`🔥 [${requestId}] Resultado do fallback:`, { fallbackSettings, fallbackError });
+        
       if (fallbackError || !fallbackSettings?.user_id) {
-        console.error(`❌ Erro: Configurações não encontradas nem como evolution_instance_name nem como instance_name para ${instance}.`);
+        console.error(`🔥 [${requestId}] ❌ Erro: Configurações não encontradas nem como evolution_instance_name nem como instance_name para ${instance}.`);
         return new Response(
           JSON.stringify({ 
             error: `Configurações não encontradas para a instância ${instance}`,
@@ -82,11 +110,11 @@ serve(async (req) => {
       }
       
       settings.user_id = fallbackSettings.user_id;
-      console.log(`✅ Usuário encontrado via fallback: ${settings.user_id}`);
+      console.log(`🔥 [${requestId}] ✅ Usuário encontrado via fallback: ${settings.user_id}`);
     }
     
     const assignedUserId = settings.user_id;
-    console.log(`✅ Usuário da instância: ${assignedUserId}`);
+    console.log(`🔥 [${requestId}] ✅ Usuário da instância: ${assignedUserId}`);
 
     console.log(`🔍 Buscando cliente pelo telefone: ${clientPhone}`);
     let { data: client } = await supabase
@@ -230,27 +258,32 @@ serve(async (req) => {
       read_at: fromMe ? new Date().toISOString() : null
     };
 
-    console.log('💾 Inserindo mensagem no banco...', messageToInsert);
+    console.log(`🔥 [${requestId}] 💾 Inserindo mensagem no banco...`);
+    console.log(`🔥 [${requestId}] Dados da mensagem:`, messageToInsert);
+    
     const { error: msgError } = await supabase
       .from('messages')
       .insert(messageToInsert);
 
     if (msgError) {
-      console.error('❌ Erro ao inserir a mensagem no banco:', msgError);
+      console.error(`🔥 [${requestId}] ❌ Erro ao inserir a mensagem no banco:`, msgError);
       throw msgError;
     }
     
-    console.log('✅ Mensagem inserida com sucesso!');
-    console.log('--- ✅ Webhook finalizado com sucesso ---');
+    console.log(`🔥 [${requestId}] ✅ Mensagem inserida com sucesso!`);
+    console.log(`🔥 [${requestId}] --- ✅ Webhook finalizado com sucesso ---`);
+    console.log(`🔥 [${requestId}] Tempo total: ${Date.now() - startTime}ms`);
 
     return new Response("ok", { headers: corsHeaders });
 
   } catch (error) {
-    console.error('🔥 Erro fatal no processamento do webhook:', error);
+    console.error(`🔥 [${requestId}] 🔥 Erro fatal no processamento do webhook:`, error);
+    console.error(`🔥 [${requestId}] Stack trace:`, error.stack);
     return new Response(
       JSON.stringify({ 
         error: 'Erro interno do servidor', 
-        details: error.message 
+        details: error.message,
+        requestId: requestId
       }), 
       {
         status: 500,
