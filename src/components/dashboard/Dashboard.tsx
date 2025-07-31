@@ -176,22 +176,13 @@ const Dashboard = () => {
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <Card className="bg-white border-gray-200 shadow-sm">
-          <CardHeader className="flex justify-between items-start">
+          <CardHeader>
             <div>
               <CardTitle className="text-gray-900">Conversas</CardTitle> {/* Title simplified */}
               <CardDescription className="text-gray-500">
                 {activeChart === 'daily' ? 'Últimos 7 dias' : 'Últimos 6 meses'}
               </CardDescription>
             </div>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-pharmacy-accent hover:text-pharmacy-accent/80" 
-              onClick={handleViewAllConversations}
-            >
-              Ver todos
-              <ArrowRight className="ml-1 h-4 w-4" />
-            </Button>
           </CardHeader>
           <CardContent>
             {loadingCharts ? (
@@ -219,22 +210,13 @@ const Dashboard = () => {
         </Card>
         
         <Card className="bg-white border-gray-200 shadow-sm">
-          <CardHeader className="flex justify-between items-start">
+          <CardHeader>
             <div>
               <CardTitle className="text-gray-900">Próximos Lembretes</CardTitle>
               <CardDescription className="text-gray-500">
                 Automações agendadas
               </CardDescription>
             </div>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-pharmacy-accent hover:text-pharmacy-accent/80"
-              onClick={handleViewAllReminders}
-            >
-              Ver todos
-              <ArrowRight className="ml-1 h-4 w-4" />
-            </Button>
           </CardHeader>
           <CardContent>
             <div className="h-80 overflow-y-auto pr-1 custom-scrollbar">
