@@ -162,15 +162,13 @@ class DashboardService {
 
       console.log('DashboardService.getDashboardStats: Buscando estatísticas para usuário:', userId);
 
-      // Buscar chats criados nas últimas 24 horas (usando tabela chats ao invés de conversations)
-      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      console.log('Consultando chats desde:', twentyFourHoursAgo);
+      // Buscar todas as conversas ativas (independente de quando foram criadas)
+      console.log('Consultando todas as conversas ativas...');
       
       const { count: totalConversations, error: convError } = await supabase
-        .from('chats')
+        .from('conversations')
         .select('id', { count: 'exact', head: true })
-        .eq('status', 'active') // Filtrar apenas chats ativos
-        .gte('created_at', twentyFourHoursAgo);
+        .eq('status', 'active'); // Filtrar apenas conversas ativas
 
       if (convError) {
         console.error('Error fetching chat count:', convError);
@@ -198,7 +196,7 @@ class DashboardService {
         conversations: {
           total: totalConversations || 0,
           change: "N/A",
-          period: 'Últimas 24 horas'
+          period: 'Conversas ativas'
         },
         activeClients: {
           total: totalActiveClients || 0,
@@ -216,7 +214,7 @@ class DashboardService {
       console.error('Detalhes completos do erro:', JSON.stringify(error, null, 2));
       // Retornar dados padrão em caso de erro
       return {
-        conversations: { total: 0, change: "N/A", period: 'Últimas 24 horas' },
+        conversations: { total: 0, change: "N/A", period: 'Conversas ativas' },
         activeClients: { total: 0, change: "N/A", period: 'Este mês' },
         productsSold: { total: 0, change: "N/A", period: 'Este mês' }
       };
@@ -410,27 +408,27 @@ class DashboardService {
       if (authError || !user) throw new Error('User not authenticated');
       const userId = user.id;
 
-      console.log('DashboardService.getClientsServedLastWeek: Buscando chats para usuário:', userId);
+      console.log('DashboardService.getClientsServedLastWeek: Buscando conversas para usuário:', userId);
       
       const { data, error } = await supabase
-        .from('chats')
-        .select('phone_number, started_at')
-        .eq('status', 'active') // Filtrar apenas chats ativos
+        .from('conversations')
+        .select('client_id, started_at')
+        .eq('status', 'active') // Filtrar apenas conversas ativas
         .gte('started_at', sevenDaysAgo.toISOString());
 
       if (error) {
         console.error('Error fetching clients served last week:', error);
-        console.error('Detalhes do erro de chats da semana:', JSON.stringify(error, null, 2));
+        console.error('Detalhes do erro de conversas da semana:', JSON.stringify(error, null, 2));
         // Verificar se é um erro de RLS
         if (error.code === 'RLS_POLICY_VIOLATION' || error.message?.includes('permission')) {
-          console.error('Possível problema de RLS/permissões na tabela chats');
+          console.error('Possível problema de RLS/permissões na tabela conversations');
         }
         return [];
       }
       
       if (!data) return [];
 
-      console.log('Chats da última semana encontrados:', data.length);
+      console.log('Conversas da última semana encontradas:', data.length);
       
       const uniqueClientsPerDay: { [dayKey: string]: { name: string, clients: Set<string> } } = {};
       const dayFormatter = new Intl.DateTimeFormat('pt-BR', { weekday: 'short' });
@@ -446,11 +444,11 @@ class DashboardService {
           uniqueClientsPerDay[dayKey] = { name: shortDayName.charAt(0).toUpperCase() + shortDayName.slice(1), clients: new Set() };
       }
       
-      data.forEach(chat => {
-          const date = new Date(chat.started_at);
+      data.forEach(conversation => {
+          const date = new Date(conversation.started_at);
           const dayKey = date.toISOString().split('T')[0];
-          if (uniqueClientsPerDay[dayKey]) {
-            uniqueClientsPerDay[dayKey].clients.add(chat.phone_number);
+          if (uniqueClientsPerDay[dayKey] && conversation.client_id) {
+            uniqueClientsPerDay[dayKey].clients.add(conversation.client_id);
           }
       });
 
