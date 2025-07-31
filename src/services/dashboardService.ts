@@ -189,8 +189,43 @@ class DashboardService {
         // Não fazer throw aqui, continuar com valor padrão
       }
 
-      // ProductsSold: No 'sales' table in schema. Returning 0 for now.
-      const totalProductsSold = 0;
+      // Buscar produtos vendidos no mês atual
+      console.log('Consultando produtos vendidos no mês atual...');
+      
+      // Calcular início e fim do mês atual
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      
+      console.log('Período de busca:', {
+        startOfMonth: startOfMonth.toISOString(),
+        endOfMonth: endOfMonth.toISOString()
+      });
+
+      // Buscar soma das quantidades de produtos vendidos no mês atual
+      const { data: productsSoldData, error: salesError } = await supabase
+        .from('sale_items')
+        .select(`
+          quantity,
+          sales!inner(created_by, created_at)
+        `)
+        .eq('sales.created_by', userId) // 🔒 FILTRO POR USUÁRIO
+        .gte('sales.created_at', startOfMonth.toISOString())
+        .lte('sales.created_at', endOfMonth.toISOString());
+
+      let totalProductsSold = 0;
+      if (salesError) {
+        console.error('Error fetching products sold:', salesError);
+        console.error('Detalhes do erro de produtos vendidos:', JSON.stringify(salesError, null, 2));
+        // Não fazer throw aqui, continuar com valor padrão
+      } else if (productsSoldData) {
+        // Somar todas as quantidades
+        totalProductsSold = productsSoldData.reduce((sum, item) => sum + (item.quantity || 0), 0);
+        console.log('Produtos vendidos encontrados:', {
+          totalItems: productsSoldData.length,
+          totalQuantity: totalProductsSold
+        });
+      }
 
       return {
         conversations: {
