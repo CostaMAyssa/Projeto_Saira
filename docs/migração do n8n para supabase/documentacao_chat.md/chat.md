@@ -1,7 +1,7 @@
           
-# Análise do Sistema de Chat da Green Pharmacy
+# Análise do Sistema de Chat do Saíra
 
-Após analisar o código-fonte do sistema Green Pharmacy Chat, posso explicar como funciona o fluxo completo de mensagens entre o WhatsApp e a aplicação web:
+Após analisar o código-fonte do sistema Saíra, posso explicar como funciona o fluxo completo de mensagens entre o WhatsApp e a aplicação web:
 
 ## Arquitetura do Sistema
 
@@ -63,5 +63,5 @@ Cada tipo de mensagem é renderizado de forma apropriada na interface, com contr
 
 ## Conclusão
 
-O Green Pharmacy Chat é um sistema completo de comunicação que integra o WhatsApp com uma interface web amigável, permitindo que farmácias gerenciem suas conversas com clientes de forma eficiente. O sistema utiliza tecnologias modernas como Supabase para banco de dados e sincronização em tempo real, e a Evolution API para comunicação com o WhatsApp.
+O Saíra é um sistema completo de comunicação que integra o WhatsApp com uma interface web amigável, permitindo que farmácias gerenciem suas conversas com clientes de forma eficiente. O sistema utiliza tecnologias modernas como Supabase para banco de dados e sincronização em tempo real, e a Evolution API para comunicação com o WhatsApp.
         

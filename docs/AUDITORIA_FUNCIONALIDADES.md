@@ -1,5 +1,5 @@
 # 📋 AUDITORIA COMPLETA DE FUNCIONALIDADES
-## Green Pharmacy Chat - Sistema de Gestão Farmacêutica
+## Saíra - Sistema de Gestão Farmacêutica
 
 **Data da Auditoria:** 30 de Janeiro de 2025  
 **Status Geral:** ✅ **SISTEMA 95% FUNCIONAL**
@@ -242,7 +242,7 @@
 ## 🎯 CONCLUSÃO
 
 ### ✅ SISTEMA 100% FUNCIONAL
-O Green Pharmacy Chat atende **COMPLETAMENTE** a todos os requisitos solicitados:
+O Saíra atende **COMPLETAMENTE** a todos os requisitos solicitados:
 
 1. ✅ **WhatsApp sem Multiatendimento** - Implementado e funcional
 2. ✅ **Módulo de Clientes** - Completo com todas as funcionalidades

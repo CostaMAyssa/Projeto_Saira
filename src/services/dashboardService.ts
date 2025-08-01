@@ -1,4 +1,5 @@
 import { supabase, supabaseAdmin } from '@/lib/supabase';
+import { n8nService, type CampaignData } from './n8nService';
 
 export interface DashboardStats {
   conversations: {
@@ -924,6 +925,38 @@ class DashboardService {
       }
       
       console.log('DashboardService.createCampaign: Successfully created campaign:', data);
+      
+      // 🚀 Enviar dados da campanha para o n8n
+      try {
+        const campaignDataForN8n: CampaignData = {
+          id: data.id,
+          name: data.name,
+          type: data.trigger as CampaignData['type'],
+          trigger: data.trigger,
+          status: data.status === 'ativa' ? 'active' : data.status === 'pausada' ? 'inactive' : 'draft',
+          template: data.template || '',
+          audience: data.target_audience || {},
+          scheduling: data.scheduled_for ? {
+            start_date: data.scheduled_for
+          } : undefined,
+          created_by: data.created_by,
+          created_at: data.created_at,
+          updated_at: data.updated_at
+        };
+
+        const n8nResult = await n8nService.sendCampaignData(campaignDataForN8n);
+        
+        if (n8nResult.success) {
+          console.log('✅ Campanha enviada para n8n com sucesso:', n8nResult);
+        } else {
+          console.warn('⚠️ Falha ao enviar campanha para n8n:', n8nResult.error);
+          // Não falhar a criação da campanha se o n8n falhar
+        }
+      } catch (n8nError) {
+        console.error('❌ Erro ao enviar campanha para n8n:', n8nError);
+        // Não falhar a criação da campanha se o n8n falhar
+      }
+      
       return data;
     } catch (err) {
       console.error('DashboardService.createCampaign: Error creating campaign:', err);
@@ -968,6 +1001,58 @@ class DashboardService {
       if (error) throw error;
     } catch (err) {
       console.error(`Error deleting campaign ${campaignId}:`, err);
+      throw err;
+    }
+  }
+
+  /**
+   * Dispara uma campanha específica no n8n
+   */
+  async triggerCampaign(campaignId: string, additionalData?: Record<string, unknown>): Promise<any> {
+    try {
+      // 🔒 CRÍTICO: Verificar autenticação antes de qualquer operação
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error('User not authenticated for triggering campaign');
+      const userId = user.id;
+
+      // Buscar dados da campanha
+      const { data: campaign, error: campaignError } = await supabase
+        .from('campaigns')
+        .select('*')
+        .eq('id', campaignId)
+        .eq('created_by', userId) // 🔒 GARANTIR QUE SÓ DISPARA CAMPANHAS DO PRÓPRIO USUÁRIO
+        .single();
+
+      if (campaignError || !campaign) {
+        throw new Error('Campanha não encontrada ou sem permissão');
+      }
+
+      // Preparar dados para o n8n
+      const triggerData = {
+        campaign: {
+          id: campaign.id,
+          name: campaign.name,
+          type: campaign.trigger,
+          template: campaign.template,
+          target_audience: campaign.target_audience
+        },
+        user_id: userId,
+        triggered_at: new Date().toISOString(),
+        ...additionalData
+      };
+
+      // Enviar para o n8n
+      const n8nResult = await n8nService.triggerCampaign(campaignId, triggerData);
+      
+      if (!n8nResult.success) {
+        throw new Error(`Falha ao disparar campanha no n8n: ${n8nResult.error}`);
+      }
+
+      console.log('✅ Campanha disparada com sucesso no n8n:', n8nResult);
+      return n8nResult;
+
+    } catch (err) {
+      console.error(`Error triggering campaign ${campaignId}:`, err);
       throw err;
     }
   }

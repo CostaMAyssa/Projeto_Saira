@@ -11,7 +11,7 @@ const Index = () => {
   
   // Atualizar título da página com contagem de mensagens não lidas
   useEffect(() => {
-    const baseTitle = 'Green Pharmacy Chat';
+    const baseTitle = 'Saíra';
     if (totalUnread > 0) {
       document.title = `(${totalUnread}) ${baseTitle}`;
     } else {

@@ -1,4 +1,4 @@
-# 🚀 Guia de Deploy - Saira Green Pharmacy Chat
+# 🚀 Guia de Deploy - Saíra
 
 Este guia contém todas as instruções para fazer o deploy da aplicação Saira na sua VPS usando Portainer Stack com deploy automático.
 
