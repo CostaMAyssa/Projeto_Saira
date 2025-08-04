@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Search, Filter, FileText, Plus, Copy, Eye, Edit, Trash, AlertTriangle } from 'lucide-react';
 import NewFormModal from './modals/NewFormModal';
 import ViewFormModal from './modals/ViewFormModal'; // Import ViewFormModal
+import ViewResponsesModal from './modals/ViewResponsesModal';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 // Removed initial getForms import, will use the consolidated one.
@@ -32,15 +33,16 @@ interface FormData {
 // Single, consolidated FormsModule component definition
 const FormsModule = () => {
   const [isNewFormModalOpen, setIsNewFormModalOpen] = useState(false);
-  // const [isEditModalOpen, setIsEditModalOpen] = useState(false); // Ensure this is removed or not used for NewFormModal's visibility
-  const [selectedFormToEdit, setSelectedFormToEdit] = useState<FormData | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isViewResponsesModalOpen, setIsViewResponsesModalOpen] = useState(false);
   const [selectedFormToView, setSelectedFormToView] = useState<FormData | null>(null);
-  const isMobile = useIsMobile();
+  const [selectedFormToEdit, setSelectedFormToEdit] = useState<FormData | null>(null);
+  const [selectedFormForResponses, setSelectedFormForResponses] = useState<FormData | null>(null);
   const [forms, setForms] = useState<FormData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const isMobile = useIsMobile();
 
   const fetchFormsData = async () => {
     setLoading(true);
@@ -185,6 +187,11 @@ const FormsModule = () => {
     setIsViewModalOpen(true);
   };
 
+  const handleViewResponses = (form: FormData) => {
+    setSelectedFormForResponses(form);
+    setIsViewResponsesModalOpen(true);
+  };
+
   const handleLinkFormClick = async (form: FormData) => {
     const formUrl = `${window.location.origin}/public/forms/${form.id}`;
     try {
@@ -248,6 +255,10 @@ const FormsModule = () => {
           <Eye className="h-3 w-3 mr-1" />
           Ver
         </Button>
+        <Button variant="ghost" size="sm" className="text-pharmacy-accent hover:bg-gray-100 text-xs px-2 py-1 h-8" onClick={() => handleViewResponses(form)}>
+          <FileText className="h-3 w-3 mr-1" />
+          Respostas
+        </Button>
         <Button variant="ghost" size="sm" className="text-pharmacy-accent hover:bg-gray-100 text-xs px-2 py-1 h-8" onClick={() => handleEditForm(form)}>
           <Edit className="h-3 w-3 mr-1" />
           Editar
@@ -266,11 +277,11 @@ const FormsModule = () => {
   const renderDesktopFormList = () => (
     <div className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm">
       <div className="grid grid-cols-12 gap-4 p-4 border-b border-gray-200 text-gray-600 font-medium">
-        <div className="col-span-4">Nome</div>
+        <div className="col-span-3">Nome</div>
         <div className="col-span-1">Perguntas</div>
         <div className="col-span-2">Respostas</div>
         <div className="col-span-2">Status</div>
-        <div className="col-span-3">Ações</div>
+        <div className="col-span-4">Ações</div>
       </div>
         
       {filteredForms.map((form) => (
@@ -278,7 +289,7 @@ const FormsModule = () => {
           key={form.id} 
           className="grid grid-cols-12 gap-4 p-4 border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
         >
-          <div className="col-span-4">
+          <div className="col-span-3">
             <div className="text-gray-900 font-medium">{form.name}</div>
             <div className="flex items-center text-xs text-gray-500 mt-1">
               <span>Criado em: {form.createdAt}</span>
@@ -299,21 +310,25 @@ const FormsModule = () => {
               {form.status === 'active' ? 'Ativo' : 'Inativo'}
             </Badge>
           </div>
-          <div className="col-span-3 flex items-center space-x-2">
-          <Button variant="ghost" size="sm" className="text-pharmacy-accent hover:bg-gray-100" onClick={() => handleLinkFormClick(form)}>
-              <Copy className="h-4 w-4 mr-1" />
+          <div className="col-span-4 flex items-center space-x-1">
+            <Button variant="ghost" size="sm" className="text-pharmacy-accent hover:bg-gray-100 text-xs px-2 py-1 h-8" onClick={() => handleLinkFormClick(form)}>
+              <Copy className="h-3 w-3 mr-1" />
               Link
             </Button>
-            <Button variant="ghost" size="sm" className="text-pharmacy-accent hover:bg-gray-100" onClick={() => handleViewForm(form)}>
-              <Eye className="h-4 w-4 mr-1" />
+            <Button variant="ghost" size="sm" className="text-pharmacy-accent hover:bg-gray-100 text-xs px-2 py-1 h-8" onClick={() => handleViewForm(form)}>
+              <Eye className="h-3 w-3 mr-1" />
               Ver
             </Button>
-            <Button variant="ghost" size="sm" className="text-pharmacy-accent hover:bg-gray-100" onClick={() => handleEditForm(form)}>
-              <Edit className="h-4 w-4 mr-1" />
+            <Button variant="ghost" size="sm" className="text-pharmacy-accent hover:bg-gray-100 text-xs px-2 py-1 h-8" onClick={() => handleViewResponses(form)}>
+              <FileText className="h-3 w-3 mr-1" />
+              Respostas
+            </Button>
+            <Button variant="ghost" size="sm" className="text-pharmacy-accent hover:bg-gray-100 text-xs px-2 py-1 h-8" onClick={() => handleEditForm(form)}>
+              <Edit className="h-3 w-3 mr-1" />
               Editar
             </Button>
-            <Button variant="ghost" size="sm" className="text-red-500 hover:bg-gray-100" onClick={(e) => { e.stopPropagation(); handleDeleteForm(form.id); }}>
-              <Trash className="h-4 w-4" />
+            <Button variant="ghost" size="sm" className="text-red-500 hover:bg-gray-100 text-xs px-2 py-1 h-8" onClick={(e) => { e.stopPropagation(); handleDeleteForm(form.id); }}>
+              <Trash className="h-3 w-3" />
             </Button>
           </div>
         </div>
@@ -396,24 +411,24 @@ const FormsModule = () => {
         </div>
       )}
 
-      <NewFormModal 
-        open={isNewFormModalOpen} 
+      <NewFormModal
+        open={isNewFormModalOpen}
         onOpenChange={setIsNewFormModalOpen}
-        onSubmit={selectedFormToEdit ? (data => handleSaveFormUpdate(selectedFormToEdit.id, data as EditFormModalData)) : handleAddForm}
+        onSubmit={handleAddForm}
         initialData={selectedFormToEdit}
-        key={selectedFormToEdit ? selectedFormToEdit.id : 'new-form-modal'}
       />
 
-      {selectedFormToView && (
-        <ViewFormModal
-          open={isViewModalOpen}
-          onOpenChange={setIsViewModalOpen}
-          form={selectedFormToView}
-        />
-      )}
-      {/* Comment regarding separate Edit Modal is still relevant if that path was ever considered.
-          The current implementation reuses NewFormModal.
-      */}
+      <ViewFormModal
+        open={isViewModalOpen}
+        onOpenChange={setIsViewModalOpen}
+        form={selectedFormToView}
+      />
+
+      <ViewResponsesModal
+        open={isViewResponsesModalOpen}
+        onOpenChange={setIsViewResponsesModalOpen}
+        form={selectedFormForResponses}
+      />
     </div>
   );
 };
