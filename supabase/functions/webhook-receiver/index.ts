@@ -228,18 +228,6 @@ serve(async (req) => {
       console.log(`🔥 [${requestId}] 🎯 CLIENTE ALVO ENCONTRADO/CRIADO:`, JSON.stringify(client, null, 2));
     }
 
-    // 👥 Buscar usuário atribuído
-    console.log(`🔥 [${requestId}] 👥 Buscando usuário atribuído...`);
-    
-    const { data: assignment } = await supabase
-      .from('client_assignments')
-      .select('user_id')
-      .eq('client_id', client!.id)
-      .single();
-
-    const assignedUserId = assignment?.user_id || null;
-    console.log(`🔥 [${requestId}] 👤 Usuário atribuído: ${assignedUserId}`);
-
     // 💬 Buscar ou criar conversa
     console.log(`🔥 [${requestId}] 💬 Buscando conversa existente...`);
     
@@ -247,7 +235,6 @@ serve(async (req) => {
       .from('conversations')
       .select('id')
       .eq('client_id', client!.id)
-      .eq('instance_name', instance)
       .single();
 
     if (convError && convError.code === 'PGRST116') {
@@ -461,7 +448,7 @@ serve(async (req) => {
       file_name: file_name,
       file_size: file_size,
       sent_at: new Date(messageTimestamp * 1000).toISOString(),
-      user_id: assignedUserId,
+      user_id: null, // Removido assignedUserId, usando null por enquanto
       from_me: fromMe,
       message_id: key.id || `msg_${Date.now()}`,
       remote_jid: remoteJid,
