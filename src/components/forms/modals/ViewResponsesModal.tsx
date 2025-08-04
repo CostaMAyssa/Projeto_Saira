@@ -6,12 +6,22 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Download, FileText, Calendar, User } from 'lucide-react';
 import { getFormResponses } from '@/services/dashboardService';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 
 interface FormResponse {
   id: string;
   form_id: string;
+  client_id?: string;
+  phone?: string;
+  email?: string;
   response: Record<string, any>;
   submitted_at: string;
+  client?: {
+    id: string;
+    name: string;
+    phone: string;
+    email?: string;
+  };
 }
 
 interface ViewResponsesModalProps {
@@ -35,7 +45,21 @@ const ViewResponsesModal: React.FC<ViewResponsesModalProps> = ({ open, onOpenCha
 
     setLoading(true);
     try {
-      const data = await getFormResponses(form.id);
+      const { data, error } = await supabase
+        .from('form_responses')
+        .select(`
+          *,
+          client:clients(id, name, phone, email)
+        `)
+        .eq('form_id', form.id)
+        .order('submitted_at', { ascending: false });
+
+      if (error) {
+        console.error('Erro ao buscar respostas:', error);
+        toast.error('Erro ao carregar respostas');
+        return;
+      }
+
       setResponses(data || []);
     } catch (error) {
       console.error('Erro ao buscar respostas:', error);
@@ -83,18 +107,18 @@ const ViewResponsesModal: React.FC<ViewResponsesModalProps> = ({ open, onOpenCha
 
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-4">
-            <Badge variant="secondary">
+            <Badge className="bg-pharmacy-accent text-white">
               {responses.length} respostas
             </Badge>
             {form.status === 'active' && (
-              <Badge className="bg-green-100 text-green-700">
+              <Badge className="bg-green-100 text-green-700 border border-green-200">
                 Ativo
               </Badge>
             )}
           </div>
           
           {responses.length > 0 && (
-            <Button onClick={handleExportCSV} size="sm">
+            <Button onClick={handleExportCSV} size="sm" className="bg-pharmacy-accent hover:bg-pharmacy-accent/90 text-white">
               <Download className="h-4 w-4 mr-2" />
               Exportar CSV
             </Button>
@@ -115,19 +139,54 @@ const ViewResponsesModal: React.FC<ViewResponsesModalProps> = ({ open, onOpenCha
           ) : (
             <div className="space-y-4">
               {responses.map((response, index) => (
-                <div key={response.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <div key={response.id} className="border border-pharmacy-border1 rounded-lg p-4 bg-pharmacy-light2">
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm font-medium text-gray-700">
+                      <User className="h-4 w-4 text-pharmacy-accent" />
+                      <span className="text-sm font-medium text-pharmacy-text1">
                         Resposta #{index + 1}
                       </span>
+                      {response.client && (
+                        <Badge className="bg-pharmacy-accent text-white text-xs">
+                          Cliente: {response.client.name}
+                        </Badge>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <div className="flex items-center gap-2 text-xs text-pharmacy-text2">
                       <Calendar className="h-3 w-3" />
                       {new Date(response.submitted_at).toLocaleString('pt-BR')}
                     </div>
                   </div>
+                  
+                  {/* Informações de identificação */}
+                  {(response.phone || response.email) && (
+                    <div className="mb-3 p-3 bg-pharmacy-light2 rounded border border-pharmacy-border1">
+                      <div className="text-xs font-medium text-pharmacy-text1 mb-2">
+                        Identificação fornecida:
+                      </div>
+                      <div className="text-xs text-pharmacy-text2 space-y-1">
+                        {response.phone && (
+                          <div className="flex items-center gap-2">
+                            <span>Telefone: {response.phone}</span>
+                          </div>
+                        )}
+                        {response.email && (
+                          <div className="flex items-center gap-2">
+                            <span>Email: {response.email}</span>
+                          </div>
+                        )}
+                        {response.client ? (
+                          <div className="flex items-center gap-2 text-pharmacy-accent font-medium">
+                            <span>Cliente identificado: {response.client.name}</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-orange-600">
+                            <span>Cliente não encontrado no sistema</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   
                   <div className="space-y-2">
                     {Object.entries(response.response).map(([field, value]) => (

@@ -125,6 +125,71 @@ const PublicForm: React.FC = () => {
     });
   };
 
+  const normalizePhone = (phone: string): string => {
+    if (!phone) return '';
+    
+    // Remover todos os caracteres não numéricos
+    let normalized = phone.replace(/\D/g, '');
+    
+    // Se começar com 55 (Brasil), remover
+    if (normalized.startsWith('55')) {
+      normalized = normalized.substring(2);
+    }
+    
+    // Se começar com 0, remover
+    if (normalized.startsWith('0')) {
+      normalized = normalized.substring(1);
+    }
+    
+    return normalized;
+  };
+
+  const identifyClient = async (phone?: string, email?: string) => {
+    if (!phone && !email) return null;
+
+    try {
+      // Normalizar telefone se fornecido
+      const normalizedPhone = phone ? normalizePhone(phone) : null;
+      console.log('📱 Telefone original:', phone);
+      console.log('📱 Telefone normalizado:', normalizedPhone);
+
+      // Tentar identificar por telefone primeiro
+      if (normalizedPhone) {
+        // Buscar por diferentes formatos de telefone
+        const { data: phoneClient, error: phoneError } = await supabase
+          .from('clients')
+          .select('*')
+          .or(`phone.eq.${normalizedPhone},phone.eq.${phone},phone.eq.55${normalizedPhone}`)
+          .single();
+
+        if (!phoneError && phoneClient) {
+          console.log('✅ Cliente identificado por telefone:', phoneClient);
+          return phoneClient;
+        }
+      }
+
+      // Tentar identificar por email
+      if (email) {
+        const { data: emailClient, error: emailError } = await supabase
+          .from('clients')
+          .select('*')
+          .eq('email', email)
+          .single();
+
+        if (!emailError && emailClient) {
+          console.log('✅ Cliente identificado por email:', emailClient);
+          return emailClient;
+        }
+      }
+
+      console.log('❌ Cliente não encontrado para:', { phone: normalizedPhone, email });
+      return null;
+    } catch (error) {
+      console.error('❌ Erro ao identificar cliente:', error);
+      return null;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -161,10 +226,21 @@ const PublicForm: React.FC = () => {
     try {
       console.log('📤 Enviando resposta do formulário:', responses);
       
+      // Extrair telefone e email dos dados do formulário
+      const formPhone = String(responses['telefone'] || responses['phone'] || responses['celular'] || '');
+      const formEmail = String(responses['email'] || responses['e-mail'] || responses['mail'] || '');
+      
+      // Identificar cliente automaticamente usando dados do formulário
+      const identifiedClient = await identifyClient(formPhone, formEmail);
+      console.log('👤 Cliente identificado:', identifiedClient);
+      
       const { error: submitError } = await supabase
         .from('form_responses')
         .insert([{
           form_id: id,
+          client_id: identifiedClient?.id || null,
+          phone: formPhone || null,
+          email: formEmail || null,
           response: responses,
           submitted_at: new Date().toISOString()
         }]);
