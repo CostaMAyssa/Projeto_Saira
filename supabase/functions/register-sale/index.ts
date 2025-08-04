@@ -130,20 +130,31 @@ Deno.serve(async (req) => {
             throw new Error(`Erro ao buscar produto: ${produtoError.message}`);
           }
           
+          // Validação rigorosa de estoque
+          if (produto.stock <= 0) {
+            throw new Error(`Produto sem estoque disponível`);
+          }
+          
           if (produto.stock < quantity) {
-            throw new Error(`Estoque insuficiente para o produto ${product_id}`);
+            throw new Error(`Estoque insuficiente. Disponível: ${produto.stock}, Solicitado: ${quantity}`);
+          }
+          
+          // Calcular novo estoque e garantir que não seja negativo
+          const novoEstoque = produto.stock - quantity;
+          if (novoEstoque < 0) {
+            throw new Error(`Estoque insuficiente para a quantidade solicitada`);
           }
           
           const { error: updateError } = await supabase
             .from('products')
-            .update({ stock: produto.stock - quantity })
+            .update({ stock: novoEstoque })
             .eq('id', product_id);
           
           if (updateError) {
             throw new Error(`Erro ao atualizar estoque: ${updateError.message}`);
           }
           
-          console.log(`Estoque atualizado diretamente: ${product_id}, novo estoque: ${produto.stock - quantity}`);
+          console.log(`Estoque atualizado diretamente: ${product_id}, novo estoque: ${novoEstoque}`);
         } else {
           console.log(`Estoque atualizado via RPC: ${product_id}`);
         }

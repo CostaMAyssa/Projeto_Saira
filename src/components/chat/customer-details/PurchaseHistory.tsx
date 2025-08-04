@@ -192,6 +192,24 @@ const PurchaseHistory: React.FC<PurchaseHistoryProps> = ({ activeConversationId,
   const handleAddToCart = () => {
     if (!selectedProduct) return;
     if (cart.some(item => item.id === selectedProduct.id)) return;
+    
+    // Verificar se o estoque disponível é suficiente
+    if (selectedProduct.stock <= 0) {
+      toast.error('Produto sem estoque disponível');
+      return;
+    }
+    
+    // Calcular quantidade total no carrinho para este produto
+    const quantidadeNoCarrinho = cart
+      .filter(item => item.id === selectedProduct.id)
+      .reduce((total, item) => total + item.quantity, 0);
+    
+    // Verificar se a nova quantidade não excede o estoque
+    if (quantidadeNoCarrinho + quantity > selectedProduct.stock) {
+      toast.error(`Estoque insuficiente. Disponível: ${selectedProduct.stock}, Solicitado: ${quantidadeNoCarrinho + quantity}`);
+      return;
+    }
+    
     setCart([
       ...cart,
       {
@@ -216,6 +234,14 @@ const PurchaseHistory: React.FC<PurchaseHistoryProps> = ({ activeConversationId,
   const handleRegisterSale = async () => {
     try {
       console.log('🔥 INICIANDO REGISTRO DE VENDA');
+      
+      // Validação final de estoque antes de registrar a venda
+      for (const item of cart) {
+        if (item.stock < item.quantity) {
+          toast.error(`Estoque insuficiente para ${item.name}. Disponível: ${item.stock}, Solicitado: ${item.quantity}`);
+          return;
+        }
+      }
       
       // Obter a conversa ativa para pegar o client_id
       const { data: conversation, error: convError } = await supabase
@@ -405,7 +431,18 @@ const PurchaseHistory: React.FC<PurchaseHistoryProps> = ({ activeConversationId,
                             <Badge className="ml-1 bg-pharmacy-accent text-white">Com Receita</Badge>
                           )}
                         </div>
-                        <span className="text-xs text-gray-500">Estoque: {product.stock}</span>
+                        <div className="flex items-center gap-1">
+                          <span className={`text-xs ${
+                            product.stock <= 0 ? 'text-red-500 font-bold' : 
+                            product.stock <= 5 ? 'text-orange-500' : 
+                            'text-gray-500'
+                          }`}>
+                            Estoque: {product.stock}
+                          </span>
+                          {product.stock <= 0 && (
+                            <span className="text-xs text-red-500">(Sem estoque)</span>
+                          )}
+                        </div>
                       </div>
                     ))
                   )}
@@ -417,14 +454,31 @@ const PurchaseHistory: React.FC<PurchaseHistoryProps> = ({ activeConversationId,
                   <Input
                     type="number"
                     min={1}
-                    max={selectedProduct.stock}
+                    max={Math.max(0, selectedProduct.stock)} // Não permitir mais que o estoque disponível
                     value={quantity}
-                    onChange={e => setQuantity(Math.max(1, Math.min(selectedProduct.stock, Number(e.target.value))))}
+                    onChange={e => {
+                      const newQuantity = Number(e.target.value);
+                      const maxStock = Math.max(0, selectedProduct.stock);
+                      setQuantity(Math.max(1, Math.min(maxStock, newQuantity)));
+                    }}
                     className="w-20"
+                    disabled={selectedProduct.stock <= 0} // Desabilitar se estoque = 0
                   />
-                  <Button size="sm" onClick={handleAddToCart} disabled={cart.some(item => item.id === selectedProduct.id)}>
-                    <Plus className="h-4 w-4 mr-1" />Adicionar
+                  <Button 
+                    size="sm" 
+                    onClick={handleAddToCart} 
+                    disabled={
+                      cart.some(item => item.id === selectedProduct.id) || 
+                      selectedProduct.stock <= 0 || 
+                      quantity <= 0
+                    }
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    {selectedProduct.stock <= 0 ? 'Sem Estoque' : 'Adicionar'}
                   </Button>
+                  {selectedProduct.stock <= 0 && (
+                    <span className="text-xs text-red-500">Produto sem estoque</span>
+                  )}
                 </div>
               )}
               {cart.length > 0 && (
