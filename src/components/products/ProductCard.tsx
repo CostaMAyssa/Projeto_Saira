@@ -3,17 +3,18 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Package, Clock, Edit } from 'lucide-react';
+import { Package, Clock, Edit, Trash2 } from 'lucide-react';
 import { Product } from './types';
 
 interface ProductCardProps {
   product: Product;
   onEdit: (id: string) => void;
   onViewDetails: (id: string) => void;
+  onDelete: (id: string) => void;
   isMobile?: boolean;
 }
 
-const ProductCard = ({ product, onEdit, onViewDetails, isMobile = false }: ProductCardProps) => {
+const ProductCard = ({ product, onEdit, onViewDetails, onDelete, isMobile = false }: ProductCardProps) => {
   const getTagBadgeClass = (tag: string) => {
     if (tag === "Uso Contínuo") {
       return "bg-pharmacy-green2 text-white";
@@ -84,6 +85,13 @@ const ProductCard = ({ product, onEdit, onViewDetails, isMobile = false }: Produ
           onClick={() => onViewDetails(product.id)}
         >
           {isMobile ? "Ver" : "Detalhes"}
+        </Button>
+        <Button 
+          className="bg-red-600 hover:bg-red-700 text-white"
+          size={isMobile ? "sm" : "default"}
+          onClick={() => onDelete(product.id)}
+        >
+          <Trash2 className="h-4 w-4" />
         </Button>
       </div>
     </Card>

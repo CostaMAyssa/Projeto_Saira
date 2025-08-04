@@ -15,6 +15,20 @@ import { dashboardService, ProductData } from '../../services/dashboardService';
 import { AlertTriangle } from 'lucide-react'; // MOVED
 import { Button } from '@/components/ui/button'; // 🔧 ADICIONADO IMPORT DO BUTTON
 
+// Interface para o produto do banco de dados
+interface DBProduct {
+  id: string;
+  name: string;
+  category: string;
+  stock: number;
+  interval: number | null;
+  tags: string[];
+  needs_prescription: boolean;
+  controlled: boolean;
+  created_by: string;
+  created_at: string;
+}
+
 // Single, consolidated ProductsModule component definition
 const ProductsModule = () => {
   // Removed the first set of state declarations, as they were duplicated by the second block.
@@ -54,7 +68,7 @@ const ProductsModule = () => {
       if (fetchError) throw fetchError;
 
       if (data) {
-        const transformedProducts: Product[] = data.map((dbProduct: any) => ({
+        const transformedProducts: Product[] = data.map((dbProduct: DBProduct) => ({
           id: dbProduct.id,
           name: dbProduct.name,
           category: dbProduct.category || '', // Ensure not null
@@ -67,7 +81,7 @@ const ProductsModule = () => {
         setProducts(transformedProducts);
         console.log('ProductsModule: Produtos carregados:', transformedProducts.length);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching products:', err);
       const errorMessage = "Falha ao carregar produtos.";
       setError(errorMessage);
@@ -108,7 +122,7 @@ const ProductsModule = () => {
       toast({ title: "Sucesso", description: `Produto ${formData.name} criado com sucesso.` });
       fetchProductsData(); // Refresh list
       setIsCreateFormOpen(false);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error creating product:", err);
       toast({ title: "Erro", description: "Falha ao criar produto.", variant: "destructive" });
     }
@@ -128,6 +142,42 @@ const ProductsModule = () => {
     if (product) {
       setSelectedProduct(product);
       setIsDetailsOpen(true);
+    }
+  };
+
+  const handleDeleteProduct = async (productId: string) => {
+    const product = products.find(p => p.id === productId);
+    if (!product) {
+      toast({ title: "Erro", description: "Produto não encontrado.", variant: "destructive" });
+      return;
+    }
+
+    // Confirmação antes de excluir
+    if (!confirm(`Tem certeza que deseja excluir o produto "${product.name}"?`)) {
+      return;
+    }
+
+    try {
+      await dashboardService.deleteProduct(productId);
+      toast({ title: "Sucesso", description: `Produto "${product.name}" excluído com sucesso.` });
+      fetchProductsData(); // Refresh list
+    } catch (err: unknown) {
+      console.error("Error deleting product:", err);
+      
+      // Mostrar mensagem de erro específica baseada no tipo de erro
+      let errorMessage = "Falha ao excluir produto.";
+      
+      if (err instanceof Error && err.message) {
+        if (err.message.includes('está sendo usado em vendas')) {
+          errorMessage = err.message;
+        } else if (err.message.includes('não encontrado')) {
+          errorMessage = err.message;
+        } else if (err.message.includes('não pertence ao usuário')) {
+          errorMessage = err.message;
+        }
+      }
+      
+      toast({ title: "Erro", description: errorMessage, variant: "destructive" });
     }
   };
 
@@ -152,7 +202,7 @@ const ProductsModule = () => {
       fetchProductsData(); // Refresh list
       setIsEditFormOpen(false);
       setSelectedProduct(null);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error updating product:", err);
       toast({ title: "Erro", description: "Falha ao atualizar produto.", variant: "destructive" });
     }
@@ -232,6 +282,7 @@ const ProductsModule = () => {
               product={product} 
               onEdit={handleEditProduct} // This now correctly opens edit form with selectedProduct
               onViewDetails={handleViewDetails}
+              onDelete={handleDeleteProduct} // Pass the new handler
               isMobile={isMobile}
             />
           ))}

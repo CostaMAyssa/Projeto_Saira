@@ -1,15 +1,10 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import ProductsModule from './ProductsModule'; // Adjust path
-import { supabase } from '@/lib/supabaseClient'; // Will be mocked
-import { Product } from './types'; // Adjust path
-import { useToast } from '@/hooks/use-toast'; // Mock this hook
-
-import ProductsModule from './ProductsModule'; // Adjust path
-import { supabase } from '@/lib/supabase'; // For direct fetch used in module
-import { dashboardService, ProductData } from '../../services/dashboardService'; // For CRUD
-import { Product } from './types'; // Adjust path
+import ProductsModule from './ProductsModule';
+import { supabase } from '@/lib/supabase';
+import { dashboardService, ProductData } from '../../services/dashboardService';
+import { Product } from './types';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -28,7 +23,7 @@ jest.mock('../../services/dashboardService', () => ({
   dashboardService: {
     createProduct: jest.fn(),
     updateProduct: jest.fn(),
-    // deleteProduct: jest.fn(), // Not implementing delete tests for products
+    deleteProduct: jest.fn(),
   },
 }));
 
@@ -60,13 +55,14 @@ jest.mock('./ProductFilters', () => (props: any) => (
 ));
 
 // Updated ProductCard mock to include onEdit call simulation
-jest.mock('./ProductCard', () => (props: { product: Product; onEdit: (id: string) => void; }) => (
+jest.mock('./ProductCard', () => (props: { product: Product; onEdit: (id: string) => void; onViewDetails: (id: string) => void; onDelete: (id: string) => void; }) => (
   <div data-testid={`product-card-${props.product.id}`}>
     <h3>{props.product.name}</h3>
     <p>Category: {props.product.category}</p>
     <p>Stock: {props.product.stock}</p>
     {props.product.needsPrescription && <span>Needs Prescription</span>}
     <button data-testid={`edit-btn-${props.product.id}`} onClick={() => props.onEdit(props.product.id)}>Edit</button>
+    <button data-testid={`delete-btn-${props.product.id}`} onClick={() => props.onDelete(props.product.id)}>Delete</button>
   </div>
 ));
 
@@ -264,5 +260,88 @@ describe('ProductsModule', () => {
     await waitFor(() => {
         expect(mockToast).toHaveBeenCalledWith({ title: "Erro", description: "Falha ao atualizar produto.", variant: "destructive" });
     });
+  });
+
+  // Test for delete functionality
+  it('handleDeleteProduct calls deleteProduct service and refreshes list', async () => {
+    const productToDelete = mockDbProducts[0]; // Paracetamol 500mg
+    (dashboardService.deleteProduct as jest.Mock).mockResolvedValue(undefined);
+    
+    // Mock for fetchProductsData refresh after deletion
+    const remainingProducts = mockDbProducts.filter(p => p.id !== productToDelete.id);
+    (supabase.from('products').select().order as jest.Mock)
+      .mockResolvedValueOnce({data: mockDbProducts, error: null}) // Initial
+      .mockResolvedValueOnce({data: remainingProducts, error: null}); // After refresh
+
+    // Mock confirm to return true (user confirms deletion)
+    const originalConfirm = window.confirm;
+    window.confirm = jest.fn(() => true);
+
+    render(<ProductsModule />);
+    await waitFor(() => expect(screen.getByText('Paracetamol 500mg')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId(`delete-btn-${productToDelete.id}`)); // Clicks delete button
+
+    await waitFor(() => {
+      expect(window.confirm).toHaveBeenCalledWith(`Tem certeza que deseja excluir o produto "${productToDelete.name}"?`);
+      expect(dashboardService.deleteProduct).toHaveBeenCalledWith(productToDelete.id);
+      expect(mockToast).toHaveBeenCalledWith({ title: "Sucesso", description: `Produto "${productToDelete.name}" excluído com sucesso.` });
+      expect(supabase.from).toHaveBeenCalledTimes(2); // Initial + refresh
+    });
+
+    // Verify product is no longer in the list
+    expect(screen.queryByText('Paracetamol 500mg')).not.toBeInTheDocument();
+
+    // Restore original confirm
+    window.confirm = originalConfirm;
+  });
+
+  // Test for delete cancellation
+  it('does not delete product when user cancels confirmation', async () => {
+    const productToDelete = mockDbProducts[0];
+    
+    // Mock confirm to return false (user cancels deletion)
+    const originalConfirm = window.confirm;
+    window.confirm = jest.fn(() => false);
+
+    render(<ProductsModule />);
+    await waitFor(() => expect(screen.getByText('Paracetamol 500mg')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId(`delete-btn-${productToDelete.id}`));
+
+    await waitFor(() => {
+      expect(window.confirm).toHaveBeenCalledWith(`Tem certeza que deseja excluir o produto "${productToDelete.name}"?`);
+    });
+
+    // Verify deleteProduct was not called
+    expect(dashboardService.deleteProduct).not.toHaveBeenCalled();
+    
+    // Verify product is still in the list
+    expect(screen.getByText('Paracetamol 500mg')).toBeInTheDocument();
+
+    // Restore original confirm
+    window.confirm = originalConfirm;
+  });
+
+  // Test for delete error
+  it('shows error toast if deleteProduct service fails', async () => {
+    const productToDelete = mockDbProducts[0];
+    (dashboardService.deleteProduct as jest.Mock).mockRejectedValue(new Error("Delete failed"));
+    
+    // Mock confirm to return true
+    const originalConfirm = window.confirm;
+    window.confirm = jest.fn(() => true);
+
+    render(<ProductsModule />);
+    await waitFor(() => expect(screen.getByText('Paracetamol 500mg')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId(`delete-btn-${productToDelete.id}`));
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith({ title: "Erro", description: "Falha ao excluir produto.", variant: "destructive" });
+    });
+
+    // Restore original confirm
+    window.confirm = originalConfirm;
   });
 });

@@ -878,12 +878,48 @@ class DashboardService {
       if (authError || !user) throw new Error('User not authenticated for deleting product');
       const userId = user.id;
 
+      // Verificar se o produto existe e pertence ao usuário
+      const { data: product, error: fetchError } = await supabase
+        .from('products')
+        .select('id, name')
+        .eq('id', productId)
+        .eq('created_by', userId)
+        .single();
+
+      if (fetchError || !product) {
+        throw new Error('Produto não encontrado ou não pertence ao usuário');
+      }
+
+      // Verificar se o produto está sendo usado em vendas
+      const { data: saleItems, error: saleCheckError } = await supabase
+        .from('sale_items')
+        .select('id')
+        .eq('product_id', productId)
+        .limit(1);
+
+      if (saleCheckError) {
+        console.error('Error checking sale items:', saleCheckError);
+        throw new Error('Erro ao verificar dependências do produto');
+      }
+
+      if (saleItems && saleItems.length > 0) {
+        throw new Error(`Não é possível excluir o produto "${product.name}" porque ele está sendo usado em vendas.`);
+      }
+
+      // Se chegou até aqui, pode excluir o produto
       const { error } = await supabase
         .from('products')
         .delete()
         .eq('id', productId)
-        .eq('created_by', userId); // 🔒 GARANTIR QUE SÓ DELETA PRODUTOS DO PRÓPRIO USUÁRIO
-      if (error) throw error;
+        .eq('created_by', userId);
+
+      if (error) {
+        console.error('Error deleting product:', error);
+        if (error.code === '23503') {
+          throw new Error(`Não é possível excluir o produto "${product.name}" porque ele está sendo usado em vendas.`);
+        }
+        throw error;
+      }
     } catch (err) {
       console.error(`Error deleting product ${productId}:`, err);
       throw err;
