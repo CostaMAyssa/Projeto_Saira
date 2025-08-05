@@ -203,30 +203,9 @@ const ConversationList: React.FC<ConversationListProps> = ({
     setFilteredConversations(filtered);
   }, [searchTerm, filterType, conversations]);
 
-  // Função para marcar mensagens como lidas quando uma conversa é selecionada
-  const handleConversationClick = async (conversationId: string) => {
+  // Função para selecionar uma conversa
+  const handleConversationClick = (conversationId: string) => {
     setActiveConversation(conversationId);
-    
-    // Marcar mensagens como lidas se a função existir
-    try {
-      const { error } = await supabase.rpc('mark_messages_as_read', {
-        conversation_id_param: conversationId
-      });
-      
-      if (!error) {
-        // Atualizar o estado local para refletir a mudança imediatamente
-        setConversations(prev => 
-          prev.map(conv => 
-            conv.id === conversationId 
-              ? { ...conv, unread: 0, status: 'read' as const }
-              : conv
-          )
-        );
-      }
-    } catch (error) {
-      // Se a função não existir, apenas continuar sem marcar como lida
-      console.log('Função mark_messages_as_read não disponível ainda');
-    }
   };
   
   return (

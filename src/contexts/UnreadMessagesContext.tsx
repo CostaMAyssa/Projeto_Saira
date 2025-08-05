@@ -11,26 +11,30 @@ const UnreadMessagesContext = createContext<UnreadMessagesContextType | undefine
 export const UnreadMessagesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [totalUnread, setTotalUnread] = useState(0);
 
-  useEffect(() => {
-    const fetchUnreadCount = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('messages')
-          .select('id', { count: 'exact' })
-          .is('read_at', null)
-          .eq('sender', 'client');
+  const fetchUnreadCount = async () => {
+    try {
+      console.log('🔄 Buscando contagem de mensagens não lidas...');
+      
+      const { data, error } = await supabase
+        .from('messages')
+        .select('id', { count: 'exact' })
+        .is('read_at', null)
+        .eq('sender', 'client');
 
-        if (error) {
-          console.error('Erro ao buscar contagem de não lidas:', error);
-          return;
-        }
-
-        setTotalUnread(data?.length || 0);
-      } catch (error) {
-        console.error('Erro ao processar contagem:', error);
+      if (error) {
+        console.error('Erro ao buscar contagem de não lidas:', error);
+        return;
       }
-    };
 
+      const newCount = data?.length || 0;
+      console.log('📊 Nova contagem de não lidas:', newCount);
+      setTotalUnread(newCount);
+    } catch (error) {
+      console.error('Erro ao processar contagem:', error);
+    }
+  };
+
+  useEffect(() => {
     fetchUnreadCount();
 
     // Subscription para atualizações em tempo real - ÚNICA INSTÂNCIA
@@ -69,9 +73,29 @@ export const UnreadMessagesProvider: React.FC<{ children: React.ReactNode }> = (
 
   const markConversationAsRead = async (conversationId: string) => {
     try {
-      await supabase.rpc('mark_messages_as_read', {
-        conversation_id_param: conversationId
-      });
+      console.log('🔍 Marcando conversa como lida:', conversationId);
+      
+      // Usar query direta em vez da função RPC
+      const { error } = await supabase
+        .from('messages')
+        .update({ read_at: new Date().toISOString() })
+        .eq('conversation_id', conversationId)
+        .is('read_at', null)
+        .eq('sender', 'client');
+
+      if (error) {
+        console.error('❌ Erro ao marcar conversa como lida:', error);
+        return;
+      }
+
+      console.log('✅ Conversa marcada como lida com sucesso');
+      
+      // Aguardar um pouco antes de atualizar o contador para garantir que o banco foi atualizado
+      setTimeout(async () => {
+        console.log('🔄 Atualizando contador após marcar como lida...');
+        await fetchUnreadCount();
+      }, 100);
+      
     } catch (error) {
       console.error('Erro ao marcar conversa como lida:', error);
     }
