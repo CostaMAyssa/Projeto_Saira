@@ -470,7 +470,9 @@ async function processMessage(requestId: string, conversation: any, client: any,
     media_type: media_type,
     file_name: file_name,
     file_size: file_size,
-    sent_at: new Date(messageTimestamp * 1000).toISOString(),
+    sent_at: new Date(messageTimestamp * 1000).toLocaleString('sv-SE', {
+      timeZone: 'America/Sao_Paulo'
+    }).replace(' ', 'T') + '.000Z',
     user_id: null,
     from_me: fromMe,
     message_id: key.id || `msg_${Date.now()}`,
