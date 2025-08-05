@@ -73,7 +73,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
   const { user } = useSupabase();
   
-  // Listener Supabase Realtime para mensagens
+  // Listener Supabase Realtime para mensagens - OTIMIZADO
   useEffect(() => {
     if (!activeConversation) return;
 
@@ -118,6 +118,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             return [...prev, newMessage];
           });
           setMessageIds(prev => new Set(prev).add(messageId));
+
+          // Verificar se é uma mensagem de venda
+          if (msg.content && msg.content.includes('Venda registrada com sucesso')) {
+            console.log('💰 Nova venda registrada:', msg.content);
+            setSaleMessage(msg.content);
+          }
         }
       )
       .on(
@@ -154,39 +160,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
       console.log('🔌 Desconectando listener da conversa:', activeConversation);
       supabase.removeChannel(channel);
     };
-  }, [activeConversation, messageIds]);
-
-  // Escutar eventos de venda
-  useEffect(() => {
-    if (!activeConversation) return;
-    
-    // Criar um canal para escutar eventos de venda
-    const channel = supabase
-      .channel(`sale-events-${activeConversation}`)
-      .on(
-        'postgres_changes',
-        { 
-          event: 'INSERT', 
-          schema: 'public', 
-          table: 'messages',
-          filter: `conversation_id=eq.${activeConversation} AND content=ilike.%Venda registrada com sucesso%`
-        },
-        (payload) => {
-          console.log('💰 Nova venda registrada:', payload.new);
-          const msg = payload.new as DbMessage;
-          
-          // Extrair a mensagem de venda e definir no estado
-          if (msg.content && msg.content.includes('Venda registrada com sucesso')) {
-            setSaleMessage(msg.content);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [activeConversation]);
+  }, [activeConversation]); // Removida dependência messageIds
   
   // Carregar mensagens do Supabase
   useEffect(() => {

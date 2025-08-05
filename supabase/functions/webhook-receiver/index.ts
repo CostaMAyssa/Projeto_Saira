@@ -187,7 +187,7 @@ serve(async (req) => {
     // 🏢 Buscar cliente
     console.log(`🔥 [${requestId}] 🔍 Buscando cliente com phone: ${phoneNumber}`);
     
-    let { data: client, error: clientError } = await supabase
+    const { data: client, error: clientError } = await supabase
       .from('clients')
       .select('*')
       .eq('phone', phoneNumber)
@@ -199,309 +199,135 @@ serve(async (req) => {
       if (clientError.code === 'PGRST116') {
         console.log(`🔥 [${requestId}] 👤 Cliente não encontrado, criando novo...`);
         
-        const { data: newClient, error: newClientError } = await supabase
+        // Criar novo cliente
+        const { data: newClient, error: createError } = await supabase
           .from('clients')
           .insert({
-            name: pushName || phoneNumber,
             phone: phoneNumber,
+            name: pushName || 'Cliente WhatsApp',
+            email: null,
             created_at: new Date().toISOString()
           })
-          .select()
+          .select('*')
           .single();
 
-        if (newClientError) {
-          console.error(`🔥 [${requestId}] ❌ Erro ao criar novo cliente:`, newClientError);
-          throw newClientError;
+        if (createError) {
+          console.error(`🔥 [${requestId}] ❌ Erro ao criar cliente:`, createError);
+          throw createError;
         }
+
+        console.log(`🔥 [${requestId}] ✅ Novo cliente criado:`, JSON.stringify(newClient, null, 2));
         
-        console.log(`🔥 [${requestId}] ✅ Novo cliente criado:`, newClient);
-        client = newClient;
+        // Usar o novo cliente
+        const client = newClient;
+        
+        // 💬 Buscar ou criar conversa
+        console.log(`🔥 [${requestId}] 🔍 Buscando conversa para cliente: ${client.id}`);
+        
+        const { data: conversation, error: conversationError } = await supabase
+          .from('conversations')
+          .select('*')
+          .eq('client_id', client.id)
+          .single();
+
+        if (conversationError) {
+          console.error(`🔥 [${requestId}] ❌ Erro ao buscar conversa:`, conversationError);
+          
+          if (conversationError.code === 'PGRST116') {
+            console.log(`🔥 [${requestId}] 💬 Conversa não encontrada, criando nova...`);
+            
+            // Criar nova conversa
+            const { data: newConversation, error: createConvError } = await supabase
+              .from('conversations')
+              .insert({
+                client_id: client.id,
+                status: 'active',
+                started_at: new Date().toISOString(),
+                last_message_at: new Date().toISOString()
+              })
+              .select('*')
+              .single();
+
+            if (createConvError) {
+              console.error(`🔥 [${requestId}] ❌ Erro ao criar conversa:`, createConvError);
+              throw createConvError;
+            }
+
+            console.log(`🔥 [${requestId}] ✅ Nova conversa criada:`, JSON.stringify(newConversation, null, 2));
+            
+            // Processar mensagem
+            await processMessage(requestId, newConversation, client, messageData, data, supabase);
+          } else {
+            throw conversationError;
+          }
+        } else {
+          console.log(`🔥 [${requestId}] ✅ Conversa encontrada:`, JSON.stringify(conversation, null, 2));
+          
+          // Atualizar last_message_at
+          await supabase
+            .from('conversations')
+            .update({ last_message_at: new Date().toISOString() })
+            .eq('id', conversation.id);
+            
+          // Processar mensagem
+          await processMessage(requestId, conversation, client, messageData, data, supabase);
+        }
       } else {
         throw clientError;
       }
     } else {
-      console.log(`🔥 [${requestId}] ✅ Cliente encontrado:`, client);
-    }
-
-    // 🔍 Verificação específica para o cliente problemático
-    if (client && phoneNumber === '556492019427') {
-      console.log(`🔥 [${requestId}] 🎯 CLIENTE ALVO ENCONTRADO/CRIADO:`, JSON.stringify(client, null, 2));
-    }
-
-    // 💬 Buscar ou criar conversa
-    console.log(`🔥 [${requestId}] 💬 Buscando conversa existente...`);
-    
-    let { data: conversation, error: convError } = await supabase
-      .from('conversations')
-      .select('id')
-      .eq('client_id', client!.id)
-      .single();
-
-    if (convError && convError.code === 'PGRST116') {
-      console.log(`🔥 [${requestId}] 💬 Conversa não encontrada, criando nova...`);
+      console.log(`🔥 [${requestId}] ✅ Cliente encontrado:`, JSON.stringify(client, null, 2));
       
-      const { data: newConv, error: newConvError } = await supabase
+      // 💬 Buscar ou criar conversa
+      console.log(`🔥 [${requestId}] 🔍 Buscando conversa para cliente: ${client.id}`);
+      
+      const { data: conversation, error: conversationError } = await supabase
         .from('conversations')
-        .insert({
-          client_id: client!.id,
-          instance_name: instance,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .select('id')
-        .single();
-
-      if (newConvError) {
-        console.error(`🔥 [${requestId}] ❌ Erro ao criar nova conversa:`, newConvError);
-        throw newConvError;
-      }
-      conversation = newConv;
-      console.log(`🔥 [${requestId}] ✅ Nova conversa criada: ID=${conversation!.id}`);
-    } else if (convError) {
-      console.error(`🔥 [${requestId}] ❌ Erro ao buscar conversa:`, convError);
-      throw convError;
-    } else {
-      console.log(`🔥 [${requestId}] ✅ Conversa existente encontrada: ID=${conversation.id}`);
-    }
-
-    // 🔍 Verificação específica para a conversa do cliente problemático
-    if (conversation && phoneNumber === '556492019427') {
-      console.log(`🔥 [${requestId}] 🎯 CONVERSA ALVO ENCONTRADA/CRIADA:`, JSON.stringify(conversation, null, 2));
-    }
-
-    // 🎯 Função para baixar mídia e fazer upload para Supabase Storage
-    const downloadAndUploadMedia = async (url: string, fileName: string, mimeType: string, clientId: string) => {
-      try {
-        console.log(`🔥 [${requestId}] 📥 Baixando mídia de: ${url}`);
-        
-        // Baixar a mídia da Evolution API
-        const response = await fetch(url);
-        if (!response.ok) {
-          console.error(`🔥 [${requestId}] ❌ Erro ao baixar mídia: ${response.status} ${response.statusText}`);
-          return null;
-        }
-        
-        const arrayBuffer = await response.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
-        
-        // Gerar nome único para o arquivo
-        const timestamp = Date.now();
-        const extension = fileName.split('.').pop() || 'bin';
-        const uniqueFileName = `${clientId}/${timestamp}_${fileName}`;
-        
-        console.log(`🔥 [${requestId}] 📤 Fazendo upload para Supabase Storage: ${uniqueFileName}`);
-        
-        // Upload para Supabase Storage
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('whatsapp-media')
-          .upload(uniqueFileName, uint8Array, {
-            contentType: mimeType,
-            upsert: true
-          });
-        
-        if (uploadError) {
-          console.error(`🔥 [${requestId}] ❌ Erro no upload para Supabase Storage:`, uploadError);
-          return null;
-        }
-        
-        // Obter URL pública
-        const { data: publicUrlData } = supabase.storage
-          .from('whatsapp-media')
-          .getPublicUrl(uploadData.path);
-        
-        console.log(`🔥 [${requestId}] ✅ Mídia salva com sucesso: ${publicUrlData.publicUrl}`);
-        return {
-          publicUrl: publicUrlData.publicUrl,
-          fileSize: uint8Array.length
-        };
-        
-      } catch (error) {
-        console.error(`🔥 [${requestId}] ❌ Erro ao processar mídia:`, error);
-        return null;
-      }
-    };
-
-    // 📝 Processar conteúdo da mensagem com logs detalhados
-    console.log(`🔥 [${requestId}] 📝 Processando conteúdo da mensagem...`);
-    console.log(`🔥 [${requestId}] 📝 Tipos de mensagem disponíveis:`, Object.keys(message || {}));
-
-    let content = 'Mídia recebida';
-    let message_type = 'media';
-    let media_url: string | null = null;
-    let media_type: string | null = null;
-    let file_name: string | null = null;
-    let file_size: number | null = null;
-
-    if (message?.conversation) {
-        console.log(`🔥 [${requestId}] 💬 Mensagem de texto simples detectada`);
-        content = message.conversation;
-        message_type = 'text';
-        console.log(`🔥 [${requestId}] 💬 Conteúdo: ${content}`);
-    } else if (message?.extendedTextMessage?.text) {
-        console.log(`🔥 [${requestId}] 💬 Mensagem de texto estendida detectada`);
-        content = message.extendedTextMessage.text;
-        message_type = 'text';
-        console.log(`🔥 [${requestId}] 💬 Conteúdo: ${content}`);
-    } else if (message?.imageMessage) {
-        console.log(`🔥 [${requestId}] 🖼️ Mensagem de imagem detectada`);
-        console.log(`🔥 [${requestId}] 🖼️ Dados da imagem:`, JSON.stringify(message.imageMessage, null, 2));
-        
-        content = message.imageMessage.caption || 'Imagem';
-        message_type = 'image';
-        media_type = message.imageMessage.mimetype || 'image/jpeg';
-        file_name = `image_${messageTimestamp}.jpg`;
-        
-        console.log(`🔥 [${requestId}] 🖼️ Caption: ${content}`);
-        console.log(`🔥 [${requestId}] 🖼️ MIME Type: ${media_type}`);
-        console.log(`🔥 [${requestId}] 🖼️ URL original: ${message.imageMessage.url}`);
-        
-        // 🔧 CORREÇÃO: Baixar e fazer re-upload da imagem
-        if (message.imageMessage.url) {
-          console.log(`🔥 [${requestId}] 🖼️ Iniciando download e re-upload da imagem...`);
-          const mediaResult = await downloadAndUploadMedia(
-            message.imageMessage.url, 
-            file_name!, 
-            media_type!, 
-            client!.id
-          );
-          if (mediaResult) {
-            media_url = mediaResult.publicUrl;
-            file_size = mediaResult.fileSize;
-            console.log(`🔥 [${requestId}] 🖼️ ✅ Imagem processada com sucesso: ${media_url}`);
-          } else {
-            // Fallback para URL original se o download falhar
-            media_url = message.imageMessage.url;
-            console.log(`🔥 [${requestId}] 🖼️ ⚠️ Usando URL original como fallback: ${media_url}`);
-          }
-        } else {
-          console.log(`🔥 [${requestId}] 🖼️ ❌ URL da imagem não encontrada`);
-        }
-    } else if (message?.audioMessage) {
-        console.log(`🔥 [${requestId}] 🎵 Mensagem de áudio detectada`);
-        console.log(`🔥 [${requestId}] 🎵 Dados do áudio:`, JSON.stringify(message.audioMessage, null, 2));
-        
-        content = 'Áudio';
-        message_type = 'audio';
-        media_type = message.audioMessage.mimetype || 'audio/ogg';
-        file_name = `audio_${messageTimestamp}.ogg`;
-        
-        // 🔧 CORREÇÃO: Baixar e fazer re-upload do áudio
-        if (message.audioMessage.url) {
-          console.log(`🔥 [${requestId}] 🎵 Iniciando download e re-upload do áudio...`);
-          const mediaResult = await downloadAndUploadMedia(
-            message.audioMessage.url, 
-            file_name!, 
-            media_type!, 
-            client!.id
-          );
-          if (mediaResult) {
-            media_url = mediaResult.publicUrl;
-            file_size = mediaResult.fileSize;
-            console.log(`🔥 [${requestId}] 🎵 ✅ Áudio processado com sucesso: ${media_url}`);
-          } else {
-            // Fallback para URL original se o download falhar
-            media_url = message.audioMessage.url;
-            console.log(`🔥 [${requestId}] 🎵 ⚠️ Usando URL original como fallback: ${media_url}`);
-          }
-        }
-    } else if (message?.documentMessage) {
-        console.log(`🔥 [${requestId}] 📄 Mensagem de documento detectada`);
-        console.log(`🔥 [${requestId}] 📄 Dados do documento:`, JSON.stringify(message.documentMessage, null, 2));
-        
-        content = message.documentMessage.caption || message.documentMessage.fileName || 'Documento';
-        message_type = 'document';
-        media_type = message.documentMessage.mimetype;
-        file_name = message.documentMessage.fileName || `document_${messageTimestamp}`;
-        
-        // 🔧 CORREÇÃO: Baixar e fazer re-upload do documento
-        if (message.documentMessage.url) {
-          console.log(`🔥 [${requestId}] 📄 Iniciando download e re-upload do documento...`);
-          const mediaResult = await downloadAndUploadMedia(
-            message.documentMessage.url, 
-            file_name!, 
-            media_type!, 
-            client!.id
-          );
-          if (mediaResult) {
-            media_url = mediaResult.publicUrl;
-            file_size = mediaResult.fileSize;
-            console.log(`🔥 [${requestId}] 📄 ✅ Documento processado com sucesso: ${media_url}`);
-          } else {
-            // Fallback para URL original se o download falhar
-            media_url = message.documentMessage.url;
-            console.log(`🔥 [${requestId}] 📄 ⚠️ Usando URL original como fallback: ${media_url}`);
-          }
-        }
-    } else {
-        console.log(`🔥 [${requestId}] ❓ Tipo de mensagem não reconhecido`);
-        console.log(`🔥 [${requestId}] ❓ Estrutura da mensagem:`, JSON.stringify(message, null, 2));
-    }
-
-    // 📦 Preparar dados para inserção
-    const messageToInsert = {
-      conversation_id: conversation.id,
-      content: content,
-      message_type: message_type,
-      sender: fromMe ? 'user' : 'client',
-      media_url: media_url,
-      media_type: media_type,
-      file_name: file_name,
-      file_size: file_size,
-      sent_at: new Date(messageTimestamp * 1000).toISOString(),
-      user_id: null, // Removido assignedUserId, usando null por enquanto
-      from_me: fromMe,
-      message_id: key.id || `msg_${Date.now()}`,
-      remote_jid: remoteJid,
-      instance_name: instance,
-      push_name: pushName,
-      raw_data: data,
-      read_at: fromMe ? new Date().toISOString() : null
-    };
-
-    console.log(`🔥 [${requestId}] 💾 Inserindo mensagem no banco...`);
-    console.log(`🔥 [${requestId}] 💾 Dados da mensagem para inserção:`, JSON.stringify(messageToInsert, null, 2));
-    
-    // 🔍 Verificação específica antes da inserção para o número problemático
-    if (phoneNumber === '556492019427') {
-      console.log(`🔥 [${requestId}] 🎯 INSERINDO MENSAGEM DO NÚMERO ALVO 556492019427`);
-      console.log(`🔥 [${requestId}] 🎯 Conversation ID: ${conversation.id}`);
-      console.log(`🔥 [${requestId}] 🎯 Client ID: ${client!.id}`);
-      console.log(`🔥 [${requestId}] 🎯 Message Type: ${message_type}`);
-      console.log(`🔥 [${requestId}] 🎯 Content: ${content}`);
-      console.log(`🔥 [${requestId}] 🎯 Media URL: ${media_url}`);
-    }
-    
-    const { data: insertedMessage, error: msgError } = await supabase
-      .from('messages')
-      .insert(messageToInsert)
-      .select('*')
-      .single();
-
-    if (msgError) {
-      console.error(`🔥 [${requestId}] ❌ Erro ao inserir a mensagem no banco:`, msgError);
-      console.error(`🔥 [${requestId}] ❌ Dados que causaram o erro:`, JSON.stringify(messageToInsert, null, 2));
-      throw msgError;
-    }
-    
-    console.log(`🔥 [${requestId}] ✅ Mensagem inserida com sucesso!`);
-    console.log(`🔥 [${requestId}] ✅ Mensagem inserida:`, JSON.stringify(insertedMessage, null, 2));
-    
-    // 🔍 Verificação específica após inserção para o número problemático
-    if (phoneNumber === '556492019427') {
-      console.log(`🔥 [${requestId}] 🎯 ✅ MENSAGEM DO NÚMERO ALVO INSERIDA COM SUCESSO!`);
-      console.log(`🔥 [${requestId}] 🎯 ✅ ID da mensagem inserida: ${insertedMessage.id}`);
-      
-      // Verificar se a mensagem realmente foi salva
-      const { data: verifyMessage, error: verifyError } = await supabase
-        .from('messages')
         .select('*')
-        .eq('id', insertedMessage.id)
+        .eq('client_id', client.id)
         .single();
+
+      if (conversationError) {
+        console.error(`🔥 [${requestId}] ❌ Erro ao buscar conversa:`, conversationError);
         
-      if (verifyError) {
-        console.error(`🔥 [${requestId}] 🎯 ❌ Erro ao verificar mensagem inserida:`, verifyError);
+        if (conversationError.code === 'PGRST116') {
+          console.log(`🔥 [${requestId}] 💬 Conversa não encontrada, criando nova...`);
+          
+          // Criar nova conversa
+          const { data: newConversation, error: createConvError } = await supabase
+            .from('conversations')
+            .insert({
+              client_id: client.id,
+              status: 'active',
+              started_at: new Date().toISOString(),
+              last_message_at: new Date().toISOString()
+            })
+            .select('*')
+            .single();
+
+          if (createConvError) {
+            console.error(`🔥 [${requestId}] ❌ Erro ao criar conversa:`, createConvError);
+            throw createConvError;
+          }
+
+          console.log(`🔥 [${requestId}] ✅ Nova conversa criada:`, JSON.stringify(newConversation, null, 2));
+          
+          // Processar mensagem
+          await processMessage(requestId, newConversation, client, messageData, data, supabase);
+        } else {
+          throw conversationError;
+        }
       } else {
-        console.log(`🔥 [${requestId}] 🎯 ✅ Verificação: mensagem encontrada no banco:`, JSON.stringify(verifyMessage, null, 2));
+        console.log(`🔥 [${requestId}] ✅ Conversa encontrada:`, JSON.stringify(conversation, null, 2));
+        
+        // Atualizar last_message_at
+        await supabase
+          .from('conversations')
+          .update({ last_message_at: new Date().toISOString() })
+          .eq('id', conversation.id);
+          
+        // Processar mensagem
+        await processMessage(requestId, conversation, client, messageData, data, supabase);
       }
     }
     
@@ -529,3 +355,244 @@ serve(async (req) => {
     );
   }
 });
+
+// Função para processar mensagem
+async function processMessage(requestId: string, conversation: any, client: any, messageData: any, data: any, supabase: any) {
+  const { key, message, messageTimestamp, pushName } = messageData;
+  const { remoteJid, fromMe } = key;
+  const phoneNumber = remoteJid.replace('@s.whatsapp.net', '');
+  const instance = data.instance; // Extrair instance dos dados
+
+  // 📝 Processar conteúdo da mensagem
+  let content = '';
+  let message_type = 'text';
+  let media_url: string | null = null;
+  let media_type: string | null = null;
+  let file_name: string | null = null;
+  let file_size: number | null = null;
+
+  console.log(`🔥 [${requestId}] 🔍 Processando tipo de mensagem...`);
+
+  if (message?.conversation) {
+      console.log(`🔥 [${requestId}] 💬 Mensagem de texto simples detectada`);
+      content = message.conversation;
+      message_type = 'text';
+      console.log(`🔥 [${requestId}] 💬 Conteúdo: ${content}`);
+  } else if (message?.extendedTextMessage?.text) {
+      console.log(`🔥 [${requestId}] 💬 Mensagem de texto estendida detectada`);
+      content = message.extendedTextMessage.text;
+      message_type = 'text';
+      console.log(`🔥 [${requestId}] 💬 Conteúdo: ${content}`);
+  } else if (message?.imageMessage) {
+      console.log(`🔥 [${requestId}] 🖼️ Mensagem de imagem detectada`);
+      content = message.imageMessage.caption || 'Imagem';
+      message_type = 'image';
+      media_type = message.imageMessage.mimetype || 'image/jpeg';
+      file_name = `image_${messageTimestamp}.jpg`;
+      
+      if (message.imageMessage.url) {
+        console.log(`🔥 [${requestId}] 🖼️ Processando imagem: ${message.imageMessage.url}`);
+        const mediaResult = await downloadAndUploadMedia(
+          message.imageMessage.url, 
+          file_name!, 
+          media_type!, 
+          client.id
+        );
+        if (mediaResult) {
+          media_url = mediaResult.publicUrl;
+          file_size = mediaResult.fileSize;
+          console.log(`🔥 [${requestId}] 🖼️ ✅ Imagem processada: ${media_url}`);
+        } else {
+          console.log(`🔥 [${requestId}] 🖼️ ⚠️ Falha ao processar imagem, usando URL original`);
+          media_url = message.imageMessage.url;
+        }
+      }
+  } else if (message?.audioMessage) {
+      console.log(`🔥 [${requestId}] 🎵 Mensagem de áudio detectada`);
+      content = 'Áudio';
+      message_type = 'audio';
+      media_type = message.audioMessage.mimetype || 'audio/ogg';
+      file_name = `audio_${messageTimestamp}.ogg`;
+      
+      if (message.audioMessage.url) {
+        console.log(`🔥 [${requestId}] 🎵 Processando áudio: ${message.audioMessage.url}`);
+        const mediaResult = await downloadAndUploadMedia(
+          message.audioMessage.url, 
+          file_name!, 
+          media_type!, 
+          client.id
+        );
+        if (mediaResult) {
+          media_url = mediaResult.publicUrl;
+          file_size = mediaResult.fileSize;
+          console.log(`🔥 [${requestId}] 🎵 ✅ Áudio processado: ${media_url}`);
+        } else {
+          console.log(`🔥 [${requestId}] 🎵 ⚠️ Falha ao processar áudio, usando URL original`);
+          media_url = message.audioMessage.url;
+        }
+      }
+  } else if (message?.documentMessage) {
+      console.log(`🔥 [${requestId}] 📄 Mensagem de documento detectada`);
+      content = message.documentMessage.caption || message.documentMessage.fileName || 'Documento';
+      message_type = 'document';
+      media_type = message.documentMessage.mimetype || 'application/octet-stream';
+      file_name = message.documentMessage.fileName || `document_${messageTimestamp}`;
+      
+      if (message.documentMessage.url) {
+        console.log(`🔥 [${requestId}] 📄 Processando documento: ${message.documentMessage.url}`);
+        const mediaResult = await downloadAndUploadMedia(
+          message.documentMessage.url, 
+          file_name!, 
+          media_type!, 
+          client.id
+        );
+        if (mediaResult) {
+          media_url = mediaResult.publicUrl;
+          file_size = mediaResult.fileSize;
+          console.log(`🔥 [${requestId}] 📄 ✅ Documento processado: ${media_url}`);
+        } else {
+          console.log(`🔥 [${requestId}] 📄 ⚠️ Falha ao processar documento, usando URL original`);
+          media_url = message.documentMessage.url;
+        }
+      }
+  } else {
+      console.log(`🔥 [${requestId}] ❓ Tipo de mensagem não reconhecido`);
+      console.log(`🔥 [${requestId}] ❓ Estrutura da mensagem:`, JSON.stringify(message, null, 2));
+  }
+
+  // 📦 Preparar dados para inserção
+  const messageToInsert = {
+    conversation_id: conversation.id,
+    content: content,
+    message_type: message_type,
+    sender: fromMe ? 'user' : 'client',
+    media_url: media_url,
+    media_type: media_type,
+    file_name: file_name,
+    file_size: file_size,
+    sent_at: new Date(messageTimestamp * 1000).toISOString(),
+    user_id: null,
+    from_me: fromMe,
+    message_id: key.id || `msg_${Date.now()}`,
+    remote_jid: remoteJid,
+    instance_name: instance,
+    push_name: pushName,
+    raw_data: data,
+    read_at: fromMe ? new Date().toISOString() : null
+  };
+
+  console.log(`🔥 [${requestId}] 💾 Inserindo mensagem no banco...`);
+  console.log(`🔥 [${requestId}] 📊 Dados da mensagem:`, {
+    conversation_id: conversation.id,
+    content: content,
+    message_type: message_type,
+    sender: fromMe ? 'user' : 'client',
+    media_url: media_url,
+    media_type: media_type,
+    file_name: file_name,
+    file_size: file_size,
+    message_id: key.id || `msg_${Date.now()}`
+  });
+  
+  // 🔍 Verificar se já existe uma mensagem com o mesmo message_id
+  const { data: existingMessage, error: checkError } = await supabase
+    .from('messages')
+    .select('id')
+    .eq('message_id', messageToInsert.message_id)
+    .eq('conversation_id', conversation.id)
+    .single();
+
+  if (existingMessage) {
+    console.log(`🔥 [${requestId}] ⚠️ Mensagem já existe no banco:`, existingMessage.id);
+    console.log(`🔥 [${requestId}] ⚠️ Message ID: ${messageToInsert.message_id}`);
+    console.log(`🔥 [${requestId}] ⚠️ Ignorando inserção duplicada`);
+    
+    return;
+  }
+  
+  const { data: insertedMessage, error: msgError } = await supabase
+    .from('messages')
+    .insert(messageToInsert)
+    .select('*')
+    .single();
+
+  if (msgError) {
+    console.error(`🔥 [${requestId}] ❌ Erro ao inserir a mensagem no banco:`, msgError);
+    throw msgError;
+  }
+  
+  console.log(`🔥 [${requestId}] ✅ Mensagem inserida com sucesso!`);
+  console.log(`🔥 [${requestId}] 📊 Mensagem inserida:`, {
+    id: insertedMessage.id,
+    content: insertedMessage.content,
+    message_type: insertedMessage.message_type,
+    media_url: insertedMessage.media_url,
+    media_type: insertedMessage.media_type,
+    file_name: insertedMessage.file_name,
+    file_size: insertedMessage.file_size
+  });
+}
+
+// Função para baixar e fazer re-upload de mídia
+const downloadAndUploadMedia = async (url: string, fileName: string, mimeType: string, clientId: string) => {
+  try {
+    console.log(`📥 Baixando mídia de: ${url}`);
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.error(`❌ Erro ao baixar mídia: ${response.status} ${response.statusText}`);
+      return null;
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    
+    console.log(`✅ Mídia baixada com sucesso: ${uint8Array.length} bytes`);
+    
+    // Fazer upload para o Supabase Storage
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+
+    // Sanitizar nome do arquivo
+    const sanitizeFileName = (name: string) => {
+      return name
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove acentos
+        .replace(/[^a-zA-Z0-9.\-_]/g, '_') // só letras, números, ponto, hífen, underscore
+        .replace(/\s+/g, '_') // espaços por underscore
+        .replace(/_+/g, '_') // múltiplos underscores por um só
+        .toLowerCase();
+    };
+
+    const sanitizedFileName = sanitizeFileName(fileName);
+    const storagePath = `${clientId}/${Date.now()}_${sanitizedFileName}`;
+
+    const { data, error } = await supabase.storage
+      .from('whatsapp-media')
+      .upload(storagePath, uint8Array, {
+        contentType: mimeType,
+        upsert: true
+      });
+
+    if (error) {
+      console.error(`❌ Erro ao fazer upload da mídia:`, error);
+      return null;
+    }
+
+    // Gerar URL pública
+    const { data: urlData } = supabase.storage
+      .from('whatsapp-media')
+      .getPublicUrl(storagePath);
+
+    console.log(`✅ Mídia enviada com sucesso: ${urlData.publicUrl}`);
+    
+    return {
+      publicUrl: urlData.publicUrl,
+      fileSize: uint8Array.length
+    };
+  } catch (error) {
+    console.error(`❌ Erro ao processar mídia:`, error);
+    return null;
+  }
+};

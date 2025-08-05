@@ -150,13 +150,13 @@ const ConversationList: React.FC<ConversationListProps> = ({
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: 'UPDATE',
           schema: 'public',
-          table: 'messages',
+          table: 'conversations',
         },
         (payload) => {
-          // Quando uma nova mensagem é inserida, atualizar apenas a conversa específica
-          const conversationId = payload.new.conversation_id;
+          // Quando uma conversa é atualizada (ex: last_message_at), atualizar a lista
+          const conversationId = payload.new.id;
           if (conversationId) {
             updateConversationInList(conversationId);
           }
@@ -165,16 +165,13 @@ const ConversationList: React.FC<ConversationListProps> = ({
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: 'INSERT',
           schema: 'public',
-          table: 'messages',
+          table: 'conversations',
         },
         (payload) => {
-          // Quando uma mensagem é atualizada (ex: marcada como lida), atualizar a conversa
-          const conversationId = payload.new.conversation_id;
-          if (conversationId) {
-            updateConversationInList(conversationId);
-          }
+          // Quando uma nova conversa é criada, recarregar a lista
+          fetchConversations();
         }
       )
       .subscribe();

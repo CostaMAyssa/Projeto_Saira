@@ -8,13 +8,29 @@ interface MessageItemProps {
 
 const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
   // Log para depuração
-  console.log('Renderizando mensagem:', message);
+  console.log('🎯 Renderizando mensagem:', {
+    id: message.id,
+    content: message.content,
+    sender: message.sender,
+    message_type: message.message_type,
+    media_url: message.media_url,
+    media_type: message.media_type,
+    file_name: message.file_name,
+    file_size: message.file_size,
+    caption: message.caption
+  });
 
   const isClient = message.sender === 'client';
 
   const renderMessageContent = () => {
+    console.log(`🎨 Renderizando conteúdo para tipo: ${message.message_type}`);
+    
     switch (message.message_type) {
       case 'image':
+        console.log('🖼️ Renderizando imagem:', {
+          media_url: message.media_url,
+          caption: message.caption
+        });
         return (
           <div className="space-y-2">
             {message.media_url && (
@@ -23,6 +39,8 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
                 alt={message.caption || 'Imagem'} 
                 className="max-w-full rounded-lg shadow-md cursor-pointer hover:opacity-90 transition-opacity"
                 onClick={() => window.open(message.media_url, '_blank')}
+                onError={(e) => console.error('❌ Erro ao carregar imagem:', e)}
+                onLoad={() => console.log('✅ Imagem carregada com sucesso')}
               />
             )}
             {message.caption && (
@@ -32,6 +50,11 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
         );
 
       case 'audio':
+        console.log('🎵 Renderizando áudio:', {
+          media_url: message.media_url,
+          file_name: message.file_name,
+          file_size: message.file_size
+        });
         return (
           <div className="space-y-2">
             {message.media_url && (
@@ -39,6 +62,9 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
                 controls 
                 src={message.media_url}
                 className="w-full max-w-xs"
+                onError={(e) => console.error('❌ Erro ao carregar áudio:', e)}
+                onLoadStart={() => console.log('🎵 Iniciando carregamento do áudio')}
+                onCanPlay={() => console.log('✅ Áudio pronto para reprodução')}
               >
                 Seu navegador não suporta o elemento de áudio.
               </audio>
@@ -56,6 +82,12 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
         );
 
       case 'document':
+        console.log('📄 Renderizando documento:', {
+          media_url: message.media_url,
+          file_name: message.file_name,
+          media_type: message.media_type,
+          file_size: message.file_size
+        });
         return (
           <div className="space-y-2">
             {message.media_url && (
@@ -92,6 +124,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
         );
 
       default:
+        console.log('📝 Renderizando texto padrão');
         return <div className="break-words font-normal text-sm">{message.content}</div>;
     }
   };

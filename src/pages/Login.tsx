@@ -240,9 +240,9 @@ const Login = () => {
                     </div>
                     
                     <div className="text-right">
-                      <a href="#" className="text-pharmacy-accent hover:underline text-xs">
+                      <Link to="/esqueci-senha" className="text-pharmacy-accent hover:underline text-xs">
                         Esqueceu sua senha?
-                      </a>
+                      </Link>
                     </div>
                     
                     <Button 
@@ -374,9 +374,9 @@ const Login = () => {
                     </div>
                     
                     <div className="text-right">
-                      <a href="#" className="text-pharmacy-accent hover:underline text-sm">
+                      <Link to="/esqueci-senha" className="text-pharmacy-accent hover:underline text-sm">
                         Esqueceu sua senha?
-                      </a>
+                      </Link>
                     </div>
                     
                     <Button 
