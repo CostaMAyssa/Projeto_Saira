@@ -425,6 +425,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         onBackClick={onBackClick}
         isMobile={isMobile}
         realtimeStatus={realtimeStatus}
+        onFinalizeConversation={() => {
+          console.log('✅ Conversa finalizada pelo usuário');
+          // Aqui você pode adicionar lógica adicional se necessário
+        }}
+        onFinalizeMessage={(message) => {
+          console.log('📝 ChatWindow recebeu mensagem de finalização:', message);
+          setSaleMessage(message);
+        }}
       />
       <MessageList messages={messages} />
       <MessageInput 

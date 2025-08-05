@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Phone, Info, MoreVertical, ChevronLeft } from 'lucide-react';
+import { ChevronLeft, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatPhoneNumber } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -12,6 +12,8 @@ interface ChatHeaderProps {
   isMobile: boolean;
   websocketStatus?: 'disconnected' | 'connecting' | 'connected' | 'error';
   realtimeStatus?: 'connected' | 'disconnected';
+  onFinalizeConversation?: () => void;
+  onFinalizeMessage?: (message: string) => void; // Nova prop para passar a mensagem
 }
 
 interface ConversationData {
@@ -26,9 +28,12 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
   onBackClick,
   isMobile,
   websocketStatus = 'disconnected',
-  realtimeStatus = 'disconnected'
+  realtimeStatus = 'disconnected',
+  onFinalizeConversation,
+  onFinalizeMessage
 }) => {
   const [conversationData, setConversationData] = useState<ConversationData | null>(null);
+  const [isFinalizing, setIsFinalizing] = useState(false);
 
   useEffect(() => {
     const fetchConversationData = async () => {
@@ -63,6 +68,34 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
     fetchConversationData();
   }, [activeConversation]);
 
+  const handleFinalizeConversation = async () => {
+    if (!activeConversation || isFinalizing) return;
+
+    setIsFinalizing(true);
+
+    try {
+      // Mensagem de agradecimento
+      const thankYouMessage = "Obrigado pela preferência! Foi um prazer atendê-lo. Até a próxima! 😊";
+
+      // Passar a mensagem para a área de digitação
+      if (onFinalizeMessage) {
+        console.log('📝 Gerando mensagem de finalização na área de digitação:', thankYouMessage);
+        onFinalizeMessage(thankYouMessage);
+      }
+
+      console.log('✅ Conversa finalizada com sucesso');
+      
+      // Chamar callback se fornecido
+      if (onFinalizeConversation) {
+        onFinalizeConversation();
+      }
+    } catch (error) {
+      console.error('Erro ao finalizar conversa:', error);
+    } finally {
+      setIsFinalizing(false);
+    }
+  };
+
   const name = conversationData?.clients?.name || 'Carregando...';
   const phone = conversationData?.clients?.phone || '';
   
@@ -92,17 +125,17 @@ const ChatHeader: React.FC<ChatHeaderProps> = ({
           </div>
         </div>
         
-        <div className="flex items-center space-x-2">
-          <Button variant="ghost" size="icon" className="text-gray-600 hover:bg-gray-200 rounded-full h-9 w-9">
-            <Phone size={20} />
-          </Button>
-          <Button variant="ghost" size="icon" className="text-gray-600 hover:bg-gray-200 rounded-full h-9 w-9">
-            <Info size={20} />
-          </Button>
-          <Button variant="ghost" size="icon" className="text-gray-600 hover:bg-gray-200 rounded-full h-9 w-9">
-            <MoreVertical size={20} />
-          </Button>
-        </div>
+        {/* Botão Finalizar Conversa */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleFinalizeConversation}
+          disabled={isFinalizing}
+          className="ml-2 px-3 py-1 rounded border border-pharmacy-accent text-pharmacy-accent bg-[#F0F2F5] text-sm hover:bg-pharmacy-accent hover:text-white transition-colors"
+        >
+          <CheckCircle className="w-4 h-4 mr-1" />
+          {isFinalizing ? 'Finalizando...' : 'Finalizar Conversa'}
+        </Button>
       </div>
       
       {/* Status de conexão */}
