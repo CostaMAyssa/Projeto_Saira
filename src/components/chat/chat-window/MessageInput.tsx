@@ -3,6 +3,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Send, Paperclip, Smile, Mic, Square, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import EmojiPickerComponent from './EmojiPicker';
 
 interface MessageInputProps {
   onSendMessage: (content: string, filePayload?: { name: string; base64: string; type: string }) => void;
@@ -21,6 +22,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onSendAudio,
 
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
   
   // Atualizar o campo de entrada quando a propriedade initialMessage mudar
   useEffect(() => {
@@ -42,6 +44,29 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onSendAudio,
       e.preventDefault();
       handleSendMessage();
     }
+  };
+
+  const handleEmojiClick = (emoji: string) => {
+    console.log('🎯 Emoji selecionado:', emoji);
+    const input = inputRef.current;
+    if (input) {
+      const start = input.selectionStart || 0;
+      const end = input.selectionEnd || 0;
+      const text = newMessage;
+      const newText = text.substring(0, start) + emoji + text.substring(end);
+      setNewMessage(newText);
+      
+      // Focar no input e posicionar o cursor após o emoji
+      setTimeout(() => {
+        input.focus();
+        const newCursorPos = start + emoji.length;
+        input.setSelectionRange(newCursorPos, newCursorPos);
+      }, 0);
+    }
+  };
+
+  const handleEmojiButtonClick = () => {
+    console.log('🎯 Botão de emoji clicado!');
   };
 
   const startRecording = useCallback(async () => {
@@ -134,10 +159,8 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onSendAudio,
         base64,
         type: file.type
       };
-      // Chamar função de envio (precisa ser adaptada no ChatWindow para aceitar arquivo)
-      if (typeof (onSendMessage as any) === 'function') {
-        (onSendMessage as any)('', filePayload); // Envia mensagem vazia + arquivo
-      }
+      // Chamar função de envio
+      onSendMessage('', filePayload);
     } catch (err) {
       alert('Erro ao processar arquivo.');
       console.error(err);
@@ -149,13 +172,17 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onSendAudio,
   return (
     <div className="p-2 bg-[#F0F2F5]">
       <div className="flex items-center gap-1 md:gap-2">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded-full h-9 w-9 md:h-10 md:w-10 hidden sm:flex"
-        >
-          <Smile className="h-5 w-5 md:h-6 md:w-6" />
-        </Button>
+        {/* Emoji Picker */}
+        <EmojiPickerComponent onEmojiClick={handleEmojiClick}>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded-full h-9 w-9 md:h-10 md:w-10 hidden sm:flex"
+          >
+            <Smile className="h-5 w-5 md:h-6 md:w-6" />
+          </Button>
+        </EmojiPickerComponent>
+        
         {/* NOVO: Botão de clipe funcional */}
         <Button 
           variant="ghost" 
@@ -194,6 +221,7 @@ const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage, onSendAudio,
             </div>
           ) : (
           <Input
+            ref={inputRef}
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={handleKeyPress}
