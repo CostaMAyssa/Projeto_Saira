@@ -44,7 +44,7 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
               />
             )}
             {message.caption && (
-              <div className="break-words font-normal text-sm">{message.caption}</div>
+              <div className="break-all font-normal text-sm">{message.caption}</div>
             )}
           </div>
         );
@@ -72,11 +72,11 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
             {message.transcription && (
               <div className="bg-gray-100 dark:bg-gray-700 p-2 rounded text-sm">
                 <span className="text-gray-600 dark:text-gray-400">📝 Transcrição:</span>
-                <p className="mt-1 break-words">{message.transcription}</p>
+                <p className="mt-1 break-all">{message.transcription}</p>
               </div>
             )}
             {message.content && message.content !== message.transcription && (
-              <div className="break-words font-normal text-sm">{message.content}</div>
+              <div className="break-all font-normal text-sm">{message.content}</div>
             )}
           </div>
         );
@@ -118,21 +118,21 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
               </a>
             )}
             {message.content && (
-              <div className="break-words font-normal text-sm">{message.content}</div>
+              <div className="break-all font-normal text-sm">{message.content}</div>
             )}
           </div>
         );
 
       default:
         console.log('📝 Renderizando texto padrão');
-        return <div className="break-words font-normal text-sm">{message.content}</div>;
+        return <div className="break-all font-normal text-sm">{message.content}</div>;
     }
   };
 
   return (
     <div className={`flex ${isClient ? 'justify-start' : 'justify-end'}`}>
       <div 
-        className={`max-w-[85%] md:max-w-[70%] rounded-lg px-3 py-2 ${
+        className={`max-w-[75%] md:max-w-[60%] lg:max-w-[55%] rounded-lg px-3 py-2 ${
           isClient 
             ? 'bg-white text-black border border-gray-200' 
             : 'bg-[#DCF8C6] text-black'

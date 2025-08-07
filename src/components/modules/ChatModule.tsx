@@ -49,17 +49,19 @@ const ChatModule: React.FC<ChatModuleProps> = ({
 
   // FORÇAR LAYOUT DESKTOP SE NÃO FOR MOBILE
   if (!isMobile) {
-    // Desktop layout with três colunas fixas
+    // Desktop layout with três colunas fixas - AJUSTADO PARA SER MAIS ROBUSTO
     return (
       <div className="flex-1 flex overflow-hidden h-full font-sans">
-        <div className="basis-1/4 min-w-0 h-full">
+        {/* Coluna da lista de conversas - LARGURA FIXA */}
+        <div className="w-80 min-w-80 max-w-80 h-full border-r border-gray-200">
           <ConversationList 
             activeConversation={activeConversation} 
             setActiveConversation={handleConversationSelect} 
           />
         </div>
         
-        <div className="basis-2/4 min-w-0 h-full">
+        {/* Coluna do chat - FLEXÍVEL MAS COM LARGURA MÍNIMA */}
+        <div className="flex-1 min-w-0 h-full">
           <ChatWindow 
             activeConversation={activeConversation} 
             isMobile={false}
@@ -67,7 +69,8 @@ const ChatModule: React.FC<ChatModuleProps> = ({
           />
         </div>
         
-        <div className="basis-1/4 min-w-0 h-full">
+        {/* Coluna de detalhes do cliente - LARGURA FIXA */}
+        <div className="w-80 min-w-80 max-w-80 h-full border-l border-gray-200">
           <CustomerDetails 
             activeConversation={activeConversation} 
             onSaleMessage={handleSaleMessage}
