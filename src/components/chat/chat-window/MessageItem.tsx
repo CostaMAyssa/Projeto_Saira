@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Message } from '../types';
-import { Check } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface MessageItemProps {
   message: Message;
 }
 
 const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
   // Log para depuração
   console.log('🎯 Renderizando mensagem:', {
     id: message.id,
@@ -21,6 +23,18 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
   });
 
   const isClient = message.sender === 'client';
+  
+  // Definir limite de caracteres para truncamento - AUMENTADO
+  const MAX_CHARS = 300; // Dobrado de 150 para 300
+  const shouldTruncate = message.content && message.content.length > MAX_CHARS;
+  const displayContent = shouldTruncate && !isExpanded 
+    ? message.content.substring(0, MAX_CHARS) + '...'
+    : message.content;
+
+  // Função para detectar se é uma URL longa
+  const isLongUrl = (text: string) => {
+    return text.includes('http') && text.length > 150; // Aumentado de 100 para 150
+  };
 
   const renderMessageContent = () => {
     console.log(`🎨 Renderizando conteúdo para tipo: ${message.message_type}`);
@@ -125,7 +139,66 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
 
       default:
         console.log('📝 Renderizando texto padrão');
-        return <div className="break-all font-normal text-sm">{message.content}</div>;
+        
+        // Se for uma URL longa, mostrar de forma especial
+        if (message.content && isLongUrl(message.content)) {
+          const urlDisplay = shouldTruncate && !isExpanded 
+            ? message.content.substring(0, 150) + '...' // Aumentado de 80 para 150
+            : message.content;
+            
+          return (
+            <div className="space-y-2">
+              <div className="break-all font-normal text-sm">
+                {urlDisplay}
+              </div>
+              {shouldTruncate && (
+                <button
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="text-blue-500 hover:text-blue-700 text-xs font-medium flex items-center gap-1 transition-colors"
+                >
+                  {isExpanded ? (
+                    <>
+                      <ChevronUp size={12} />
+                      Mostrar menos
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown size={12} />
+                      Ler mais
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          );
+        }
+        
+        // Texto normal
+        return (
+          <div className="space-y-2">
+            <div className="break-all font-normal text-sm">
+              {displayContent}
+            </div>
+            {shouldTruncate && (
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="text-blue-500 hover:text-blue-700 text-xs font-medium flex items-center gap-1 transition-colors"
+              >
+                {isExpanded ? (
+                  <>
+                    <ChevronUp size={12} />
+                    Mostrar menos
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown size={12} />
+                    Ler mais
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        );
     }
   };
 
