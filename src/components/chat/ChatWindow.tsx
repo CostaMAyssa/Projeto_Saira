@@ -32,6 +32,25 @@ interface DbMessage {
   file_size?: number;
   transcription?: string;
   caption?: string;
+  // Campo bruto pode existir na tabela; usamos apenas para fallback de thumbnail
+  raw_data?: unknown;
+}
+
+// Helper para extrair thumbnail de forma segura
+function extractJpegThumbnail(raw: unknown): string | null {
+  try {
+    if (!raw || typeof raw !== 'object') return null;
+    const dataLevel = (raw as Record<string, unknown>)['data'];
+    if (!dataLevel || typeof dataLevel !== 'object') return null;
+    const messageLevel = (dataLevel as Record<string, unknown>)['message'];
+    if (!messageLevel || typeof messageLevel !== 'object') return null;
+    const imageMessage = (messageLevel as Record<string, unknown>)['imageMessage'];
+    if (!imageMessage || typeof imageMessage !== 'object') return null;
+    const jpegThumbnail = (imageMessage as Record<string, unknown>)['jpegThumbnail'];
+    return typeof jpegThumbnail === 'string' && jpegThumbnail.length > 0 ? jpegThumbnail : null;
+  } catch {
+    return null;
+  }
 }
 
 const ChatWindow: React.FC<ChatWindowProps> = ({ 
@@ -98,13 +117,23 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
             return;
           }
 
+          // Fallback de thumbnail para imagens sem media_url
+          let derivedMediaUrl = msg.media_url;
+          if ((!derivedMediaUrl || derivedMediaUrl === '') && (msg.message_type === 'image')) {
+            const thumb = extractJpegThumbnail(msg.raw_data);
+            if (thumb && typeof thumb === 'string') {
+              derivedMediaUrl = `data:image/jpeg;base64,${thumb}`;
+              console.log('🖼️ Fallback de thumbnail aplicado (Realtime INSERT) para mensagem', messageId);
+            }
+          }
+
           const newMessage: Message = {
             id: messageId,
             content: msg.content,
             sender: msg.sender,
             timestamp: formatMessageTimestamp(msg.sent_at),
             message_type: msg.message_type || 'text',
-            media_url: msg.media_url,
+            media_url: derivedMediaUrl,
             media_type: msg.media_type,
             file_name: msg.file_name,
             file_size: msg.file_size,
@@ -138,10 +167,20 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
           console.log('🔄 Mensagem atualizada via Supabase Realtime:', payload.new);
           const msg = payload.new as DbMessage;
           const messageId = msg.id;
+
+          // Fallback de thumbnail para imagens sem media_url (update também)
+          let derivedMediaUrl = msg.media_url;
+          if ((!derivedMediaUrl || derivedMediaUrl === '') && (msg.message_type === 'image')) {
+            const thumb = extractJpegThumbnail(msg.raw_data);
+            if (thumb && typeof thumb === 'string') {
+              derivedMediaUrl = `data:image/jpeg;base64,${thumb}`;
+              console.log('🖼️ Fallback de thumbnail aplicado (Realtime UPDATE) para mensagem', messageId);
+            }
+          }
           
           setMessages(prev => prev.map(m => 
             m.id === messageId 
-              ? { ...m, content: msg.content, media_url: msg.media_url, file_name: msg.file_name }
+              ? { ...m, content: msg.content, media_url: derivedMediaUrl, file_name: msg.file_name }
               : m
           ));
         }
@@ -184,19 +223,31 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         setMessages([]);
         setMessageIds(new Set());
       } else if (data) {
-        const fetchedMessages: Message[] = (data as DbMessage[]).map(msg => ({
-          id: msg.id, // Usar sempre o ID do banco
-          content: msg.content,
-          sender: msg.sender,
-          timestamp: formatMessageTimestamp(msg.sent_at),
-          message_type: msg.message_type || 'text',
-          media_url: msg.media_url,
-          media_type: msg.media_type,
-          file_name: msg.file_name,
-          file_size: msg.file_size,
-          transcription: msg.transcription,
-          caption: msg.caption
-        }));
+        const fetchedMessages: Message[] = (data as DbMessage[]).map(msg => {
+          // Fallback de thumbnail para imagens sem media_url
+          let derivedMediaUrl = msg.media_url;
+          if ((!derivedMediaUrl || derivedMediaUrl === '') && (msg.message_type === 'image')) {
+            const thumb = extractJpegThumbnail(msg.raw_data);
+            if (thumb && typeof thumb === 'string') {
+              derivedMediaUrl = `data:image/jpeg;base64,${thumb}`;
+              console.log('🖼️ Fallback de thumbnail aplicado (fetch histórico) para mensagem', msg.id);
+            }
+          }
+
+          return {
+            id: msg.id, // Usar sempre o ID do banco
+            content: msg.content,
+            sender: msg.sender,
+            timestamp: formatMessageTimestamp(msg.sent_at),
+            message_type: msg.message_type || 'text',
+            media_url: derivedMediaUrl,
+            media_type: msg.media_type,
+            file_name: msg.file_name,
+            file_size: msg.file_size,
+            transcription: msg.transcription,
+            caption: msg.caption
+          };
+        });
         
         const ids = new Set(fetchedMessages.map(m => m.id));
         setMessages(fetchedMessages);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Message } from '../types';
 import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -8,6 +8,9 @@ interface MessageItemProps {
 
 const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const [imageObjectUrl, setImageObjectUrl] = useState<string | null>(null);
+  const triedBlobFetchRef = useRef(false);
   
   // Log para depuração
   console.log('🎯 Renderizando mensagem:', {
@@ -36,6 +39,21 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
     return text.includes('http') && text.length > 150; // Aumentado de 100 para 150
   };
 
+  // Detectar suporte a codecs de áudio somente quando a mensagem for de áudio
+  const audioSupport = useMemo(() => {
+    if (message.message_type !== 'audio') return { supported: true, testedType: undefined as string | undefined };
+    if (typeof window === 'undefined') return { supported: true, testedType: message.media_type };
+    const testAudio = document.createElement('audio');
+    const type = message.media_type || '';
+    const result = type ? testAudio.canPlayType(type) : 'maybe';
+    const supported = result === 'probably' || result === 'maybe';
+    if (!supported) {
+      console.warn('⚠️ Codec de áudio não suportado pelo navegador', { type, result, messageId: message.id });
+    }
+    return { supported, testedType: type };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [message.media_type, message.message_type, message.id]);
+
   const renderMessageContent = () => {
     console.log(`🎨 Renderizando conteúdo para tipo: ${message.message_type}`);
     
@@ -47,15 +65,64 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
         });
         return (
           <div className="space-y-2">
-            {message.media_url && (
+            {(message.media_url || imageObjectUrl) && !imageError && (
               <img 
-                src={message.media_url} 
+                src={imageObjectUrl || message.media_url!} 
                 alt={message.caption || 'Imagem'} 
-                className="max-w-full rounded-lg shadow-md cursor-pointer hover:opacity-90 transition-opacity"
-                onClick={() => window.open(message.media_url, '_blank')}
-                onError={(e) => console.error('❌ Erro ao carregar imagem:', e)}
+                className="w-full max-w-sm max-h-80 object-contain rounded-lg shadow-md cursor-pointer hover:opacity-90 transition-opacity"
+                crossOrigin="anonymous"
+                loading="lazy"
+                decoding="async"
+                onClick={() => window.open((imageObjectUrl || message.media_url)!, '_blank')}
+                onError={async (e) => {
+                  console.error('❌ Erro ao carregar imagem:', e);
+                  // Tentar uma vez baixar via fetch(blob) e exibir via ObjectURL
+                  if (!triedBlobFetchRef.current && message.media_url) {
+                    triedBlobFetchRef.current = true;
+                    try {
+                      const resp = await fetch(message.media_url, { mode: 'cors' });
+                      if (resp.ok) {
+                        const blob = await resp.blob();
+                        const url = URL.createObjectURL(blob);
+                        setImageObjectUrl(url);
+                        console.log('✅ Imagem exibida via ObjectURL');
+                        return;
+                      }
+                    } catch (err) {
+                      console.warn('⚠️ Falha no fetch(blob) para imagem:', err);
+                    }
+                  }
+                  setImageError(true);
+                }}
                 onLoad={() => console.log('✅ Imagem carregada com sucesso')}
               />
+            )}
+            <div className="text-xs">
+              {(message.media_url || imageObjectUrl) && (
+                <a
+                  href={imageObjectUrl || message.media_url!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline"
+                >
+                  Abrir mídia
+                </a>
+              )}
+            </div>
+            {imageError && (
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <span>⚠️ Não foi possível exibir a imagem.</span>
+                {message.media_url && (
+                  <a
+                    href={message.media_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    Abrir em nova aba
+                  </a>
+                )}
+              </div>
             )}
             {message.caption && (
               <div className="break-all font-normal text-sm">{message.caption}</div>
@@ -64,14 +131,16 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
         );
 
       case 'audio':
-        console.log('🎵 Renderizando áudio:', {
+        console.log('�� Renderizando áudio:', {
           media_url: message.media_url,
           file_name: message.file_name,
-          file_size: message.file_size
+          file_size: message.file_size,
+          media_type: message.media_type,
+          audioSupported: audioSupport.supported
         });
         return (
           <div className="space-y-2">
-            {message.media_url && (
+            {message.media_url && audioSupport.supported ? (
               <audio 
                 controls 
                 src={message.media_url}
@@ -82,6 +151,20 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
               >
                 Seu navegador não suporta o elemento de áudio.
               </audio>
+            ) : (
+              <div className="flex flex-col gap-1 text-sm text-gray-700">
+                <div>⚠️ Este navegador não suporta o formato de áudio recebido ({message.media_type}).</div>
+                {message.media_url && (
+                  <a
+                    href={message.media_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    Baixar áudio
+                  </a>
+                )}
+              </div>
             )}
             {message.transcription && (
               <div className="bg-gray-100 dark:bg-gray-700 p-2 rounded text-sm">
@@ -91,6 +174,18 @@ const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
             )}
             {message.content && message.content !== message.transcription && (
               <div className="break-all font-normal text-sm">{message.content}</div>
+            )}
+            {message.media_url && audioSupport.supported && (
+              <div className="text-xs">
+                <a
+                  href={message.media_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline"
+                >
+                  Abrir áudio em nova aba
+                </a>
+              </div>
             )}
           </div>
         );

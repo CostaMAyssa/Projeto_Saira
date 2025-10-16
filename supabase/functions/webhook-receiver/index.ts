@@ -363,6 +363,43 @@ async function processMessage(requestId: string, conversation: any, client: any,
   const phoneNumber = remoteJid.replace('@s.whatsapp.net', '');
   const instance = data.instance; // Extrair instance dos dados
 
+  // 🛡️ NOVA VALIDAÇÃO: Verificar se a instância do webhook é a ativa no sistema
+  console.log(`🔥 [${requestId}] 🛡️ Verificando se instância '${instance}' está ativa no sistema...`);
+  
+  try {
+    // Buscar a instância primária configurada no sistema
+    const { data: settings, error } = await supabase
+      .from('settings')
+      .select('instance_name, evolution_instance_name')
+      .eq('is_primary', true)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.warn(`🔥 [${requestId}] ⚠️ Erro ao buscar configurações da instância:`, error);
+    } else if (settings) {
+      const activeInstance = settings.instance_name || settings.evolution_instance_name;
+      
+      console.log(`🔥 [${requestId}] 🔍 Validação de instância:`, {
+        webhook_instance: instance,
+        active_instance: activeInstance,
+        is_match: instance === activeInstance
+      });
+
+      if (instance !== activeInstance) {
+        console.log(`🔥 [${requestId}] 🚫 Instância '${instance}' não é a instância primária ativa ('${activeInstance}'). Ignorando mensagem.`);
+        console.log(`🔥 [${requestId}] ℹ️ Para processar mensagens desta instância, configure-a como primária em Configurações → WhatsApp`);
+        return; // Ignorar mensagem de instância não ativa
+      }
+      
+      console.log(`🔥 [${requestId}] ✅ Instância '${instance}' está ativa. Processando mensagem...`);
+    } else {
+      console.log(`🔥 [${requestId}] ⚠️ Nenhuma instância primária configurada. Permitindo processamento (backward compatibility).`);
+    }
+  } catch (validationError) {
+    console.error(`🔥 [${requestId}] ❌ Erro ao validar instância:`, validationError);
+    console.log(`🔥 [${requestId}] ℹ️ Continuando processamento devido ao erro de validação.`);
+  }
+
   // 📝 Processar conteúdo da mensagem
   let content = '';
   let message_type = 'text';
